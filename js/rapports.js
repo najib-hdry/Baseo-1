@@ -103,8 +103,10 @@ export function creerEcranRapport(racine, recharger, config) {
 
   function lieuDe(r) {
     const zone = zonesDuChantier(etat.chantierId).length > 1 ? d.parId.Zones.get(r.Zone)?.Nom : null
+    const base = d.parId.Bases_vie.get(r.Base_vie)
+    const etage = d.parId.Etages.get(r.Etage)
     const endroit = d.parId.Vestiaires.get(r.Vestiaire)?.Nom ?? d.parId.Pieces.get(r.Piece)?.Nom
-    return [zone, d.parId.Bases_vie.get(r.Base_vie)?.Nom, d.parId.Etages.get(r.Etage)?.Nom, endroit].filter(Boolean).join(' · ')
+    return [zone, base?.Nom ?? 'Toutes les bases vie', base && (etage?.Nom ?? 'Tous les étages'), endroit].filter(Boolean).join(' · ')
   }
 
   function derniers() {
@@ -132,7 +134,9 @@ export function creerEcranRapport(racine, recharger, config) {
 
   // ---- Formulaire ----
 
-  // Zone → base vie → étage → vestiaire ou pièce ; chaque choix remet les suivants sur leur premier élément
+  // Zone → base vie → étage → vestiaire ou pièce ; chaque choix remet les suivants sur leur premier élément.
+  // « Toutes les bases vie » / « Tous les étages » enregistrent une base vie / un étage vide.
+  // Si `form` arrive déjà rempli (lieu touché sur le plan), les listes partent de ce lieu.
   function selecteurLieu(form) {
     const zones = zonesDuChantier(etat.chantierId)
     const bases = () => (zones.length > 0
@@ -141,12 +145,14 @@ export function creerEcranRapport(racine, recharger, config) {
     const etages = () => d.Etages.filter((e) => e.Base_vie === form.baseId)
     const conteneur = h('div', { className: 'formulaire' })
 
-    const liste = (libelle, elements, valeur, onChange) => h('label', { className: 'champ-groupe' }, libelle,
-      h('select', { className: 'champ', disabled: elements.length === 0, onChange: (e) => onChange(Number(e.target.value)) },
+    // `tous` : libellé de l'option « tous » (valeur vide → null), absente pour la zone
+    const liste = (libelle, elements, valeur, onChange, tous) => h('label', { className: 'champ-groupe' }, libelle,
+      h('select', { className: 'champ', disabled: elements.length === 0 && !tous, onChange: (e) => onChange(e.target.value ? Number(e.target.value) : null) },
+        tous && h('option', { value: '', selected: valeur == null }, tous),
         elements.map((el) => h('option', { value: String(el.id), selected: el.id === valeur }, el.Nom))))
 
     const choisirZone = (id) => { form.zoneId = id; choisirBase(bases()[0]?.id ?? null) }
-    const choisirBase = (id) => { form.baseId = id; choisirEtage(etages()[0]?.id ?? null) }
+    const choisirBase = (id) => { form.baseId = id; choisirEtage(id ? etages()[0]?.id ?? null : null) }
     const choisirEtage = (id) => { form.etageId = id; form.lieu = ''; dessiner() }
 
     function dessiner() {
@@ -154,21 +160,24 @@ export function creerEcranRapport(racine, recharger, config) {
       const pieces = d.Pieces.filter((p) => p.Etage === form.etageId)
       conteneur.replaceChildren(...[
         zones.length > 0 && liste('Zone', zones, form.zoneId, choisirZone),
-        liste('Base vie', bases(), form.baseId, choisirBase),
-        liste('Étage', etages(), form.etageId, choisirEtage),
-        h('label', { className: 'champ-groupe' }, 'Vestiaire ou pièce',
+        liste('Base vie', bases(), form.baseId, choisirBase, 'Toutes les bases vie'),
+        form.baseId && liste('Étage', etages(), form.etageId, choisirEtage, 'Tous les étages'),
+        form.etageId && h('label', { className: 'champ-groupe' }, 'Vestiaire ou pièce',
           h('select', { className: 'champ', onChange: (e) => { form.lieu = e.target.value } },
             h('option', { value: '' }, 'Tout l’étage'),
-            vestiaires.length > 0 && h('optgroup', { label: 'Vestiaires' }, vestiaires.map((v) => h('option', { value: `v:${v.id}` }, v.Nom))),
-            pieces.length > 0 && h('optgroup', { label: 'Pièces' }, pieces.map((p) => h('option', { value: `p:${p.id}` }, p.Nom))))),
+            vestiaires.length > 0 && h('optgroup', { label: 'Vestiaires' }, vestiaires.map((v) =>
+              h('option', { value: `v:${v.id}`, selected: form.lieu === `v:${v.id}` }, v.Nom))),
+            pieces.length > 0 && h('optgroup', { label: 'Pièces' }, pieces.map((p) =>
+              h('option', { value: `p:${p.id}`, selected: form.lieu === `p:${p.id}` }, p.Nom))))),
       ].filter(Boolean))
     }
 
-    choisirZone(zones[0]?.id ?? null)
+    if (form.etageId) dessiner()
+    else choisirZone(zones[0]?.id ?? null)
     return conteneur
   }
 
-  // `lieu` : { vestiaire } ou { piece } quand il a été touché sur le plan ; sinon le formulaire propose les listes
+  // `lieu` : { vestiaire } ou { piece } quand il a été touché sur le plan ; les listes partent alors de ce lieu
   function ouvrirFormulaire(lieu) {
     const form = {
       zoneId: null, baseId: null, etageId: null, lieu: '', ...(lieu ? lieuChoisi(lieu) : {}),
@@ -248,7 +257,7 @@ export function creerEcranRapport(racine, recharger, config) {
       }
     } },
     groupesChoix,
-    !lieu && selecteurLieu(form),
+    selecteurLieu(form),
     h('label', { className: 'champ-groupe' }, 'Date',
       h('input', { className: 'champ', type: 'date', value: form.date, max: aujourdhui(), required: true,
         onInput: (e) => { form.date = e.target.value; majBouton() } })),
@@ -261,12 +270,8 @@ export function creerEcranRapport(racine, recharger, config) {
       onInput: (e) => { form.commentaire = e.target.value } }),
     boutonPhoto, apercu, erreur, envoyer)
 
-    const [genre, lieuId] = form.lieu.split(':')
-    const titreLieu = lieu
-      ? lieuDe({ Zone: form.zoneId, Base_vie: form.baseId, Etage: form.etageId,
-        Vestiaire: genre === 'v' ? Number(lieuId) : 0, Piece: genre === 'p' ? Number(lieuId) : 0 })
-      : d.parId.Chantiers.get(etat.chantierId)?.Nom ?? ''
-    const { fermer } = ouvrirPanneau(config.nouveau, [h('p', { className: 'lieu-choisi' }, titreLieu), formulaire])
+    const chantier = d.parId.Chantiers.get(etat.chantierId)
+    const { fermer } = ouvrirPanneau(config.nouveau, [h('p', { className: 'lieu-choisi' }, chantier?.Nom ?? ''), formulaire])
   }
 
   return {
