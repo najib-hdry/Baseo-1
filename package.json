@@ -1,0 +1,12 @@
+{
+  "name": "casier-chantier-grist",
+  "private": true,
+  "type": "module",
+  "description": "Widgets Grist : gestion des casiers et des incidents",
+  "scripts": {
+    "assembler": "node scripts/assembler.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
