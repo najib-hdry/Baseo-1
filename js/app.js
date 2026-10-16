@@ -40,6 +40,7 @@ function ouvrirMenu() {
       h('div', { className: 'tiroir-haut' },
         h('span', { className: 'tiroir-titre' }, 'Mes pages'),
         h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: fermer }, '✕')),
+      donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
       PAGES.map((p) => h('button', {
         className: `tiroir-lien${p.cle === page ? ' active' : ''}`,
         onClick: () => { fermer(); allerA(p.cle) },
@@ -66,11 +67,16 @@ const entete = h('header', { className: 'entete' },
 function allerA(cle) {
   page = cle
   afficherPage()
-  if (donnees) ecrans[cle].accueil()
+  if (donnees?.moi) ecrans[cle].accueil()
 }
 
 function afficherPage() {
   sousTitre.textContent = PAGES.find((p) => p.cle === page).libelle
+  if (donnees && !donnees.moi) {
+    principal.replaceChildren(h('h1', null, 'Accès non configuré'),
+      h('p', { className: 'message' }, 'Ton compte n’a pas encore de profil actif dans l’application. Demande à l’administrateur de t’ajouter dans la table Utilisateurs.'))
+    return
+  }
   principal.replaceChildren(zones[page])
   if (donnees) ecrans[page].afficher(donnees)
 }
@@ -91,7 +97,7 @@ function recharger() {
       do {
         aRefaire = false
         donnees = await chargerTout()
-        ecrans[page].afficher(donnees)
+        afficherPage()
       } while (aRefaire)
     } catch (e) {
       afficherErreur(e)

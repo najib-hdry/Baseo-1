@@ -11,8 +11,30 @@ function enLignes(table) {
   return table.id.map((_, i) => Object.fromEntries(Object.keys(table).map((col) => [col, table[col][i]])))
 }
 
-// Charge toutes les tables et prépare les index utiles aux écrans
+// Profil de la personne connectée : { profil: 'Admin' | 'Chef d’équipe' | 'Salarié', nom } ou null si aucun accès.
+// - Acces_complet n'est lisible que par les admins (règles d'accès).
+// - Utilisateurs ne montre à chacun que sa propre ligne.
+// - Document sans table Utilisateurs (plus ancien) : tout le monde garde l'accès complet.
+async function lireProfil() {
+  const admin = await grist.docApi.fetchTable('Acces_complet').then((t) => t.id.length > 0).catch(() => false)
+  if (admin) return { profil: 'Admin', nom: null }
+  let lignes
+  try {
+    lignes = enLignes(await grist.docApi.fetchTable('Utilisateurs'))
+  } catch {
+    return { profil: 'Admin', nom: null }
+  }
+  const moi = lignes.length === 1 && lignes[0].Actif ? lignes[0] : null
+  return moi?.Profil ? { profil: moi.Profil, nom: moi.Nom || null } : null
+}
+
+// Chef d'équipe et admin : hors service, suivi des incidents ; le salarié déclare seulement
+export const peutGerer = (d) => d.moi?.profil !== 'Salarié'
+
+// Charge toutes les tables et prépare les index utiles aux écrans ; `moi` null = pas d'accès
 export async function chargerTout() {
+  const moi = await lireProfil()
+  if (!moi) return { moi: null }
   const absentes = new Set()
   const brutes = await Promise.all(TABLES.map((t) => grist.docApi.fetchTable(t).catch((e) => {
     if (!OPTIONNELLES.includes(t)) throw e
@@ -21,6 +43,7 @@ export async function chargerTout() {
   })))
   const d = Object.fromEntries(TABLES.map((t, i) => [t, enLignes(brutes[i])]))
   d.absentes = absentes
+  d.moi = moi
 
   d.parId = Object.fromEntries(TABLES.map((t) => [t, new Map(d[t].map((r) => [r.id, r]))]))
   d.Zones.sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))

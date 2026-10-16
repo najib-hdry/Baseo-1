@@ -1,7 +1,7 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi liste les incidents.
 import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto } from './outils.js'
-import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut } from './donnees.js'
+import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
 // Écran « Gestion des incidents », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -184,7 +184,8 @@ export function creerEcranIncidents(racine, recharger) {
 
   function ouvrirDetail(i, lieu, photo) {
     const erreur = h('p', { className: 'erreur', hidden: true })
-    const boutons = (ACTIONS[i.Statut] ?? ACTIONS.Ouvert).map(([statut, libelle, classe]) => {
+    // Le salarié consulte le suivi sans changer le statut
+    const boutons = (peutGerer(d) ? ACTIONS[i.Statut] ?? ACTIONS.Ouvert : []).map(([statut, libelle, classe]) => {
       const b = h('button', { className: `bouton ${classe}` }, libelle)
       b.addEventListener('click', async () => {
         b.disabled = true

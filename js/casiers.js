@@ -1,6 +1,6 @@
 // Écran « Gestion des casiers » de l'application Grist
 import { h, aujourdhui, enFrancais, ouvrirPanneau } from './outils.js'
-import { derniereLiberation, creerEtAttribuer, liberer, horsService } from './donnees.js'
+import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
 
 // Écran « Gestion des casiers », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -69,9 +69,12 @@ export function creerEcranCasiers(racine, recharger) {
     if (c.statut === 'occupe') corps.append(...blocOccupe(c, executer))
     else if (c.statut === 'disponible') corps.append(...blocLibre(c, executer))
     else {
-      const bouton = h('button', { className: 'bouton bouton-principal' }, 'Remettre en service')
-      bouton.addEventListener('click', () => executer(bouton, () => horsService(d, c.id, false)))
-      corps.append(h('p', { className: 'message' }, 'Ce casier est signalé hors service.'), bouton)
+      corps.append(h('p', { className: 'message' }, 'Ce casier est signalé hors service.'))
+      if (peutGerer(d)) {
+        const bouton = h('button', { className: 'bouton bouton-principal' }, 'Remettre en service')
+        bouton.addEventListener('click', () => executer(bouton, () => horsService(d, c.id, false)))
+        corps.append(bouton)
+      }
     }
   }
 
@@ -136,9 +139,12 @@ export function creerEcranCasiers(racine, recharger) {
     champ('entreprise', 'Entreprise (facultatif)', { list: 'liste-entreprises' }), liste,
     champ('badge', 'N° de badge (facultatif)'),
     valider)
-    const hs = h('button', { className: 'bouton' }, 'Signaler hors service')
-    hs.addEventListener('click', () => executer(hs, () => horsService(d, c.id, true)))
-    zone.replaceChildren(formulaire, hs)
+    zone.replaceChildren(formulaire)
+    if (peutGerer(d)) {
+      const hs = h('button', { className: 'bouton' }, 'Signaler hors service')
+      hs.addEventListener('click', () => executer(hs, () => horsService(d, c.id, true)))
+      zone.append(hs)
+    }
 
     return [h('label', { className: 'champ-groupe' }, 'Date d’attribution', date), messageDate, zone]
   }
