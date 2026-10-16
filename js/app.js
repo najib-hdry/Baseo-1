@@ -6,13 +6,17 @@ import { chargerTout } from './donnees.js'
 import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
+import { creerEcranAdmin } from './admin.js'
 
+// `admin` : page visible seulement par le profil Admin
 const PAGES = [
   { cle: 'casiers', libelle: 'Gestion des casiers', icone: 'total' },
   { cle: 'incidents', libelle: 'Gestion des incidents', icone: 'hs' },
   { cle: 'nettoyage', libelle: 'Contrôle nettoyage', icone: 'nettoyage' },
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance' },
+  { cle: 'chantiers', libelle: 'Gestion des chantiers', icone: 'grue', admin: true },
 ]
+const pagesVisibles = () => PAGES.filter((p) => !p.admin || donnees?.moi?.profil === 'Admin')
 
 const principal = document.getElementById('app')
 const zones = Object.fromEntries(PAGES.map((p) => [p.cle, h('div')]))
@@ -21,6 +25,7 @@ const ecrans = {
   incidents: creerEcranIncidents(zones.incidents, () => recharger()),
   nettoyage: creerEcranRapport(zones.nettoyage, () => recharger(), NETTOYAGE),
   maintenance: creerEcranRapport(zones.maintenance, () => recharger(), MAINTENANCE),
+  chantiers: creerEcranAdmin(zones.chantiers, () => recharger()),
 }
 let page = 'casiers'
 let donnees = null
@@ -41,7 +46,7 @@ function ouvrirMenu() {
         h('span', { className: 'tiroir-titre' }, 'Mes pages'),
         h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: fermer }, '✕')),
       donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
-      PAGES.map((p) => h('button', {
+      pagesVisibles().map((p) => h('button', {
         className: `tiroir-lien${p.cle === page ? ' active' : ''}`,
         onClick: () => { fermer(); allerA(p.cle) },
       }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle))))
@@ -71,6 +76,7 @@ function allerA(cle) {
 }
 
 function afficherPage() {
+  if (!pagesVisibles().some((p) => p.cle === page)) page = 'casiers'
   sousTitre.textContent = PAGES.find((p) => p.cle === page).libelle
   if (donnees && !donnees.moi) {
     principal.replaceChildren(h('h1', null, 'Accès non configuré'),

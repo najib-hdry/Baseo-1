@@ -167,6 +167,98 @@ export async function signaler({ casierId, pieceId, element, categorie, descript
   }]])
 }
 
+// ---- Gestion des chantiers (admin) ----
+
+export const STATUTS_CHANTIER = ['Nouveau', 'À venir', 'En cours', 'Terminé']
+export const TYPES_VESTIAIRE = ['hommes', 'femmes', 'mixte']
+export const TYPES_PIECE = ['wc', 'sanitaire', 'cuisine', 'bureau', 'couloir', 'escalier', 'autre']
+
+// Identifiants des nouvelles lignes, choisis d'avance pour relier les niveaux dans un seul envoi
+function compteur(d, table) {
+  let suivant = Math.max(0, ...d[table].map((r) => r.id)) + 1
+  return () => suivant++
+}
+
+// Colonnes `infos` (Nom, Adresse, Statut, Actif, dates ISO, jours travaillés, prix) au format Grist ;
+// seules les colonnes présentes sont écrites
+const infosVersGrist = (infos) => Object.fromEntries(Object.entries(infos).map(([col, v]) =>
+  [col, col.startsWith('Date_') ? versGrist(v) : v]))
+
+/**
+ * Crée un chantier et toute sa structure en un seul envoi (tout ou rien).
+ * structure : { zones: [{ nom, bases: [{ nom, etages: [{ nom, niveau, vestiaires: [{ nom, type, casiers }], pieces: [{ nom, type }] }] }] }] }
+ * Sans table Zones, les bases vie de toutes les zones sont rattachées directement au chantier.
+ */
+export async function creerChantier(d, infos, structure) {
+  const id = { Chantiers: compteur(d, 'Chantiers'), Zones: compteur(d, 'Zones'), Bases_vie: compteur(d, 'Bases_vie'),
+    Etages: compteur(d, 'Etages'), Vestiaires: compteur(d, 'Vestiaires'), Casiers: compteur(d, 'Casiers'), Pieces: compteur(d, 'Pieces') }
+  const lignes = { Zones: [], Bases_vie: [], Etages: [], Vestiaires: [], Casiers: [], Pieces: [] }
+  const avecZones = !d.absentes.has('Zones')
+  const chantierId = id.Chantiers()
+
+  for (const z of structure.zones) {
+    const zoneId = avecZones ? id.Zones() : null
+    if (avecZones) lignes.Zones.push({ id: zoneId, Nom: z.nom.trim(), Chantier: chantierId })
+    for (const b of z.bases) {
+      const baseId = id.Bases_vie()
+      lignes.Bases_vie.push({ id: baseId, Nom: b.nom.trim(), ...(avecZones ? { Zone: zoneId } : { Chantier: chantierId }) })
+      for (const e of b.etages) {
+        const etageId = id.Etages()
+        lignes.Etages.push({ id: etageId, Base_vie: baseId, Nom: e.nom.trim(), Niveau: Number(e.niveau) || 0 })
+        for (const v of e.vestiaires) {
+          const vestiaireId = id.Vestiaires()
+          lignes.Vestiaires.push({ id: vestiaireId, Etage: etageId, Nom: v.nom.trim(), Type: v.type })
+          for (let n = 1; n <= Number(v.casiers); n++)
+            lignes.Casiers.push({ id: id.Casiers(), Vestiaire: vestiaireId, Numero: String(n).padStart(3, '0'), Hors_service: false })
+        }
+        for (const p of e.pieces) lignes.Pieces.push({ id: id.Pieces(), Etage: etageId, Nom: p.nom.trim(), Type: p.type })
+      }
+    }
+  }
+
+  // Lignes [{ id, Col: v }] → BulkAddRecord avec les identifiants choisis
+  const ajout = (table, liste) => {
+    if (liste.length === 0) return []
+    const colonnes = Object.keys(liste[0]).filter((c) => c !== 'id')
+    return [['BulkAddRecord', table, liste.map((l) => l.id), Object.fromEntries(colonnes.map((c) => [c, liste.map((l) => l[c])]))]]
+  }
+  await action([
+    ['AddRecord', 'Chantiers', chantierId, infosVersGrist(infos)],
+    ...Object.entries(lignes).flatMap(([table, liste]) => ajout(table, liste)),
+  ])
+}
+
+export const modifierChantier = (chantierId, infos) => action([['UpdateRecord', 'Chantiers', chantierId, infosVersGrist(infos)]])
+
+export const changerStatutChantier = (chantierId, statut) => action([['UpdateRecord', 'Chantiers', chantierId, { Statut: statut }]])
+
+// Tout ce qui appartient à un chantier (pour l'annoncer avant suppression, puis le supprimer)
+export function contenuChantier(d, chantierId) {
+  const casiers = d.Casiers.filter((c) => c.Chantier === chantierId).map((c) => c.id)
+  const dans = (table) => d[table].filter((r) => r.Chantier === chantierId).map((r) => r.id)
+  return {
+    Attributions: d.Attributions.filter((a) => casiers.includes(a.Casier)).map((a) => a.id),
+    Incidents: dans('Incidents'),
+    Controles_nettoyage: dans('Controles_nettoyage'),
+    Maintenance: dans('Maintenance'),
+    Casiers: casiers,
+    Pieces: dans('Pieces'),
+    Vestiaires: dans('Vestiaires'),
+    Etages: dans('Etages'),
+    Bases_vie: dans('Bases_vie'),
+    Zones: dans('Zones'),
+  }
+}
+
+// Supprime le chantier et tout son contenu en un seul envoi (annulable dans l'historique Grist)
+export async function supprimerChantier(d, chantierId) {
+  const contenu = contenuChantier(d, chantierId)
+  await action([
+    ...Object.entries(contenu).filter(([, ids]) => ids.length > 0).map(([table, ids]) => ['BulkRemoveRecord', table, ids]),
+    ['RemoveRecord', 'Chantiers', chantierId],
+  ])
+}
+
 // ---- Contrôles nettoyage et maintenance ----
 
 export const enregistrer = (table, champs) => action([['AddRecord', table, null, champs]])

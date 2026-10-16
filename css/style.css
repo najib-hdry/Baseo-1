@@ -453,3 +453,28 @@ button.tiroir-lien.active { background: var(--signal); }
 
 /* Menu : nom et profil de la personne connectée */
 .tiroir-profil { margin: -4px 0 8px; padding: 8px 14px; font-size: 0.85rem; font-weight: 500; color: var(--encre-douce); background: var(--fond); border-radius: 8px; }
+
+/* Gestion des chantiers (admin) */
+.carte-admin { display: grid; gap: 10px; padding: 16px; background: var(--surface); border-radius: 14px; box-shadow: 0 1px 3px rgba(21, 33, 43, 0.08); }
+.carte-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.carte-actions .champ-compact { flex: 1 1 140px; }
+.champ-compact { width: auto; min-height: 40px; padding: 0 10px; font-size: 0.95rem; }
+.bouton-compact { width: auto; min-height: 40px; padding: 0 14px; font-size: 0.95rem; }
+.badge-nouveau { color: #15212B; background: #D6EAF5; }
+.badge-termine { color: var(--encre-douce); background: #E3E6E8; }
+.panneau.panneau-large { max-width: 760px; }
+.grille-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.structure { display: grid; gap: 10px; }
+.structure-resume { margin: 0; padding: 8px 12px; font-weight: 600; background: var(--surface); border-radius: 8px; }
+.niveau { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--trait); border-left-width: 4px; border-radius: 10px; background: var(--surface); }
+.niveau-zone { border-left-color: var(--encre); background: transparent; }
+.niveau-base { border-left-color: var(--signal); }
+.niveau-etage { border-left-color: var(--occupe); background: var(--fond); }
+.niveau-haut, .ligne-element { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.niveau-haut .champ-compact, .ligne-element .champ-compact { flex: 1 1 140px; }
+.niveau-haut .champ-niveau, .ligne-element .champ-niveau { flex: 0 0 80px; }
+.niveau-type { flex: 0 0 72px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--encre-douce); }
+.ajouts { display: flex; flex-wrap: wrap; gap: 6px; }
+.lien-ajout { padding: 4px 10px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--encre); cursor: pointer; background: transparent; border: 1px dashed var(--encre-douce); border-radius: 999px; }
+.retirer { flex: none; width: 32px; height: 32px; padding: 0; font: inherit; color: var(--hs); cursor: pointer; background: transparent; border: 1px solid var(--trait); border-radius: 50%; }
+.lien-ajout:focus-visible, .retirer:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
