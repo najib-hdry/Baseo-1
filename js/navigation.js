@@ -67,9 +67,10 @@ const detail = (c) =>
 
 /**
  * Vue d'un chantier. `etat` : { chantierId, zoneId, baseId, etageId, vestiaireId, filtre, vue3d }
- * options : { mode, marques: { casiers: Set, pieces: Set }, onCasier, onPiece, rafraichir }
+ * options : { mode, marques: { casiers: Set, pieces: Set }, onCasier, onVestiaire, onPiece, rafraichir }
+ * mode 'lieux' : pas de casiers, on touche un vestiaire ou une pièce de l'étage (onVestiaire / onPiece)
  */
-export function vueChantier(d, etat, { mode, marques, onCasier, onPiece, rafraichir }) {
+export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onPiece, rafraichir }) {
   const zones = zonesDuChantier(d, etat.chantierId)
   const bases = basesVisibles(d, etat)
   const etagesBase = d.Etages.filter((e) => e.Base_vie === etat.baseId)
@@ -103,7 +104,7 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onPiece, rafraic
         vestiaireId: etat.vestiaireId, onEtage: choisirEtage, onVestiaire: choisirVestiaire, vue: etat.vue3d }),
       h('p', { className: 'plan3d-aide' }, 'Glisse pour tourner · touche un étage ou un vestiaire'),
       onglets('Étages', [...etagesBase].reverse(), etat.etageId, choisirEtage),
-      piecesEtage.length > 0 && h('ul', { className: 'pieces', 'aria-label': 'Autres pièces de l’étage' },
+      mode !== 'lieux' && piecesEtage.length > 0 && h('ul', { className: 'pieces', 'aria-label': 'Autres pièces de l’étage' },
         piecesEtage.map((p) => h('li', { className: `piece piece-${p.Type}` },
           onPiece
             ? h('button', { className: 'piece-bouton', onClick: () => onPiece(p) }, p.Nom,
@@ -113,6 +114,15 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onPiece, rafraic
 
   if (bases.length === 0) noeuds.push(h('p', { className: 'message' }, zones.length > 0 ? 'Cette zone n’a pas encore de base vie.' : 'Ce chantier n’a pas encore de base vie.'))
   else if (etagesBase.length === 0) noeuds.push(h('p', { className: 'message' }, 'Aucun étage dans cette base vie.'))
+  else if (mode === 'lieux') {
+    const bouton = (type, nom, classe, onClick) => h('button', { className: `lieu-bouton ${classe}`, onClick },
+      h('span', { className: 'lieu-type' }, type), h('span', { className: 'lieu-nom' }, nom))
+    noeuds.push(vestiairesEtage.length + piecesEtage.length === 0
+      ? h('p', { className: 'message' }, 'Aucun vestiaire ni pièce à cet étage.')
+      : h('div', { className: 'lieux' },
+        vestiairesEtage.map((v) => bouton('Vestiaire', v.Nom, 'lieu-vestiaire', () => onVestiaire(v))),
+        piecesEtage.map((p) => bouton('Pièce', p.Nom, `piece-${p.Type}`, () => onPiece(p)))))
+  }
   else if (vestiairesEtage.length === 0) noeuds.push(h('p', { className: 'message' }, 'Aucun vestiaire à cet étage.'))
   else {
     const casiers = d.Casiers.filter((c) => c.Vestiaire === etat.vestiaireId).map((c) => detailCasier(d, c))

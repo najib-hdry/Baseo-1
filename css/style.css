@@ -442,3 +442,11 @@ button.tiroir-lien.active { background: var(--signal); }
 .photo { position: relative; }
 .photo img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
 .photo-retirer { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; font: inherit; font-size: 0.8rem; color: #fff; cursor: pointer; background: rgba(21, 33, 43, 0.7); border: none; border-radius: 50%; }
+
+/* Maintenance : vestiaires et pièces de l'étage à toucher (couleur de bord selon le type de pièce) */
+.lieux { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 16px; }
+.lieu-bouton { display: grid; gap: 2px; min-height: 64px; padding: 10px 12px; font: inherit; text-align: left; color: var(--encre); cursor: pointer; background: var(--surface); border: 2px solid var(--trait); border-left: 6px solid var(--bord, #9AA7B2); border-radius: var(--rayon); }
+.lieu-bouton:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+.lieu-vestiaire { --bord: var(--occupe); }
+.lieu-type { font-size: 0.75rem; font-weight: 500; color: var(--encre-douce); }
+.lieu-nom { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

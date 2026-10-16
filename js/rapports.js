@@ -1,17 +1,20 @@
-// Écrans « Contrôle nettoyage » et « Maintenance » : choisir un chantier, voir les derniers
-// enregistrements, puis remplir le formulaire (lieu, date, fiche, commentaire, 4 photos).
+// Écrans « Contrôle nettoyage » et « Maintenance » : choisir un chantier, puis remplir le formulaire
+// (lieu, date, fiche, commentaire, 4 photos).
+// - Nettoyage : bouton « Nouveau contrôle », lieu choisi dans des listes, derniers enregistrements dessous.
+// - Maintenance (`parPlan`) : comme la déclaration d'incident, sans casiers — plan 3D, étage, puis on touche
+//   le vestiaire ou la pièce ; l'onglet Historique liste les derniers enregistrements.
 import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, reduirePhoto } from './outils.js'
 import { envoyerPhoto, enregistrer } from './donnees.js'
-import { cartesChantiers } from './navigation.js'
+import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
 
 export const NETTOYAGE = {
   titre: 'Contrôle nettoyage', table: 'Controles_nettoyage', nouveau: 'Nouveau contrôle', horaire: true,
   choix: [{ col: 'Type_action', libelle: 'Type d’action', valeurs: ['Contrôle nettoyage', 'Déclarer écart de nettoyage'] }],
 }
 export const MAINTENANCE = {
-  titre: 'Maintenance', table: 'Maintenance', nouveau: 'Nouvelle intervention', horaire: false,
+  titre: 'Maintenance', table: 'Maintenance', nouveau: 'Nouvelle intervention', horaire: false, parPlan: true,
   choix: [
-    { col: 'Action', libelle: 'Action', valeurs: ['Maintenance', 'Aménagement', 'Nouvelle installation'] },
+    { col: 'Action', libelle: 'Action', valeurs: ['Maintenance', 'Aménagement et nouvelle installation'] },
     { col: 'Type', libelle: 'Type', valeurs: ['Plomberie', 'Électricité', 'Manutention', 'Équipement'] },
   ],
 }
@@ -22,7 +25,10 @@ const parNom = (a, b) => String(a.Nom).localeCompare(String(b.Nom))
 // Écran d'un type de rapport (`config` : NETTOYAGE ou MAINTENANCE), affiché dans `racine`
 export function creerEcranRapport(racine, recharger, config) {
   let d = null
-  const etat = { chantierId: null }
+  const etat = {
+    chantierId: null, zoneId: null, baseId: null, etageId: null, vestiaireId: null, filtre: 'tous',
+    vue3d: { rotation: -35, inclinaison: 55 }, onglet: 'declarer',
+  }
   let banniere = null
   let minuteur = null
 
@@ -48,17 +54,49 @@ export function creerEcranRapport(racine, recharger, config) {
             { type: 'hs', valeur: liste.filter((r) => !r.Fiche_passage_complete).length, libelle: 'Incomplètes' },
           ]
         },
-        onOuvrir: (c) => { etat.chantierId = c.id; rendre() },
+        onOuvrir: (c) => { Object.assign(etat, { onglet: 'declarer' }, selectionPourChantier(d, c.id)); rendre() },
       }))
       return
     }
     const chantier = d.parId.Chantiers.get(etat.chantierId)
-    racine.replaceChildren(
+    const entete = [
       h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
       h('h1', null, chantier?.Nom ?? ''),
-      ...(banniere ? [banniere] : []),
-      h('button', { className: 'bouton bouton-principal bouton-nouveau', onClick: ouvrirFormulaire }, `＋ ${config.nouveau}`),
-      ...[derniers()].flat())
+    ]
+    const confirmation = banniere ? [banniere] : []
+
+    if (!config.parPlan) {
+      racine.replaceChildren(...entete, ...confirmation,
+        h('button', { className: 'bouton bouton-principal bouton-nouveau', onClick: () => ouvrirFormulaire() }, `＋ ${config.nouveau}`),
+        ...[derniers()].flat())
+      return
+    }
+
+    const bascule = h('div', { className: 'choix choix-2 bascule-vue' },
+      [['declarer', 'Déclarer'], ['historique', 'Historique']].map(([cle, libelle]) =>
+        h('button', { className: 'filtre', 'aria-pressed': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle)))
+    racine.replaceChildren(...entete, bascule, ...confirmation,
+      ...(etat.onglet === 'historique'
+        ? [derniers()].flat()
+        : [
+          h('p', { className: 'aide-signalement' }, 'Choisis l’étage, puis touche le vestiaire ou la pièce concerné.'),
+          ...vueChantier(d, etat, {
+            mode: 'lieux',
+            onVestiaire: (vestiaire) => ouvrirFormulaire({ vestiaire }),
+            onPiece: (piece) => ouvrirFormulaire({ piece }),
+            rafraichir: rendre,
+          }),
+        ]))
+  }
+
+  // Zone, base vie, étage et lieu d'un vestiaire ou d'une pièce touché sur le plan
+  function lieuChoisi({ vestiaire, piece }) {
+    const etage = d.parId.Etages.get((vestiaire ?? piece).Etage)
+    const base = etage && d.parId.Bases_vie.get(etage.Base_vie)
+    return {
+      zoneId: base?.Zone || null, baseId: base?.id ?? null, etageId: etage?.id ?? null,
+      lieu: vestiaire ? `v:${vestiaire.id}` : `p:${piece.id}`,
+    }
   }
 
   // ---- Derniers enregistrements du chantier ----
@@ -130,8 +168,12 @@ export function creerEcranRapport(racine, recharger, config) {
     return conteneur
   }
 
-  function ouvrirFormulaire() {
-    const form = { zoneId: null, baseId: null, etageId: null, lieu: '', date: aujourdhui(), horaire: '', complete: false, commentaire: '', photos: [] }
+  // `lieu` : { vestiaire } ou { piece } quand il a été touché sur le plan ; sinon le formulaire propose les listes
+  function ouvrirFormulaire(lieu) {
+    const form = {
+      zoneId: null, baseId: null, etageId: null, lieu: '', ...(lieu ? lieuChoisi(lieu) : {}),
+      date: aujourdhui(), horaire: '', complete: false, commentaire: '', photos: [],
+    }
     for (const c of config.choix) form[c.col] = ''
 
     const erreur = h('p', { className: 'erreur', hidden: true })
@@ -206,7 +248,7 @@ export function creerEcranRapport(racine, recharger, config) {
       }
     } },
     groupesChoix,
-    selecteurLieu(form),
+    !lieu && selecteurLieu(form),
     h('label', { className: 'champ-groupe' }, 'Date',
       h('input', { className: 'champ', type: 'date', value: form.date, max: aujourdhui(), required: true,
         onInput: (e) => { form.date = e.target.value; majBouton() } })),
@@ -219,8 +261,12 @@ export function creerEcranRapport(racine, recharger, config) {
       onInput: (e) => { form.commentaire = e.target.value } }),
     boutonPhoto, apercu, erreur, envoyer)
 
-    const chantier = d.parId.Chantiers.get(etat.chantierId)
-    const { fermer } = ouvrirPanneau(config.nouveau, [h('p', { className: 'lieu-choisi' }, chantier?.Nom ?? ''), formulaire])
+    const [genre, lieuId] = form.lieu.split(':')
+    const titreLieu = lieu
+      ? lieuDe({ Zone: form.zoneId, Base_vie: form.baseId, Etage: form.etageId,
+        Vestiaire: genre === 'v' ? Number(lieuId) : 0, Piece: genre === 'p' ? Number(lieuId) : 0 })
+      : d.parId.Chantiers.get(etat.chantierId)?.Nom ?? ''
+    const { fermer } = ouvrirPanneau(config.nouveau, [h('p', { className: 'lieu-choisi' }, titreLieu), formulaire])
   }
 
   return {
