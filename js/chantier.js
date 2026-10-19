@@ -1,14 +1,16 @@
 // Fiche détail d'un chantier (page admin), en onglets :
-// Composants (structure), Informations, Casiers (occupation), Activité, Postes.
-import { h, depuisGrist, enFrancais, etiqueterLignes } from './outils.js'
+// Composants (structure), Informations, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
+import { h, depuisGrist, enFrancais, dateHeure, etiqueterLignes } from './outils.js'
 import { idsDeListe } from './donnees.js'
-import { zonesDuChantier, basesVisibles } from './navigation.js'
+import { zonesDuChantier, basesVisibles, libelleLieu } from './navigation.js'
 
 export const ONGLETS_FICHE = [
   ['composants', 'Composants'],
   ['informations', 'Informations'],
   ['casiers', 'Casiers'],
-  ['activite', 'Activité'],
+  ['incidents', 'Incidents'],
+  ['nettoyage', 'Nettoyage'],
+  ['maintenance', 'Maintenance'],
   ['postes', 'Postes'],
 ]
 
@@ -131,22 +133,60 @@ function casiers(d, c) {
   ]
 }
 
-// ---- Onglet Activité : incidents, nettoyage, maintenance ----
+// ---- Onglets Incidents, Nettoyage, Maintenance : résumé puis enregistrements, du plus récent au plus ancien ----
 
-function activite(d, c) {
-  const incidents = d.Incidents.filter((i) => i.Chantier === c.id)
-  const nettoyage = d.Controles_nettoyage.filter((r) => r.Chantier === c.id)
-  const maintenance = d.Maintenance.filter((r) => r.Chantier === c.id)
-  // « libellé : nombre » séparés par des points médians
-  const detail = (liste, criteres) => criteres.map(([libelle, garde]) => `${libelle} : ${liste.filter(garde).length}`).join(' · ')
-  return tableau(['Suivi', 'Total', 'Détail'], [
-    [h('strong', null, 'Incidents'), incidents.length, detail(incidents, [
-      ['ouverts', (i) => i.Statut === 'Ouvert'], ['en cours', (i) => i.Statut === 'En cours'], ['résolus', (i) => i.Statut === 'Résolu']])],
-    [h('strong', null, 'Contrôles nettoyage'), nettoyage.length, detail(nettoyage, [
-      ['écarts déclarés', (r) => r.Type_action === 'Déclarer écart de nettoyage'], ['fiches incomplètes', (r) => !r.Fiche_passage_complete]])],
-    [h('strong', null, 'Maintenance'), maintenance.length, detail(maintenance, [
-      ['maintenances', (r) => r.Action === 'Maintenance'], ['aménagements et installations', (r) => r.Action && r.Action !== 'Maintenance']])],
-  ], '')
+// « libellé : nombre » séparés par des points médians
+const resume = (liste, criteres) => h('p', { className: 'structure-resume' },
+  [`Total : ${liste.length}`, ...criteres.map(([libelle, garde]) => `${libelle} : ${liste.filter(garde).length}`)].join(' · '))
+
+// Lieu d'un contrôle ou d'une maintenance (zone si le chantier en a plusieurs, base vie, étage, vestiaire ou pièce)
+function lieuRapport(d, c, r) {
+  const zone = zonesDuChantier(d, c.id).length > 1 ? d.parId.Zones.get(r.Zone)?.Nom : null
+  const base = d.parId.Bases_vie.get(r.Base_vie)
+  const etage = d.parId.Etages.get(r.Etage)
+  const endroit = d.parId.Vestiaires.get(r.Vestiaire)?.Nom ?? d.parId.Pieces.get(r.Piece)?.Nom
+  return [zone, base?.Nom ?? 'Toutes les bases vie', base && (etage?.Nom ?? 'Tous les étages'), endroit].filter(Boolean).join(' · ')
+}
+
+const plusRecent = (champ) => (a, b) => (depuisGrist(b[champ]) ?? '').localeCompare(depuisGrist(a[champ]) ?? '') || b.id - a.id
+const fiche = (r) => h('span', { className: `badge ${r.Fiche_passage_complete ? 'badge-resolu' : 'badge-ouvert'}` }, r.Fiche_passage_complete ? 'Complète' : 'Incomplète')
+const CLASSES_INCIDENT = { Ouvert: 'badge-ouvert', 'En cours': 'badge-en_cours', Résolu: 'badge-resolu' }
+
+function incidents(d, c) {
+  const liste = d.Incidents.filter((i) => i.Chantier === c.id).sort((a, b) => (b.Signale_le ?? 0) - (a.Signale_le ?? 0))
+  return [
+    resume(liste, [['ouverts', (i) => i.Statut === 'Ouvert'], ['en cours', (i) => i.Statut === 'En cours'], ['résolus', (i) => i.Statut === 'Résolu']]),
+    tableau(['Signalé le', 'Lieu', 'Catégorie', 'Description', 'Statut'],
+      liste.map((i) => [
+        i.Signale_le ? dateHeure(i.Signale_le) : '—',
+        libelleLieu(d, { casier: d.parId.Casiers.get(i.Casier), piece: d.parId.Pieces.get(i.Piece), element: i.Element }),
+        i.Categorie ?? '', i.Description ?? '',
+        h('span', { className: `badge ${CLASSES_INCIDENT[i.Statut] ?? 'badge-ouvert'}` }, i.Statut ?? 'Ouvert'),
+      ]),
+      'Aucun incident sur ce chantier.'),
+  ]
+}
+
+function nettoyage(d, c) {
+  const liste = d.Controles_nettoyage.filter((r) => r.Chantier === c.id).sort(plusRecent('Date'))
+  return [
+    resume(liste, [['contrôles', (r) => r.Type_action === 'Contrôle nettoyage'], ['écarts déclarés', (r) => r.Type_action === 'Déclarer écart de nettoyage'],
+      ['fiches incomplètes', (r) => !r.Fiche_passage_complete]]),
+    tableau(['Date', 'Horaire', 'Type d’action', 'Lieu', 'Fiche', 'Commentaire'],
+      liste.map((r) => [enFrancais(depuisGrist(r.Date)) || '—', r.Horaire_passage ?? '', r.Type_action ?? '', lieuRapport(d, c, r), fiche(r), r.Commentaire ?? '']),
+      'Aucun contrôle nettoyage sur ce chantier.'),
+  ]
+}
+
+function maintenance(d, c) {
+  const liste = d.Maintenance.filter((r) => r.Chantier === c.id).sort(plusRecent('Date'))
+  return [
+    resume(liste, [['maintenances', (r) => r.Action === 'Maintenance'], ['aménagements et installations', (r) => r.Action && r.Action !== 'Maintenance'],
+      ['fiches incomplètes', (r) => !r.Fiche_passage_complete]]),
+    tableau(['Date', 'Action', 'Type', 'Lieu', 'Fiche', 'Commentaire'],
+      liste.map((r) => [enFrancais(depuisGrist(r.Date)) || '—', r.Action ?? '', r.Type ?? '', lieuRapport(d, c, r), fiche(r), r.Commentaire ?? '']),
+      'Aucune maintenance sur ce chantier.'),
+  ]
 }
 
 // ---- Onglet Postes ----
@@ -164,7 +204,9 @@ function postes(d, c) {
 export function contenuFiche(d, c, onglet) {
   if (onglet === 'informations') return informations(c)
   if (onglet === 'casiers') return casiers(d, c)
-  if (onglet === 'activite') return activite(d, c)
+  if (onglet === 'incidents') return incidents(d, c)
+  if (onglet === 'nettoyage') return nettoyage(d, c)
+  if (onglet === 'maintenance') return maintenance(d, c)
   if (onglet === 'postes') return postes(d, c)
   return composants(d, c)
 }
