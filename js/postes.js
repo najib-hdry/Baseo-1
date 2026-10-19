@@ -1,4 +1,4 @@
-// Écran « Gestion des postes » (admin) : tableau de tous les postes avec recherche et filtre de statut,
+// Écran « Gestion des postes » (admin) : tableau de tous les postes avec recherche et filtre par statut,
 // fiche de création / modification, suppression avec confirmation.
 import { h, depuisGrist, enFrancais, ouvrirPanneau } from './outils.js'
 import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste } from './donnees.js'
@@ -9,7 +9,7 @@ const CLASSES_STATUT_POSTE = { 'À venir': 'badge-en_cours', 'En cours': 'badge-
 export function creerEcranPostes(racine, recharger) {
   let d = null
   let recherche = ''
-  let filtreStatut = 'actifs' // 'actifs' (à venir + en cours), un statut, ou 'tous'
+  let filtreStatut = 'tous' // 'tous' ou un statut
 
   const nomsChantiers = (p) => idsDeListe(p.Chantiers).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
   const horaires = (p) => (p.Horaires === 'Autre' ? p.Horaires_precision || 'Autre' : p.Horaires ?? '')
@@ -26,7 +26,7 @@ export function creerEcranPostes(racine, recharger) {
     }
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
-    const garde = (p) => filtreStatut === 'tous' || (filtreStatut === 'actifs' ? p.Statut !== 'Archives' : p.Statut === filtreStatut)
+    const garde = (p) => filtreStatut === 'tous' || p.Statut === filtreStatut
 
     // Ne redessine que les lignes : le champ de recherche garde le curseur
     const dessinerLignes = () => {
@@ -37,7 +37,9 @@ export function creerEcranPostes(racine, recharger) {
         .sort((a, b) => (depuisGrist(a.Date_demarrage) ?? '9999').localeCompare(depuisGrist(b.Date_demarrage) ?? '9999') || String(a.Titre).localeCompare(String(b.Titre)))
       compteur.textContent = `${liste.length} poste${liste.length > 1 ? 's' : ''}`
       corps.replaceChildren(...(liste.length === 0
-        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: 7 }, 'Aucun poste.'))]
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: 7 }, d.Postes.length === 0
+          ? 'Aucun poste pour l’instant. Crée le premier avec « ＋ Nouveau poste » : chaque ligne aura ensuite ses boutons Modifier et Supprimer.'
+          : 'Aucun poste ne correspond à la recherche ou au statut choisi.'))]
         : liste.map((p) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(p) },
           h('td', { className: 'tableau-nom' }, p.Titre || 'Sans titre'),
           h('td', null, nomsChantiers(p)),
@@ -51,7 +53,7 @@ export function creerEcranPostes(racine, recharger) {
     }
     dessinerLignes()
 
-    const filtres = [['actifs', 'À venir + en cours'], ...STATUTS_POSTE.map((s) => [s, s]), ['tous', 'Tous']]
+    const filtres = [['tous', 'Tous les statuts'], ...STATUTS_POSTE.map((s) => [s, s])]
     racine.replaceChildren(
       h('h1', null, 'Gestion des postes'),
       h('div', { className: 'barre-outils' },
