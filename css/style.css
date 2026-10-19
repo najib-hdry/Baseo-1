@@ -475,7 +475,7 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Fiche détail dans une popup, plus large pour les tableaux */
 /* Fiche détail : popup sur tout l'écran (marge de 8 px) */
 .voile:has(.panneau-fiche) { padding: 8px; }
-.panneau.panneau-fiche { max-width: none; height: calc(100dvh - 16px); max-height: none; align-content: start; grid-auto-rows: max-content; }
+.panneau.panneau-fiche { max-width: none; height: calc(100dvh - 16px); max-height: none; align-content: start; grid-auto-rows: max-content; background: #fff; }
 .panneau-fiche .onglets-statut { margin: 0; padding: 0 0 4px; }
 .panneau-fiche .fiche-contenu { margin-top: 0; }
 .bouton-detail { border-color: var(--trait); }
