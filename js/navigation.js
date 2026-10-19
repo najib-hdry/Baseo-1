@@ -5,7 +5,7 @@ import { plan3d } from './plan3d.js'
 import { detailCasier } from './donnees.js'
 
 // Sélection initiale d'une base vie : son étage le plus bas qui a un vestiaire
-export function selectionPourBase(d, baseId) {
+function selectionPourBase(d, baseId) {
   const etagesBase = d.Etages.filter((e) => e.Base_vie === baseId)
   const premier = d.Vestiaires.find((v) => etagesBase.some((e) => e.id === v.Etage))
   return { baseId, etageId: premier?.Etage ?? etagesBase[0]?.id ?? null, vestiaireId: premier?.id ?? null }

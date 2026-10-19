@@ -83,13 +83,6 @@ export function derniereLiberation(d, casierId) {
 
 const action = (actions) => grist.docApi.applyUserActions(actions)
 
-export async function attribuer(d, casierId, intervenantId, dateDebut) {
-  if (d.activeParCasier.has(casierId)) throw new Error('Ce casier vient d’être attribué. Ferme la fenêtre pour voir le plan à jour.')
-  if (d.activeParIntervenant.has(intervenantId)) throw new Error('Cette personne a déjà un casier. Il faut d’abord libérer l’ancien.')
-  if (d.parId.Casiers.get(casierId)?.Hors_service) throw new Error('Ce casier est hors service.')
-  await action([['AddRecord', 'Attributions', null, { Casier: casierId, Intervenant: intervenantId, Date_debut: versGrist(dateDebut) }]])
-}
-
 // Crée l'entreprise si besoin (nom identique sans tenir compte des majuscules), puis l'intervenant, puis l'attribution
 export async function creerEtAttribuer(d, casierId, form, dateDebut) {
   if (d.activeParCasier.has(casierId)) throw new Error('Ce casier vient d’être attribué. Ferme la fenêtre pour voir le plan à jour.')
