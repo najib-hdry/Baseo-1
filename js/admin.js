@@ -3,7 +3,7 @@
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure } from './donnees.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', 'Détail du chantier', '']
 // Ordre des onglets de la page
@@ -88,11 +88,16 @@ export function creerEcranAdmin(racine, recharger) {
     const afficherOnglet = (cle) => {
       onglets.replaceChildren(...ONGLETS_FICHE.map(([k, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle),
         onClick: () => afficherOnglet(k) }, libelle)))
-      contenu.replaceChildren(...[contenuFiche(d, c, cle)].flat())
+      contenu.replaceChildren(...[
+        cle === 'composants' && h('div', { className: 'fiche-actions' },
+          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirComposants(c) } }, 'Modifier les composants')),
+        contenuFiche(d, c, cle),
+      ].flat().filter(Boolean))
     }
-    afficherOnglet(ONGLETS_FICHE[0][0])
     // Modifier / Supprimer ferment la fiche, qui se rouvre au besoin avec des données à jour
-    const { fermer, section } = ouvrirPanneau(c.Nom || 'Chantier', [
+    let fermer = () => {}
+    afficherOnglet(ONGLETS_FICHE[0][0])
+    const panneau = ouvrirPanneau(c.Nom || 'Chantier', [
       h('div', { className: 'fiche-entete' },
         h('div', { className: 'carte-titre sous-texte' }, c.Adresse || 'Adresse non renseignée'),
         h('span', { className: 'badge badge-termine' }, c.Statut || 'Sans statut'),
@@ -101,6 +106,46 @@ export function creerEcranAdmin(racine, recharger) {
       onglets,
       contenu,
     ])
+    fermer = panneau.fermer
+    panneau.section.classList.add('panneau-large', 'panneau-fiche')
+  }
+
+  // ---- Modification des composants d'un chantier existant ----
+
+  function ouvrirComposants(c) {
+    const structure = structureDuChantier(d, c.id)
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer les composants')
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      const probleme = verifierStructure(structure)
+      if (probleme) {
+        erreur.textContent = probleme
+        erreur.hidden = false
+        return
+      }
+      erreur.hidden = true
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        await modifierStructure(d, c.id, structure)
+        fermer()
+        await recharger()
+        const aJour = d.parId.Chantiers.get(c.id)
+        if (aJour) ouvrirFiche(aJour) // rouvre la fiche avec la structure à jour
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = 'Enregistrer les composants'
+        recharger() // un nouvel essai partira d'identifiants à jour
+      }
+    } },
+    h('p', { className: 'sous-texte' },
+      'Renomme, ajoute (＋) ou retire (✕) des éléments, et change le nombre de casiers. Retirer un élément retire aussi son contenu ; un casier occupé ne peut pas être retiré.'),
+    editeurStructure(structure),
+    erreur, valider)
+    const { fermer, section } = ouvrirPanneau(`Composants de ${c.Nom || 'ce chantier'}`, formulaire)
     section.classList.add('panneau-large', 'panneau-fiche')
   }
 

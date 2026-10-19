@@ -228,6 +228,115 @@ export async function creerChantier(d, infos, structure) {
   ])
 }
 
+// Structure existante d'un chantier, au format de l'éditeur ; chaque élément garde son `id`.
+// Sans zone, une zone fictive (id null) regroupe les bases vie rattachées directement au chantier.
+export function structureDuChantier(d, chantierId) {
+  const parNom = (a, b) => String(a.Nom).localeCompare(String(b.Nom))
+  const zones = d.Zones.filter((z) => z.Chantier === chantierId).sort(parNom)
+  const basesDe = (zoneId) => (zoneId == null
+    ? d.Bases_vie.filter((b) => b.Chantier === chantierId && !b.Zone)
+    : d.Bases_vie.filter((b) => b.Zone === zoneId)).sort(parNom)
+  const etage = (e) => ({
+    id: e.id, nom: e.Nom ?? '', niveau: e.Niveau ?? 0,
+    vestiaires: d.Vestiaires.filter((v) => v.Etage === e.id).map((v) => ({
+      id: v.id, nom: v.Nom ?? '', type: v.Type || 'mixte', casiers: d.Casiers.filter((k) => k.Vestiaire === v.id).length })),
+    pieces: d.Pieces.filter((p) => p.Etage === e.id).map((p) => ({ id: p.id, nom: p.Nom ?? '', type: p.Type || 'autre' })),
+  })
+  const base = (b) => ({ id: b.id, nom: b.Nom ?? '', etages: d.Etages.filter((e) => e.Base_vie === b.id).map(etage) })
+  const groupes = zones.length > 0 ? zones : [{ id: null, Nom: 'Zone principale' }]
+  return { zones: groupes.map((z) => ({ id: z.id, nom: z.Nom ?? '', bases: basesDe(z.id).map(base) })) }
+}
+
+/**
+ * Enregistre la structure modifiée d'un chantier en un seul envoi (tout ou rien) :
+ * renommages et types, nouveaux éléments, éléments retirés (avec leurs casiers),
+ * nombre de casiers par vestiaire (ajout à la suite, retrait des derniers numéros).
+ * Refuse de retirer un casier occupé.
+ */
+export async function modifierStructure(d, chantierId, structure) {
+  const avant = structureDuChantier(d, chantierId)
+  const id = { Zones: compteur(d, 'Zones'), Bases_vie: compteur(d, 'Bases_vie'), Etages: compteur(d, 'Etages'),
+    Vestiaires: compteur(d, 'Vestiaires'), Casiers: compteur(d, 'Casiers'), Pieces: compteur(d, 'Pieces') }
+  const avecZones = !d.absentes.has('Zones')
+  const ajouts = { Zones: [], Bases_vie: [], Etages: [], Vestiaires: [], Casiers: [], Pieces: [] }
+  const mises = [] // [table, id, champs]
+  const gardes = { Zones: new Set(), Bases_vie: new Set(), Etages: new Set(), Vestiaires: new Set(), Pieces: new Set() }
+  const casiersRetires = []
+  const numero = (c) => parseInt(c.Numero, 10) || 0
+  const occupe = (c) => d.activeParCasier.has(c.id)
+
+  // Élément existant : mise à jour si un champ a changé ; nouvel élément : ajout avec un identifiant choisi
+  const traiter = (table, el, champs) => {
+    if (el.id != null) {
+      gardes[table].add(el.id)
+      const actuel = d.parId[table].get(el.id)
+      const changes = Object.fromEntries(Object.entries(champs).filter(([col, v]) => (actuel?.[col] ?? '') !== v))
+      if (Object.keys(changes).length > 0) mises.push([table, el.id, changes])
+      return el.id
+    }
+    const nouvel = id[table]()
+    ajouts[table].push({ id: nouvel, ...champs })
+    return nouvel
+  }
+
+  for (const z of structure.zones) {
+    // Avec la table Zones, une zone fictive (chantier sans zone) devient une vraie zone
+    const zoneId = avecZones ? traiter('Zones', z, { Nom: z.nom.trim() || 'Zone principale', Chantier: chantierId }) : null
+    for (const b of z.bases) {
+      const baseId = traiter('Bases_vie', b, { Nom: b.nom.trim(), ...(zoneId != null ? { Zone: zoneId } : { Chantier: chantierId }) })
+      for (const e of b.etages) {
+        const etageId = traiter('Etages', e, { Nom: e.nom.trim(), Niveau: Number(e.niveau) || 0, Base_vie: baseId })
+        for (const v of e.vestiaires) {
+          const vestiaireId = traiter('Vestiaires', v, { Nom: v.nom.trim(), Type: v.type, Etage: etageId })
+          // Nombre de casiers : ajout à la suite des numéros existants, ou retrait des derniers (s'ils sont libres)
+          const existants = v.id != null ? d.Casiers.filter((k) => k.Vestiaire === v.id).sort((a, b) => numero(a) - numero(b)) : []
+          const voulu = Number(v.casiers) || 0
+          let suivant = Math.max(0, ...existants.map(numero)) + 1
+          for (let n = existants.length; n < voulu; n++)
+            ajouts.Casiers.push({ id: id.Casiers(), Vestiaire: vestiaireId, Numero: String(suivant++).padStart(3, '0'), Hors_service: false })
+          casiersRetires.push(...existants.slice(voulu))
+        }
+        for (const p of e.pieces) traiter('Pieces', p, { Nom: p.nom.trim(), Type: p.type, Etage: etageId })
+      }
+    }
+  }
+
+  // Éléments présents avant et absents maintenant : retirés, avec les casiers des vestiaires retirés
+  const anciens = { Zones: [], Bases_vie: [], Etages: [], Vestiaires: [], Pieces: [] }
+  for (const z of avant.zones) {
+    if (z.id != null) anciens.Zones.push(z.id)
+    for (const b of z.bases) {
+      anciens.Bases_vie.push(b.id)
+      for (const e of b.etages) {
+        anciens.Etages.push(e.id)
+        anciens.Vestiaires.push(...e.vestiaires.map((v) => v.id))
+        anciens.Pieces.push(...e.pieces.map((p) => p.id))
+      }
+    }
+  }
+  const retraits = Object.fromEntries(Object.entries(anciens).map(([t, ids]) => [t, ids.filter((i) => !gardes[t].has(i))]))
+  casiersRetires.push(...d.Casiers.filter((k) => retraits.Vestiaires.includes(k.Vestiaire)))
+  const occupes = casiersRetires.filter(occupe)
+  if (occupes.length > 0)
+    throw new Error(`Impossible : ${occupes.length} casier(s) à retirer sont occupés (${occupes.slice(0, 5).map((c) => c.Numero).join(', ')}…). Libère-les d’abord.`)
+
+  const ajout = (table, liste) => {
+    if (liste.length === 0) return []
+    const colonnes = Object.keys(liste[0]).filter((c) => c !== 'id')
+    return [['BulkAddRecord', table, liste.map((l) => l.id), Object.fromEntries(colonnes.map((c) => [c, liste.map((l) => l[c])]))]]
+  }
+  const retrait = (table, ids) => (ids.length > 0 ? [['BulkRemoveRecord', table, ids]] : [])
+  const actions = [
+    ...Object.entries(ajouts).flatMap(([t, liste]) => ajout(t, liste)),
+    ...mises.map(([t, i, champs]) => ['UpdateRecord', t, i, champs]),
+    ...retrait('Casiers', casiersRetires.map((c) => c.id)),
+    ...retrait('Pieces', retraits.Pieces), ...retrait('Vestiaires', retraits.Vestiaires),
+    ...retrait('Etages', retraits.Etages), ...retrait('Bases_vie', retraits.Bases_vie), ...retrait('Zones', retraits.Zones),
+  ]
+  if (actions.length > 0) await action(actions)
+  return actions.length
+}
+
 export const modifierChantier = (chantierId, infos) => action([['UpdateRecord', 'Chantiers', chantierId, infosVersGrist(infos)]])
 
 export const changerStatutChantier = (chantierId, statut) => action([['UpdateRecord', 'Chantiers', chantierId, { Statut: statut }]])

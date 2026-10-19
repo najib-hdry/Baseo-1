@@ -564,3 +564,12 @@ button.tiroir-lien.active { background: var(--signal); }
 .fiche-contenu .niveau-zone { background: #F5FBF7; }
 .fiche-contenu .niveau-base { background: #E9F6EE; }
 .fiche-contenu .niveau-etage { background: #DCF1E3; }
+
+/* Fiche chantier : bouton « Modifier les composants » */
+.fiche-actions { display: flex; justify-content: flex-end; }
+
+/* Fiche chantier (popups fiche et composants) : tous les textes en noir plein ;
+   boutons et badges gardent leurs couleurs pour rester lisibles */
+.panneau-fiche,
+.panneau-fiche :is(.sous-texte, .niveau-type, .composant-nom, .structure-resume, .fiche-infos dt, .fiche-infos dd,
+  .tableau th, .tableau td, .tableau a, .stat, .stat-valeur, .stat-libelle, .piece, .p3-nom-piece, h2, strong, p, label, legend) { color: #000; }
