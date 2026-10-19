@@ -37,17 +37,19 @@ export function creerEcranAdmin(racine, recharger) {
 
     racine.replaceChildren(
       h('h1', null, 'Gestion des chantiers'),
-      h('div', { className: 'barre-outils' },
-        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Statut des chantiers' },
-          onglets.map(([s, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(s === onglet),
-            onClick: () => { onglet = s; rendre() } }, `${libelle} (${parStatut(s).length})`))),
-        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
-      h('div', { className: 'tableau-defilant' },
-        h('table', { className: 'tableau' },
-          h('thead', null, h('tr', null, ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', ''].map((t) => h('th', null, t)))),
-          h('tbody', null, chantiers.length === 0
-            ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: 6 }, 'Aucun chantier avec ce statut.'))
-            : chantiers.map(ligne)))))
+      // Onglets, bouton et tableau dans une même carte bordée
+      h('section', { className: 'carte-tableau' },
+        h('div', { className: 'barre-outils' },
+          h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Statut des chantiers' },
+            onglets.map(([s, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(s === onglet),
+              onClick: () => { onglet = s; rendre() } }, `${libelle} (${parStatut(s).length})`))),
+          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
+        h('div', { className: 'tableau-defilant' },
+          h('table', { className: 'tableau' },
+            h('thead', null, h('tr', null, ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', ''].map((t) => h('th', null, t)))),
+            h('tbody', null, chantiers.length === 0
+              ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: 6 }, 'Aucun chantier avec ce statut.'))
+              : chantiers.map(ligne))))))
   }
 
   function ligne(c) {

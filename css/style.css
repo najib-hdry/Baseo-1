@@ -500,3 +500,11 @@ button.tiroir-lien.active { background: var(--signal); }
 
 /* Gestion des chantiers : onglets de statut à côté du bouton « Nouveau chantier » */
 .barre-outils .onglets-statut { flex: 1 1 auto; margin: 0; padding: 0 0 4px; }
+
+/* Gestion des chantiers : onglets, bouton et tableau réunis dans une carte bordée */
+.carte-tableau { margin-top: 16px; padding: 14px; background: var(--surface); border: 1px solid var(--trait); border-radius: 14px; }
+.carte-tableau .barre-outils { margin-top: 0; }
+.carte-tableau .tableau-defilant { margin-top: 12px; border: 1px solid var(--trait); border-radius: 10px; box-shadow: none; }
+
+/* En-tête des tableaux sur fond coloré (vert de l'en-tête de l'application) */
+.tableau th { color: #2e6b45; background: #d4f0dd; border-bottom-color: #A9DDBA; }
