@@ -115,13 +115,13 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
   if (bases.length === 0) noeuds.push(h('p', { className: 'message' }, zones.length > 0 ? 'Cette zone n’a pas encore de base vie.' : 'Ce chantier n’a pas encore de base vie.'))
   else if (etagesBase.length === 0) noeuds.push(h('p', { className: 'message' }, 'Aucun étage dans cette base vie.'))
   else if (mode === 'lieux') {
-    const bouton = (type, nom, classe, onClick) => h('button', { className: `lieu-bouton ${classe}`, onClick },
+    const bouton = (type, nom, onClick) => h('button', { className: 'lieu-bouton', onClick },
       h('span', { className: 'lieu-type' }, type), h('span', { className: 'lieu-nom' }, nom))
     noeuds.push(vestiairesEtage.length + piecesEtage.length === 0
       ? h('p', { className: 'message' }, 'Aucun vestiaire ni pièce à cet étage.')
       : h('div', { className: 'lieux' },
-        vestiairesEtage.map((v) => bouton('Vestiaire', v.Nom, 'lieu-vestiaire', () => onVestiaire(v))),
-        piecesEtage.map((p) => bouton('Pièce', p.Nom, `piece-${p.Type}`, () => onPiece(p)))))
+        vestiairesEtage.map((v) => bouton('Vestiaire', v.Nom, () => onVestiaire(v))),
+        piecesEtage.map((p) => bouton('Pièce', p.Nom, () => onPiece(p)))))
   }
   else if (vestiairesEtage.length === 0) noeuds.push(h('p', { className: 'message' }, 'Aucun vestiaire à cet étage.'))
   else {
