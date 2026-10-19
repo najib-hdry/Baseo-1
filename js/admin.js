@@ -1,6 +1,6 @@
 // Écran « Gestion des chantiers » (admin, première page) : tableau des chantiers par onglet de statut, changement de statut,
 // création d'un chantier entier (zones → bases vie → étages → vestiaires avec casiers, pièces),
-// fiche détail en onglets (voir chantier.js), modification des informations, suppression avec tout son contenu.
+// fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
 import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier } from './donnees.js'
@@ -23,8 +23,6 @@ const nouvelleZone = (n) => ({ nom: n === 1 ? 'Zone principale' : `Zone ${n}`, b
 export function creerEcranAdmin(racine, recharger) {
   let d = null
   let onglet = 'En cours' // un statut, ou '' pour les chantiers sans statut
-  let ficheId = null // chantier dont la fiche détail est ouverte
-  let ongletFiche = ONGLETS_FICHE[0][0]
 
   function rendre() {
     if (!d) return
@@ -32,9 +30,6 @@ export function creerEcranAdmin(racine, recharger) {
       racine.replaceChildren(h('h1', null, 'Gestion des chantiers'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
-    const fiche = ficheId && d.parId.Chantiers.get(ficheId)
-    if (fiche) return rendreFiche(fiche)
-    ficheId = null
     // Onglets dans l'ordre demandé ; « Sans statut » n'apparaît que s'il en reste
     const parStatut = (s) => d.Chantiers.filter((c) => (c.Statut || '') === s).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
     const onglets = [...ONGLETS_CHANTIERS.map((s) => [s, s]), ...(parStatut('').length > 0 ? [['', 'Sans statut']] : [])]
@@ -52,9 +47,9 @@ export function creerEcranAdmin(racine, recharger) {
           h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', ''].map((t) => h('th', null, t)))),
+            h('thead', null, h('tr', null, ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', 'Détail du chantier', ''].map((t) => h('th', null, t)))),
             h('tbody', null, chantiers.length === 0
-              ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: 6 }, 'Aucun chantier avec ce statut.'))
+              ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: 7 }, 'Aucun chantier avec ce statut.'))
               : chantiers.map(ligne))))))
   }
 
@@ -77,34 +72,35 @@ export function creerEcranAdmin(racine, recharger) {
       h('td', { className: 'sous-texte' }, structure),
       h('td', null, h('span', { className: `badge ${c.Actif ? 'badge-resolu' : 'badge-termine'}` }, c.Actif ? 'Oui' : 'Masqué')),
       h('td', null, statut),
+      h('td', null, h('button', { className: 'bouton bouton-compact bouton-detail', onClick: (e) => { e.stopPropagation(); ouvrirFiche(c) } }, 'Voir le détail')),
       h('td', { className: 'tableau-actions' },
         h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirEdition(c) } }, 'Modifier'),
         h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
   }
 
-  // ---- Fiche détail ----
+  // ---- Fiche détail (popup) ----
 
   function ouvrirFiche(c) {
-    ficheId = c.id
-    ongletFiche = ONGLETS_FICHE[0][0]
-    rendre()
-  }
-
-  function rendreFiche(c) {
-    racine.replaceChildren(
-      h('button', { className: 'retour', onClick: () => { ficheId = null; rendre() } }, '‹ Chantiers'),
+    const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche du chantier' })
+    const contenu = h('div', { className: 'fiche-contenu' })
+    // Changer d'onglet ne redessine que le contenu de la popup
+    const afficherOnglet = (cle) => {
+      onglets.replaceChildren(...ONGLETS_FICHE.map(([k, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle),
+        onClick: () => afficherOnglet(k) }, libelle)))
+      contenu.replaceChildren(...[contenuFiche(d, c, cle)].flat())
+    }
+    afficherOnglet(ONGLETS_FICHE[0][0])
+    // Modifier / Supprimer ferment la fiche, qui se rouvre au besoin avec des données à jour
+    const { fermer, section } = ouvrirPanneau(c.Nom || 'Chantier', [
       h('div', { className: 'fiche-entete' },
-        h('div', { className: 'carte-titre' },
-          h('h1', null, c.Nom || 'Sans nom'),
-          h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
+        h('div', { className: 'carte-titre sous-texte' }, c.Adresse || 'Adresse non renseignée'),
         h('span', { className: 'badge badge-termine' }, c.Statut || 'Sans statut'),
-        h('button', { className: 'bouton bouton-compact', onClick: () => ouvrirEdition(c) }, 'Modifier'),
-        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => ouvrirSuppression(c) }, 'Supprimer')),
-      h('section', { className: 'carte-tableau' },
-        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche du chantier' },
-          ONGLETS_FICHE.map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(cle === ongletFiche),
-            onClick: () => { ongletFiche = cle; rendre() } }, libelle))),
-        h('div', { className: 'fiche-contenu' }, contenuFiche(d, c, ongletFiche))))
+        h('button', { className: 'bouton bouton-compact', onClick: () => { fermer(); ouvrirEdition(c) } }, 'Modifier'),
+        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { fermer(); ouvrirSuppression(c) } }, 'Supprimer')),
+      onglets,
+      contenu,
+    ])
+    section.classList.add('panneau-large', 'panneau-fiche')
   }
 
   // ---- Création / modification ----
@@ -311,9 +307,7 @@ export function creerEcranAdmin(racine, recharger) {
       d = donnees
       rendre()
     },
-    // revient au tableau des chantiers
     accueil() {
-      ficheId = null
       rendre()
     },
   }

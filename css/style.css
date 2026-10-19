@@ -521,3 +521,8 @@ button.tiroir-lien.active { background: var(--signal); }
 .fiche-infos { display: grid; grid-template-columns: minmax(160px, max-content) 1fr; gap: 10px 24px; margin: 0; }
 .fiche-infos dt { color: var(--encre-douce); }
 .fiche-infos dd { margin: 0; font-weight: 600; }
+/* Fiche détail dans une popup, plus large pour les tableaux */
+.panneau.panneau-fiche { max-width: 960px; }
+.panneau-fiche .onglets-statut { margin: 0; padding: 0 0 4px; }
+.panneau-fiche .fiche-contenu { margin-top: 0; }
+.bouton-detail { border-color: var(--trait); }
