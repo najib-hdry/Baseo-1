@@ -267,10 +267,6 @@ h2 { font-size: 1.3rem; }
   background: var(--teinte); border: 1px solid var(--bord);
 }
 
-/* Étages au-dessus de l'étage choisi : presque effacés pour dégager la vue */
-.p3-etage.au-dessus .p3-boite .p3-face { opacity: .12; }
-.p3-etage.au-dessus .p3-dessus > span { visibility: hidden; }
-
 /* Menu profil (en-tête) */
 .profil { position: relative; }
 .profil-bouton {

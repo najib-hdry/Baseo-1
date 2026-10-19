@@ -44,7 +44,6 @@ function disposition(n) {
  */
 export function plan3d({ etages, vestiaires, pieces, etageId, vestiaireId, onEtage, onVestiaire, vue }) {
   const n = etages.length
-  const indexActif = etages.findIndex((e) => e.id === etageId)
   const transformScene = () =>
     `rotateX(${vue.inclinaison}deg) rotateZ(${vue.rotation}deg) translateZ(${(-(n - 1) * ECART) / 2}px)`
 
@@ -56,7 +55,7 @@ export function plan3d({ etages, vestiaires, pieces, etageId, vestiaireId, onEta
     const siens = vestiaires.filter((v) => v.Etage === etage.id)
     const autres = pieces.filter((p) => p.Etage === etage.id)
     const place = disposition(siens.length + autres.length || 1)
-    const classes = ['p3-etage', etage.id === etageId && 'actif', i > indexActif && 'au-dessus'].filter(Boolean).join(' ')
+    const classes = ['p3-etage', etage.id === etageId && 'actif'].filter(Boolean).join(' ')
     return h('div', { className: classes, style: { transform: `translateZ(${i * ECART}px)` } },
       boite({ l: LARGEUR, p: PROFONDEUR, hauteur: DALLE, classe: 'p3-dalle', onClick: () => onEtage(etage),
         contenu: h('span', { className: 'p3-nom-etage' }, etage.Nom) }),
