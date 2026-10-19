@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -281,6 +281,43 @@ export async function modifierEntreprise(d, entrepriseId, champs) {
 
 // Les intervenants rattachés restent, sans entreprise (Grist vide leur référence)
 export const supprimerEntreprise = (entrepriseId) => action([['RemoveRecord', 'Entreprises', entrepriseId]])
+
+// ---- Gestion des postes (admin) ----
+
+export const STATUTS_POSTE = ['À venir', 'En cours', 'Archives']
+export const HORAIRES_POSTE = ['4', '5', '6', '7', 'Autre']
+
+// Liste de références Grist (['L', 1, 2]) ↔ tableau d'identifiants
+export const idsDeListe = (v) => (Array.isArray(v) ? v.filter((x) => x !== 'L') : [])
+
+// `champs` : Titre, Date_demarrage (ISO), Nb_personnes, Statut, Chantiers (ids), Mission, Horaires, Horaires_precision
+const posteVersGrist = (champs) => ({
+  ...champs,
+  Date_demarrage: versGrist(champs.Date_demarrage),
+  Chantiers: champs.Chantiers.length > 0 ? ['L', ...champs.Chantiers] : null,
+  Horaires_precision: champs.Horaires === 'Autre' ? champs.Horaires_precision : '',
+})
+
+function verifierPoste(champs) {
+  if (!champs.Titre) throw new Error('Le titre du poste est obligatoire.')
+  if (champs.Nb_personnes != null && !(Number.isInteger(champs.Nb_personnes) && champs.Nb_personnes >= 0))
+    throw new Error('Le nombre de personnes doit être un entier positif.')
+  if (champs.Horaires === 'Autre' && !champs.Horaires_precision) throw new Error('Précise les horaires (choix « Autre »).')
+}
+
+export async function creerPoste(champs) {
+  verifierPoste(champs)
+  await action([['AddRecord', 'Postes', null, posteVersGrist(champs)]])
+}
+
+export async function modifierPoste(posteId, champs) {
+  verifierPoste(champs)
+  await action([['UpdateRecord', 'Postes', posteId, posteVersGrist(champs)]])
+}
+
+export const archiverPoste = (posteId) => action([['UpdateRecord', 'Postes', posteId, { Statut: 'Archives' }]])
+
+export const supprimerPoste = (posteId) => action([['RemoveRecord', 'Postes', posteId]])
 
 // ---- Contrôles nettoyage et maintenance ----
 

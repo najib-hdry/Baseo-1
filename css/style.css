@@ -491,3 +491,7 @@ button.tiroir-lien.active { background: var(--signal); }
 .tableau-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
 .tableau-vide { text-align: center; color: var(--encre-douce); }
 .tableau a { color: var(--encre); }
+
+/* Gestion des postes (admin) */
+.barre-outils .champ-statut { flex: 0 1 200px; }
+.cases-chantiers { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 12px; }
