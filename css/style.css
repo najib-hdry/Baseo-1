@@ -481,7 +481,22 @@ button.tiroir-lien.active { background: var(--signal); }
 .bouton-detail { border-color: var(--trait); }
 
 /* ---- Écrans étroits (téléphone, petite fenêtre) ---- */
+/* Formulaire « Ajouter un candidat » : blocs sur deux colonnes (une sur écran étroit) */
+.blocs-candidat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 56px; }
+.bloc-candidat { display: grid; gap: 12px; align-content: start; }
+.bloc-candidat h3 { margin: 0 0 2px; font-size: 1.1rem; }
+.zone-fichier { display: grid; justify-items: center; gap: 8px; padding: 20px 12px; text-align: center; cursor: pointer;
+  background: var(--surface); border: 1.5px dashed var(--trait); border-radius: var(--rayon); }
+.zone-fichier.survol { border-color: var(--encre); background: var(--fond); }
+.zone-fichier .bouton-compact { pointer-events: none; }
+/* Texte lu par les lecteurs d'écran mais invisible */
+.visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.titre-formulaire { display: inline-flex; align-items: center; gap: 12px; }
+.titre-icone { display: grid; place-items: center; width: 40px; height: 40px; color: #fff; background: #1F6F6A; border-radius: 10px; }
+.panneau-candidat .fiche-actions { position: sticky; bottom: -20px; padding: 12px 0; background: #fff; }
+
 @media (max-width: 720px) {
+  .blocs-candidat { grid-template-columns: 1fr; }
   /* Barres d'outils empilées, bouton sur toute la largeur */
   .barre-outils { flex-direction: column; align-items: stretch; }
   .barre-outils .champ-compact, .barre-outils .champ-statut, .barre-outils .bouton-compact { flex: none; width: 100%; }

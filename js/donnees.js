@@ -130,17 +130,22 @@ export async function horsService(d, casierId, valeur) {
 
 export const CATEGORIES = ['Plomberie', 'Électricité', 'Serrure', 'Propreté', 'Sécurité', 'Autre']
 
-// Envoie une image dans les pièces jointes du document ; renvoie son identifiant
-export async function envoyerPhoto(blob) {
+// Envoie un fichier dans les pièces jointes du document ; renvoie son identifiant.
+// `nom` : nom du fichier enregistré (une photo réduite est toujours un JPEG)
+export async function envoyerPhoto(blob, nom = 'photo.jpg') {
   const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: false })
   const formulaire = new FormData()
-  formulaire.append('upload', blob, 'photo.jpg')
+  formulaire.append('upload', blob, nom)
   const rep = await fetch(`${baseUrl}/attachments?auth=${token}`, {
     method: 'POST', body: formulaire, headers: { 'X-Requested-With': 'XMLHttpRequest' },
   })
-  if (!rep.ok) throw new Error('La photo n’a pas pu être envoyée.')
+  if (!rep.ok) throw new Error(`Le fichier « ${nom} » n’a pas pu être envoyé.`)
   return (await rep.json())[0]
 }
+
+// Candidat : nouvelle ligne (`candidatId` null) ou modification ; `champs` déjà au format Grist
+export const enregistrerCandidat = (candidatId, champs) =>
+  action([candidatId == null ? ['AddRecord', 'Candidats', null, champs] : ['UpdateRecord', 'Candidats', candidatId, champs]])
 
 // Adresse temporaire pour afficher une pièce jointe
 export async function lienPhotos() {
