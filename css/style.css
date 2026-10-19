@@ -558,12 +558,12 @@ button.tiroir-lien.active { background: var(--signal); }
   .niveau-type { flex-basis: 100%; }
 }
 
-/* Fiche détail, onglet Composants : pas de bordure colorée, fonds dégradés d'une même famille de verts
+/* Fiche détail, onglet Composants : pas de bordure colorée, fonds dégradés de la famille corail
    (zone la plus claire → étage le plus soutenu) */
-.fiche-contenu .niveau { border: 1px solid #CFE9D8; border-left-width: 1px; }
-.fiche-contenu .niveau-zone { background: #F5FBF7; }
-.fiche-contenu .niveau-base { background: #E9F6EE; }
-.fiche-contenu .niveau-etage { background: #DCF1E3; }
+.fiche-contenu .niveau { border: 1px solid #F6C9BC; border-left-width: 1px; }
+.fiche-contenu .niveau-zone { background: #FFF5F2; }
+.fiche-contenu .niveau-base { background: #FFE9E2; }
+.fiche-contenu .niveau-etage { background: #FFDCD1; }
 
 /* Fiche chantier : bouton « Modifier les composants » */
 .fiche-actions { display: flex; justify-content: flex-end; }
