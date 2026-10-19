@@ -488,18 +488,21 @@ button.tiroir-lien.active { background: var(--signal); }
 .tableau-ligne:hover td { background: var(--fond); }
 .tableau-nom { font-weight: 600; }
 .tableau-nombre { text-align: right; font-variant-numeric: tabular-nums; }
-.tableau-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+/* Cellule d'actions : reste une vraie cellule (pas de flex) pour garder les lignes du tableau alignées */
+.tableau-actions { text-align: right; white-space: nowrap; }
+.tableau-actions .bouton + .bouton { margin-left: 6px; }
 .tableau-vide { text-align: center; color: var(--encre-douce); }
 .tableau a { color: var(--encre); }
 
 /* Gestion des postes (admin) */
 .barre-outils .champ-statut { flex: 0 1 200px; }
 .cases-chantiers { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 12px; }
-/* Pages avec un tableau (entreprises, postes) : plus larges pour que les boutons tiennent sans défiler */
-.widget:has(.tableau-defilant) { max-width: 1100px; }
+/* Pages avec un tableau (chantiers, entreprises, postes) : toute la largeur de l'écran */
+.widget:has(.tableau-defilant) { max-width: none; }
 
 /* Gestion des chantiers : onglets de statut à côté du bouton « Nouveau chantier » */
 .barre-outils .onglets-statut { flex: 1 1 auto; margin: 0; padding: 0 0 4px; }
+.onglets-statut .onglet { border-radius: 5px; }
 
 /* Gestion des chantiers : onglets, bouton et tableau réunis dans une carte bordée */
 .carte-tableau { margin-top: 16px; padding: 14px; background: var(--surface); border: 1px solid var(--trait); border-radius: 14px; }
