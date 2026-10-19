@@ -495,3 +495,5 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Gestion des postes (admin) */
 .barre-outils .champ-statut { flex: 0 1 200px; }
 .cases-chantiers { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 12px; }
+/* Pages avec un tableau (entreprises, postes) : plus larges pour que les boutons tiennent sans défiler */
+.widget:has(.tableau-defilant) { max-width: 1100px; }
