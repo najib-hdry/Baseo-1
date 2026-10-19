@@ -1,10 +1,11 @@
-// Écran « Gestion des chantiers » (admin) : liste de tous les chantiers, changement de statut,
+// Écran « Gestion des chantiers » (admin, première page) : tableau des chantiers par onglet de statut, changement de statut,
 // création d'un chantier entier (zones → bases vie → étages → vestiaires avec casiers, pièces),
 // modification des informations, suppression avec tout son contenu.
-import { h, depuisGrist, ouvrirPanneau } from './outils.js'
+import { h, depuisGrist, enFrancais, ouvrirPanneau } from './outils.js'
 import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier } from './donnees.js'
 
-const CLASSES_STATUT = { 'Nouveau': 'badge-nouveau', 'À venir': 'badge-en_cours', 'En cours': 'badge-resolu', 'Terminé': 'badge-termine' }
+// Ordre des onglets de la page
+const ONGLETS_CHANTIERS = ['En cours', 'Terminé', 'À venir', 'Nouveau']
 const LIBELLES_CONTENU = {
   Zones: 'zones', Bases_vie: 'bases vie', Etages: 'étages', Vestiaires: 'vestiaires', Casiers: 'casiers', Pieces: 'pièces',
   Attributions: 'attributions', Incidents: 'incidents', Controles_nettoyage: 'contrôles nettoyage', Maintenance: 'interventions de maintenance',
@@ -20,6 +21,7 @@ const nouvelleZone = (n) => ({ nom: n === 1 ? 'Zone principale' : `Zone ${n}`, b
 // Écran affiché dans `racine` ; `recharger()` relit les données après une écriture
 export function creerEcranAdmin(racine, recharger) {
   let d = null
+  let onglet = 'En cours' // un statut, ou '' pour les chantiers sans statut
 
   function rendre() {
     if (!d) return
@@ -27,37 +29,49 @@ export function creerEcranAdmin(racine, recharger) {
       racine.replaceChildren(h('h1', null, 'Gestion des chantiers'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
-    const chantiers = [...d.Chantiers].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
+    // Onglets dans l'ordre demandé ; « Sans statut » n'apparaît que s'il en reste
+    const parStatut = (s) => d.Chantiers.filter((c) => (c.Statut || '') === s).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
+    const onglets = [...ONGLETS_CHANTIERS.map((s) => [s, s]), ...(parStatut('').length > 0 ? [['', 'Sans statut']] : [])]
+    if (!onglets.some(([s]) => s === onglet)) onglet = onglets[0][0]
+    const chantiers = parStatut(onglet)
+
     racine.replaceChildren(
       h('h1', null, 'Gestion des chantiers'),
-      h('button', { className: 'bouton bouton-principal bouton-nouveau', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier'),
-      chantiers.length === 0
-        ? h('p', { className: 'message' }, 'Aucun chantier.')
-        : h('ul', { className: 'cartes' }, chantiers.map(carte)))
+      h('div', { className: 'barre-outils' },
+        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Statut des chantiers' },
+          onglets.map(([s, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(s === onglet),
+            onClick: () => { onglet = s; rendre() } }, `${libelle} (${parStatut(s).length})`))),
+        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' },
+          h('thead', null, h('tr', null, ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', ''].map((t) => h('th', null, t)))),
+          h('tbody', null, chantiers.length === 0
+            ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: 6 }, 'Aucun chantier avec ce statut.'))
+            : chantiers.map(ligne)))))
   }
 
-  function carte(c) {
+  function ligne(c) {
     const contenu = contenuChantier(d, c.id)
-    const resume = [['Bases_vie', 'bases vie'], ['Etages', 'étages'], ['Vestiaires', 'vestiaires'], ['Casiers', 'casiers']]
+    const structure = [['Bases_vie', 'bases vie'], ['Etages', 'étages'], ['Casiers', 'casiers']]
       .map(([t, libelle]) => `${contenu[t].length} ${libelle}`).join(' · ')
-    const statut = h('select', { className: 'champ champ-compact', 'aria-label': `Statut de ${c.Nom}`, onChange: async (e) => {
+    const periode = [depuisGrist(c.Date_debut), depuisGrist(c.Date_fin)].map(enFrancais)
+    const statut = h('select', { className: 'champ champ-compact', 'aria-label': `Statut de ${c.Nom}`, onClick: (e) => e.stopPropagation(), onChange: async (e) => {
       e.target.disabled = true
       try { await changerStatutChantier(c.id, e.target.value); await recharger() } catch { e.target.disabled = false }
     } },
     !c.Statut && h('option', { value: '', selected: true, disabled: true }, 'Statut…'),
     STATUTS_CHANTIER.map((s) => h('option', { value: s, selected: c.Statut === s }, s)))
-    return h('li', { className: 'carte-admin' },
-      h('div', { className: 'carte-haut' },
-        h('div', { className: 'carte-titre' },
-          h('h2', null, c.Nom || 'Sans nom'),
-          h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
-        c.Statut && h('span', { className: `badge ${CLASSES_STATUT[c.Statut] ?? ''}` }, c.Statut),
-        !c.Actif && h('span', { className: 'badge badge-termine' }, 'Masqué')),
-      h('p', { className: 'sous-texte' }, resume),
-      h('div', { className: 'carte-actions' },
-        statut,
-        h('button', { className: 'bouton bouton-compact', onClick: () => ouvrirEdition(c) }, 'Modifier'),
-        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => ouvrirSuppression(c) }, 'Supprimer')))
+    return h('tr', { className: 'tableau-ligne', onClick: () => ouvrirEdition(c) },
+      h('td', null,
+        h('div', { className: 'tableau-nom' }, c.Nom || 'Sans nom'),
+        h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
+      h('td', null, periode.some(Boolean) ? `${periode[0] || '?'} → ${periode[1] || '?'}` : '—'),
+      h('td', { className: 'sous-texte' }, structure),
+      h('td', null, h('span', { className: `badge ${c.Actif ? 'badge-resolu' : 'badge-termine'}` }, c.Actif ? 'Oui' : 'Masqué')),
+      h('td', null, statut),
+      h('td', { className: 'tableau-actions' },
+        h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirEdition(c) } }, 'Modifier'),
+        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
   }
 
   // ---- Création / modification ----

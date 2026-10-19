@@ -10,13 +10,13 @@ import { creerEcranAdmin } from './admin.js'
 import { creerEcranEntreprises } from './entreprises.js'
 import { creerEcranPostes } from './postes.js'
 
-// `admin` : page visible seulement par le profil Admin
+// `admin` : page visible seulement par le profil Admin. La première page visible s'ouvre au démarrage.
 const PAGES = [
+  { cle: 'chantiers', libelle: 'Gestion des chantiers', icone: 'grue', admin: true },
   { cle: 'casiers', libelle: 'Gestion des casiers', icone: 'total' },
   { cle: 'incidents', libelle: 'Gestion des incidents', icone: 'hs' },
   { cle: 'nettoyage', libelle: 'Contrôle nettoyage', icone: 'nettoyage' },
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance' },
-  { cle: 'chantiers', libelle: 'Gestion des chantiers', icone: 'grue', admin: true },
   { cle: 'entreprises', libelle: 'Gestion des entreprises', icone: 'entreprise', admin: true },
   { cle: 'postes', libelle: 'Gestion des postes', icone: 'poste', admin: true },
 ]
@@ -33,7 +33,9 @@ const ecrans = {
   entreprises: creerEcranEntreprises(zones.entreprises, () => recharger()),
   postes: creerEcranPostes(zones.postes, () => recharger()),
 }
-let page = 'casiers'
+// Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
+let choix = null
+const pageCourante = () => (pagesVisibles().some((p) => p.cle === choix) ? choix : pagesVisibles()[0].cle)
 let donnees = null
 
 // ---- En-tête et menu ----
@@ -53,7 +55,7 @@ function ouvrirMenu() {
         h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: fermer }, '✕')),
       donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
       pagesVisibles().map((p) => h('button', {
-        className: `tiroir-lien${p.cle === page ? ' active' : ''}`,
+        className: `tiroir-lien${p.cle === pageCourante() ? ' active' : ''}`,
         onClick: () => { fermer(); allerA(p.cle) },
       }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle))))
   document.body.append(voile)
@@ -76,13 +78,13 @@ const entete = h('header', { className: 'entete' },
 
 // Choisir une page dans le menu ouvre toujours sa liste des chantiers
 function allerA(cle) {
-  page = cle
+  choix = cle
   afficherPage()
   if (donnees?.moi) ecrans[cle].accueil()
 }
 
 function afficherPage() {
-  if (!pagesVisibles().some((p) => p.cle === page)) page = 'casiers'
+  const page = pageCourante()
   sousTitre.textContent = PAGES.find((p) => p.cle === page).libelle
   if (donnees && !donnees.moi) {
     principal.replaceChildren(h('h1', null, 'Accès non configuré'),
