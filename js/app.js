@@ -7,7 +7,7 @@ import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
 import { creerEcranAdmin } from './admin.js'
-import { creerEcranEntreprises } from './entreprises.js'
+import { creerEcranAnnuaire, ENTREPRISES, SOUS_TRAITANTS } from './annuaire.js'
 import { creerEcranPostes } from './postes.js'
 
 // `admin` : page visible seulement par le profil Admin. La première page visible s'ouvre au démarrage.
@@ -18,6 +18,7 @@ const PAGES = [
   { cle: 'nettoyage', libelle: 'Contrôle nettoyage', icone: 'nettoyage' },
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance' },
   { cle: 'entreprises', libelle: 'Gestion des entreprises', icone: 'entreprise', admin: true },
+  { cle: 'sous_traitants', libelle: 'Gestion des sous-traitants', icone: 'sous_traitant', admin: true },
   { cle: 'postes', libelle: 'Gestion des postes', icone: 'poste', admin: true },
 ]
 const pagesVisibles = () => PAGES.filter((p) => !p.admin || donnees?.moi?.profil === 'Admin')
@@ -30,7 +31,8 @@ const ecrans = {
   nettoyage: creerEcranRapport(zones.nettoyage, () => recharger(), NETTOYAGE),
   maintenance: creerEcranRapport(zones.maintenance, () => recharger(), MAINTENANCE),
   chantiers: creerEcranAdmin(zones.chantiers, () => recharger()),
-  entreprises: creerEcranEntreprises(zones.entreprises, () => recharger()),
+  entreprises: creerEcranAnnuaire(zones.entreprises, () => recharger(), ENTREPRISES),
+  sous_traitants: creerEcranAnnuaire(zones.sous_traitants, () => recharger(), SOUS_TRAITANTS),
   postes: creerEcranPostes(zones.postes, () => recharger()),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible

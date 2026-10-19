@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { transformSync } from 'esbuild'
 
-const MODULES_COMMUNS = ['outils', 'donnees', 'plan3d', 'navigation', 'casiers', 'incidents', 'rapports', 'chantier', 'admin', 'entreprises', 'postes'] // ordre des dépendances
+const MODULES_COMMUNS = ['outils', 'donnees', 'plan3d', 'navigation', 'casiers', 'incidents', 'rapports', 'chantier', 'admin', 'annuaire', 'postes'] // ordre des dépendances
 const WIDGETS = ['app']
 
 const lire = (chemin) => readFileSync(new URL(`../${chemin}`, import.meta.url), 'utf8')

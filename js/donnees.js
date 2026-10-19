@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -361,28 +361,23 @@ export async function supprimerChantier(d, chantierId) {
   ])
 }
 
-// ---- Gestion des entreprises (admin) ----
+// ---- Annuaires (admin) : entreprises, sous-traitants ----
 
-// Une autre entreprise porte-t-elle déjà ce nom (sans tenir compte des majuscules) ?
-function verifierNomEntreprise(d, nom, sauf) {
-  if (!nom) throw new Error('Le nom de l’entreprise est obligatoire.')
-  if (d.Entreprises.some((e) => e.id !== sauf && (e.Nom ?? '').trim().toLowerCase() === nom.toLowerCase()))
-    throw new Error(`Une entreprise « ${nom} » existe déjà.`)
+// Fiche d'un annuaire : le nom est obligatoire et unique dans sa table (sans tenir compte des majuscules)
+function verifierNom(d, table, nom, sauf) {
+  if (!nom) throw new Error('Le nom est obligatoire.')
+  if (d[table].some((r) => r.id !== sauf && (r.Nom ?? '').trim().toLowerCase() === nom.toLowerCase()))
+    throw new Error(`« ${nom} » existe déjà.`)
 }
 
-// `champs` : Nom, Adresse, Responsable_prenom, Responsable_nom, Telephone, Email
-export async function creerEntreprise(d, champs) {
-  verifierNomEntreprise(d, champs.Nom, null)
-  await action([['AddRecord', 'Entreprises', null, champs]])
+// `ligneId` null : nouvelle fiche ; sinon modification
+export async function enregistrerFiche(d, table, ligneId, champs) {
+  verifierNom(d, table, champs.Nom, ligneId)
+  await action([ligneId == null ? ['AddRecord', table, null, champs] : ['UpdateRecord', table, ligneId, champs]])
 }
 
-export async function modifierEntreprise(d, entrepriseId, champs) {
-  verifierNomEntreprise(d, champs.Nom, entrepriseId)
-  await action([['UpdateRecord', 'Entreprises', entrepriseId, champs]])
-}
-
-// Les intervenants rattachés restent, sans entreprise (Grist vide leur référence)
-export const supprimerEntreprise = (entrepriseId) => action([['RemoveRecord', 'Entreprises', entrepriseId]])
+// Les lignes qui y font référence restent, sans cette référence (Grist la vide)
+export const supprimerFiche = (table, ligneId) => action([['RemoveRecord', table, ligneId]])
 
 // ---- Gestion des postes (admin) ----
 
