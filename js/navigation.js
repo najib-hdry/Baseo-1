@@ -12,10 +12,10 @@ export function selectionPourBase(d, baseId) {
 }
 
 // Zones d'un chantier (aucune si le document n'a pas de table Zones)
-const zonesDuChantier = (d, chantierId) => d.Zones.filter((z) => z.Chantier === chantierId)
+export const zonesDuChantier = (d, chantierId) => d.Zones.filter((z) => z.Chantier === chantierId)
 
 // Bases vie de la zone choisie, ou du chantier quand il n'a pas de zones
-function basesVisibles(d, { chantierId, zoneId }) {
+export function basesVisibles(d, { chantierId, zoneId }) {
   const bases = zonesDuChantier(d, chantierId).length > 0
     ? d.Bases_vie.filter((b) => b.Zone === zoneId)
     : d.Bases_vie.filter((b) => b.Chantier === chantierId)

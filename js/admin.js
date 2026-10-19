@@ -1,7 +1,8 @@
 // Écran « Gestion des chantiers » (admin, première page) : tableau des chantiers par onglet de statut, changement de statut,
 // création d'un chantier entier (zones → bases vie → étages → vestiaires avec casiers, pièces),
-// modification des informations, suppression avec tout son contenu.
+// fiche détail en onglets (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau } from './outils.js'
+import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
 import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier } from './donnees.js'
 
 // Ordre des onglets de la page
@@ -22,6 +23,8 @@ const nouvelleZone = (n) => ({ nom: n === 1 ? 'Zone principale' : `Zone ${n}`, b
 export function creerEcranAdmin(racine, recharger) {
   let d = null
   let onglet = 'En cours' // un statut, ou '' pour les chantiers sans statut
+  let ficheId = null // chantier dont la fiche détail est ouverte
+  let ongletFiche = ONGLETS_FICHE[0][0]
 
   function rendre() {
     if (!d) return
@@ -29,6 +32,9 @@ export function creerEcranAdmin(racine, recharger) {
       racine.replaceChildren(h('h1', null, 'Gestion des chantiers'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
+    const fiche = ficheId && d.parId.Chantiers.get(ficheId)
+    if (fiche) return rendreFiche(fiche)
+    ficheId = null
     // Onglets dans l'ordre demandé ; « Sans statut » n'apparaît que s'il en reste
     const parStatut = (s) => d.Chantiers.filter((c) => (c.Statut || '') === s).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
     const onglets = [...ONGLETS_CHANTIERS.map((s) => [s, s]), ...(parStatut('').length > 0 ? [['', 'Sans statut']] : [])]
@@ -63,7 +69,7 @@ export function creerEcranAdmin(racine, recharger) {
     } },
     !c.Statut && h('option', { value: '', selected: true, disabled: true }, 'Statut…'),
     STATUTS_CHANTIER.map((s) => h('option', { value: s, selected: c.Statut === s }, s)))
-    return h('tr', { className: 'tableau-ligne', onClick: () => ouvrirEdition(c) },
+    return h('tr', { className: 'tableau-ligne', title: 'Ouvrir la fiche du chantier', onClick: () => ouvrirFiche(c) },
       h('td', null,
         h('div', { className: 'tableau-nom' }, c.Nom || 'Sans nom'),
         h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
@@ -74,6 +80,31 @@ export function creerEcranAdmin(racine, recharger) {
       h('td', { className: 'tableau-actions' },
         h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirEdition(c) } }, 'Modifier'),
         h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
+  }
+
+  // ---- Fiche détail ----
+
+  function ouvrirFiche(c) {
+    ficheId = c.id
+    ongletFiche = ONGLETS_FICHE[0][0]
+    rendre()
+  }
+
+  function rendreFiche(c) {
+    racine.replaceChildren(
+      h('button', { className: 'retour', onClick: () => { ficheId = null; rendre() } }, '‹ Chantiers'),
+      h('div', { className: 'fiche-entete' },
+        h('div', { className: 'carte-titre' },
+          h('h1', null, c.Nom || 'Sans nom'),
+          h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
+        h('span', { className: 'badge badge-termine' }, c.Statut || 'Sans statut'),
+        h('button', { className: 'bouton bouton-compact', onClick: () => ouvrirEdition(c) }, 'Modifier'),
+        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => ouvrirSuppression(c) }, 'Supprimer')),
+      h('section', { className: 'carte-tableau' },
+        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche du chantier' },
+          ONGLETS_FICHE.map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(cle === ongletFiche),
+            onClick: () => { ongletFiche = cle; rendre() } }, libelle))),
+        h('div', { className: 'fiche-contenu' }, contenuFiche(d, c, ongletFiche))))
   }
 
   // ---- Création / modification ----
@@ -280,7 +311,9 @@ export function creerEcranAdmin(racine, recharger) {
       d = donnees
       rendre()
     },
+    // revient au tableau des chantiers
     accueil() {
+      ficheId = null
       rendre()
     },
   }

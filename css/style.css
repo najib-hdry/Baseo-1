@@ -497,8 +497,8 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Gestion des postes (admin) */
 .barre-outils .champ-statut { flex: 0 1 200px; }
 .cases-chantiers { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 12px; }
-/* Pages avec un tableau (chantiers, entreprises, postes) : toute la largeur de l'écran */
-.widget:has(.tableau-defilant) { max-width: none; }
+/* Pages avec un tableau ou une carte de gestion (chantiers, fiche, entreprises, postes) : toute la largeur de l'écran */
+.widget:has(.tableau-defilant, .carte-tableau) { max-width: none; }
 
 /* Gestion des chantiers : onglets de statut à côté du bouton « Nouveau chantier » */
 .barre-outils .onglets-statut { flex: 1 1 auto; margin: 0; padding: 0 0 4px; }
@@ -511,3 +511,13 @@ button.tiroir-lien.active { background: var(--signal); }
 
 /* En-tête des tableaux sur fond coloré (vert de l'en-tête de l'application) */
 .tableau th { color: #2e6b45; background: #d4f0dd; border-bottom-color: #A9DDBA; }
+
+/* Fiche détail d'un chantier (admin) */
+.fiche-entete { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
+.fiche-entete .carte-titre { flex: 1 1 240px; }
+.fiche-contenu { display: grid; gap: 12px; margin-top: 14px; }
+.fiche-contenu .stats { margin-top: 0; }
+.composant-nom { font-weight: 600; }
+.fiche-infos { display: grid; grid-template-columns: minmax(160px, max-content) 1fr; gap: 10px 24px; margin: 0; }
+.fiche-infos dt { color: var(--encre-douce); }
+.fiche-infos dd { margin: 0; font-weight: 600; }
