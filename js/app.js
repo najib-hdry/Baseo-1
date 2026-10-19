@@ -9,6 +9,7 @@ import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
 import { creerEcranAdmin } from './admin.js'
 import { creerEcranAnnuaire, ENTREPRISES, SOUS_TRAITANTS } from './annuaire.js'
 import { creerEcranPostes } from './postes.js'
+import { creerEcranCandidats } from './candidats.js'
 
 // `admin` : page visible seulement par le profil Admin. La première page visible s'ouvre au démarrage.
 const PAGES = [
@@ -20,6 +21,7 @@ const PAGES = [
   { cle: 'entreprises', libelle: 'Gestion des entreprises', icone: 'entreprise', admin: true },
   { cle: 'sous_traitants', libelle: 'Gestion des sous-traitants', icone: 'sous_traitant', admin: true },
   { cle: 'postes', libelle: 'Gestion des postes', icone: 'poste', admin: true },
+  { cle: 'candidats', libelle: 'Gestion des candidats', icone: 'occupes', admin: true },
 ]
 const pagesVisibles = () => PAGES.filter((p) => !p.admin || donnees?.moi?.profil === 'Admin')
 
@@ -34,6 +36,7 @@ const ecrans = {
   entreprises: creerEcranAnnuaire(zones.entreprises, () => recharger(), ENTREPRISES),
   sous_traitants: creerEcranAnnuaire(zones.sous_traitants, () => recharger(), SOUS_TRAITANTS),
   postes: creerEcranPostes(zones.postes, () => recharger()),
+  candidats: creerEcranCandidats(zones.candidats),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
 let choix = null
