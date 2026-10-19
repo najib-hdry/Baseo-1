@@ -34,6 +34,7 @@ const TRACES = {
   resolus: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
   nettoyage: '<path d="M15 3 10 13"/><path d="M6 13h8l1.5 8h-11Z"/><path d="M8.5 17v4M11.5 17v4"/>',
   maintenance: '<path d="M14.5 6.5a4 4 0 0 0-5 5L3 18l3 3 6.5-6.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5Z"/>',
+  entreprise: '<path d="M4 21V5l8-3v19"/><path d="M12 9h8v12"/><path d="M3 21h18"/><path d="M8 7v.01M8 11v.01M8 15v.01M16 13v.01M16 17v.01"/>',
 }
 export function icone(type, taille = 20) {
   const span = document.createElement('span')

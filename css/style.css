@@ -474,3 +474,20 @@ button.tiroir-lien.active { background: var(--signal); }
 .lien-ajout { padding: 4px 10px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--encre); cursor: pointer; background: transparent; border: 1px dashed var(--encre-douce); border-radius: 999px; }
 .retirer { flex: none; width: 32px; height: 32px; padding: 0; font: inherit; color: var(--hs); cursor: pointer; background: transparent; border: 1px solid var(--trait); border-radius: 50%; }
 .lien-ajout:focus-visible, .retirer:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+
+/* Gestion des entreprises (admin) : barre de recherche et tableau */
+.barre-outils { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.barre-outils .champ-compact { flex: 1 1 240px; }
+.barre-outils .bouton-compact { flex: none; }
+.tableau-defilant { overflow-x: auto; margin-top: 8px; background: var(--surface); border-radius: 12px; box-shadow: 0 1px 3px rgba(21, 33, 43, 0.08); }
+.tableau { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.tableau th { padding: 10px 12px; font-size: 0.75rem; font-weight: 700; text-align: left; text-transform: uppercase; letter-spacing: 0.04em; color: var(--encre-douce); border-bottom: 1px solid var(--trait); white-space: nowrap; }
+.tableau td { padding: 10px 12px; border-bottom: 1px solid var(--trait); vertical-align: middle; }
+.tableau tr:last-child td { border-bottom: none; }
+.tableau-ligne { cursor: pointer; }
+.tableau-ligne:hover td { background: var(--fond); }
+.tableau-nom { font-weight: 600; }
+.tableau-nombre { text-align: right; font-variant-numeric: tabular-nums; }
+.tableau-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+.tableau-vide { text-align: center; color: var(--encre-douce); }
+.tableau a { color: var(--encre); }

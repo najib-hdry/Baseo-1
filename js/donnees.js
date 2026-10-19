@@ -259,6 +259,29 @@ export async function supprimerChantier(d, chantierId) {
   ])
 }
 
+// ---- Gestion des entreprises (admin) ----
+
+// Une autre entreprise porte-t-elle déjà ce nom (sans tenir compte des majuscules) ?
+function verifierNomEntreprise(d, nom, sauf) {
+  if (!nom) throw new Error('Le nom de l’entreprise est obligatoire.')
+  if (d.Entreprises.some((e) => e.id !== sauf && (e.Nom ?? '').trim().toLowerCase() === nom.toLowerCase()))
+    throw new Error(`Une entreprise « ${nom} » existe déjà.`)
+}
+
+// `champs` : Nom, Adresse, Responsable_prenom, Responsable_nom, Telephone, Email
+export async function creerEntreprise(d, champs) {
+  verifierNomEntreprise(d, champs.Nom, null)
+  await action([['AddRecord', 'Entreprises', null, champs]])
+}
+
+export async function modifierEntreprise(d, entrepriseId, champs) {
+  verifierNomEntreprise(d, champs.Nom, entrepriseId)
+  await action([['UpdateRecord', 'Entreprises', entrepriseId, champs]])
+}
+
+// Les intervenants rattachés restent, sans entreprise (Grist vide leur référence)
+export const supprimerEntreprise = (entrepriseId) => action([['RemoveRecord', 'Entreprises', entrepriseId]])
+
 // ---- Contrôles nettoyage et maintenance ----
 
 export const enregistrer = (table, champs) => action([['AddRecord', table, null, champs]])

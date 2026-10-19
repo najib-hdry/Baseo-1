@@ -7,6 +7,7 @@ import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
 import { creerEcranAdmin } from './admin.js'
+import { creerEcranEntreprises } from './entreprises.js'
 
 // `admin` : page visible seulement par le profil Admin
 const PAGES = [
@@ -15,6 +16,7 @@ const PAGES = [
   { cle: 'nettoyage', libelle: 'Contrôle nettoyage', icone: 'nettoyage' },
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance' },
   { cle: 'chantiers', libelle: 'Gestion des chantiers', icone: 'grue', admin: true },
+  { cle: 'entreprises', libelle: 'Gestion des entreprises', icone: 'entreprise', admin: true },
 ]
 const pagesVisibles = () => PAGES.filter((p) => !p.admin || donnees?.moi?.profil === 'Admin')
 
@@ -26,6 +28,7 @@ const ecrans = {
   nettoyage: creerEcranRapport(zones.nettoyage, () => recharger(), NETTOYAGE),
   maintenance: creerEcranRapport(zones.maintenance, () => recharger(), MAINTENANCE),
   chantiers: creerEcranAdmin(zones.chantiers, () => recharger()),
+  entreprises: creerEcranEntreprises(zones.entreprises, () => recharger()),
 }
 let page = 'casiers'
 let donnees = null
