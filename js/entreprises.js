@@ -1,7 +1,9 @@
 // Écran « Gestion des entreprises » (admin) : tableau de toutes les entreprises avec recherche,
 // fiche de création / modification, suppression avec confirmation.
-import { h, ouvrirPanneau } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes } from './outils.js'
 import { creerEntreprise, modifierEntreprise, supprimerEntreprise } from './donnees.js'
+
+const TITRES_ENTREPRISES = ['Entreprise', 'Responsable', 'Téléphone', 'Email', 'Intervenants', '']
 
 // Champs de la fiche : colonne Grist, libellé, attributs du champ
 const CHAMPS_ENTREPRISE = [
@@ -47,6 +49,7 @@ export function creerEcranEntreprises(racine, recharger) {
           h('td', { className: 'tableau-actions' },
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(e) } }, 'Modifier'),
             h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(e) } }, 'Supprimer'))))))
+      etiqueterLignes(corps, TITRES_ENTREPRISES)
     }
     dessinerLignes()
     racine.replaceChildren(
@@ -58,7 +61,7 @@ export function creerEcranEntreprises(racine, recharger) {
       compteur,
       h('div', { className: 'tableau-defilant' },
         h('table', { className: 'tableau' },
-          h('thead', null, h('tr', null, ['Entreprise', 'Responsable', 'Téléphone', 'Email', 'Intervenants', ''].map((t) => h('th', null, t)))),
+          h('thead', null, h('tr', null, TITRES_ENTREPRISES.map((t) => h('th', null, t)))),
           corps)))
   }
 

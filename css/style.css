@@ -522,7 +522,38 @@ button.tiroir-lien.active { background: var(--signal); }
 .fiche-infos dt { color: var(--encre-douce); }
 .fiche-infos dd { margin: 0; font-weight: 600; }
 /* Fiche détail dans une popup, plus large pour les tableaux */
-.panneau.panneau-fiche { max-width: 960px; }
+/* Fiche détail : popup sur tout l'écran (marge de 8 px) */
+.voile:has(.panneau-fiche) { padding: 8px; }
+.panneau.panneau-fiche { max-width: none; height: calc(100dvh - 16px); max-height: none; align-content: start; grid-auto-rows: max-content; }
 .panneau-fiche .onglets-statut { margin: 0; padding: 0 0 4px; }
 .panneau-fiche .fiche-contenu { margin-top: 0; }
 .bouton-detail { border-color: var(--trait); }
+
+/* ---- Écrans étroits (téléphone, petite fenêtre) ---- */
+@media (max-width: 720px) {
+  /* Barres d'outils empilées, bouton sur toute la largeur */
+  .barre-outils { flex-direction: column; align-items: stretch; }
+  .barre-outils .champ-compact, .barre-outils .champ-statut, .barre-outils .bouton-compact { flex: none; width: 100%; }
+  .carte-tableau { padding: 10px; }
+
+  /* Tableaux : chaque ligne devient une fiche, chaque cellule affiche le titre de sa colonne (data-label) */
+  .tableau thead { display: none; }
+  .tableau, .tableau tbody, .tableau tr, .tableau td { display: block; width: 100%; }
+  .tableau tr { padding: 10px 12px; border-bottom: 1px solid var(--trait); }
+  .tableau tr:last-child { border-bottom: none; }
+  .tableau td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; text-align: right; border: none; }
+  .tableau td::before { content: attr(data-label); flex: none; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--encre-douce); text-align: left; }
+  .tableau td:not([data-label])::before, .tableau td[data-label=""]::before { display: none; }
+  .tableau td:first-child { padding-top: 0; }
+  .tableau-vide { display: block; text-align: center; }
+  .tableau-actions { justify-content: flex-end; padding-top: 8px; }
+  .tableau-nombre { text-align: right; }
+
+  /* Fiche détail : popup plein écran sans marge, informations sur une colonne */
+  .voile:has(.panneau-fiche) { padding: 0; }
+  .panneau.panneau-fiche { height: 100dvh; border-radius: 0; }
+  .fiche-entete .carte-titre { flex-basis: 100%; }
+  .fiche-infos { grid-template-columns: 1fr; gap: 2px; }
+  .fiche-infos dd { margin-bottom: 8px; }
+  .niveau-type { flex-basis: 100%; }
+}

@@ -93,6 +93,14 @@ export function ouvrirPanneau(titre, contenu) {
   return { fermer, section }
 }
 
+// Recopie le titre de chaque colonne sur les cellules (data-label) : sur un écran étroit,
+// le CSS affiche alors chaque ligne comme une fiche étiquetée
+export function etiqueterLignes(tbody, titres) {
+  for (const tr of tbody.rows)
+    [...tr.cells].forEach((td, i) => { if (td.colSpan === 1) td.dataset.label = titres[i] ?? '' })
+  return tbody
+}
+
 // Barre d'onglets ; un seul élément s'affiche comme simple texte
 export function onglets(libelle, elements, actifId, onChoisir) {
   if (elements.length === 0) return null

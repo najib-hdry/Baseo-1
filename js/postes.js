@@ -1,8 +1,9 @@
 // Écran « Gestion des postes » (admin) : tableau de tous les postes avec recherche et filtre par statut,
 // fiche de création / modification, suppression avec confirmation.
-import { h, depuisGrist, enFrancais, ouvrirPanneau } from './outils.js'
+import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes } from './outils.js'
 import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste } from './donnees.js'
 
+const TITRES_POSTES = ['Poste', 'Chantiers', 'Démarrage', 'Personnes', 'Horaires', 'Statut', '']
 const CLASSES_STATUT_POSTE = { 'À venir': 'badge-en_cours', 'En cours': 'badge-resolu', 'Archives': 'badge-termine' }
 
 // Écran affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -50,6 +51,7 @@ export function creerEcranPostes(racine, recharger) {
           h('td', { className: 'tableau-actions' },
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(p) } }, 'Modifier'),
             h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(p) } }, 'Supprimer'))))))
+      etiqueterLignes(corps, TITRES_POSTES)
     }
     dessinerLignes()
 
@@ -65,7 +67,7 @@ export function creerEcranPostes(racine, recharger) {
       compteur,
       h('div', { className: 'tableau-defilant' },
         h('table', { className: 'tableau' },
-          h('thead', null, h('tr', null, ['Poste', 'Chantiers', 'Démarrage', 'Personnes', 'Horaires', 'Statut', ''].map((t) => h('th', null, t)))),
+          h('thead', null, h('tr', null, TITRES_POSTES.map((t) => h('th', null, t)))),
           corps)))
   }
 

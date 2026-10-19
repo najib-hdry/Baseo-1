@@ -1,10 +1,11 @@
 // Écran « Gestion des chantiers » (admin, première page) : tableau des chantiers par onglet de statut, changement de statut,
 // création d'un chantier entier (zones → bases vie → étages → vestiaires avec casiers, pièces),
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
-import { h, depuisGrist, enFrancais, ouvrirPanneau } from './outils.js'
+import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
 import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier } from './donnees.js'
 
+const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', 'Détail du chantier', '']
 // Ordre des onglets de la page
 const ONGLETS_CHANTIERS = ['En cours', 'Terminé', 'À venir', 'Nouveau']
 const LIBELLES_CONTENU = {
@@ -47,10 +48,10 @@ export function creerEcranAdmin(racine, recharger) {
           h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', 'Détail du chantier', ''].map((t) => h('th', null, t)))),
-            h('tbody', null, chantiers.length === 0
+            h('thead', null, h('tr', null, TITRES_CHANTIERS.map((t) => h('th', null, t)))),
+            etiqueterLignes(h('tbody', null, chantiers.length === 0
               ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: 7 }, 'Aucun chantier avec ce statut.'))
-              : chantiers.map(ligne))))))
+              : chantiers.map(ligne)), TITRES_CHANTIERS)))))
   }
 
   function ligne(c) {

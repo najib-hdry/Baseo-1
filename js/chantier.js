@@ -1,6 +1,6 @@
 // Fiche détail d'un chantier (page admin), en onglets :
 // Composants (structure), Informations, Casiers (occupation), Activité, Postes.
-import { h, depuisGrist, enFrancais } from './outils.js'
+import { h, depuisGrist, enFrancais, etiqueterLignes } from './outils.js'
 import { idsDeListe } from './donnees.js'
 import { zonesDuChantier, basesVisibles } from './navigation.js'
 
@@ -26,9 +26,9 @@ function occupation(d, casiers) {
 const tableau = (entetes, lignes, vide) => h('div', { className: 'tableau-defilant' },
   h('table', { className: 'tableau' },
     h('thead', null, h('tr', null, entetes.map((t) => h('th', null, t)))),
-    h('tbody', null, lignes.length === 0
+    etiqueterLignes(h('tbody', null, lignes.length === 0
       ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: entetes.length }, vide))
-      : lignes.map((cellules) => h('tr', null, cellules.map((c) => h('td', null, c)))))))
+      : lignes.map((cellules) => h('tr', null, cellules.map((c) => h('td', null, c))))), entetes)))
 
 // ---- Onglet Composants : zones → bases vie → étages → vestiaires et pièces ----
 
