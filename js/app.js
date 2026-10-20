@@ -2,7 +2,7 @@
 // et les deux écrans (casiers, incidents), comme l'application Supabase.
 /* global grist */
 import { h, icone, afficherErreur } from './outils.js'
-import { chargerTout } from './donnees.js'
+import { chargerTout, estAdmin } from './donnees.js'
 import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
@@ -23,7 +23,7 @@ const PAGES = [
   { cle: 'postes', libelle: 'Gestion des postes', icone: 'poste', admin: true },
   { cle: 'candidats', libelle: 'Gestion des candidats', icone: 'occupes', admin: true },
 ]
-const pagesVisibles = () => PAGES.filter((p) => !p.admin || donnees?.moi?.profil === 'Admin')
+const pagesVisibles = () => PAGES.filter((p) => !p.admin || estAdmin(donnees))
 
 const principal = document.getElementById('app')
 const zones = Object.fromEntries(PAGES.map((p) => [p.cle, h('div')]))
@@ -81,7 +81,7 @@ const entete = h('header', { className: 'entete' },
 
 // ---- Navigation entre les écrans ----
 
-// Choisir une page dans le menu ouvre toujours sa liste des chantiers
+// Choisir une page dans le menu la ramène toujours à son accueil
 function allerA(cle) {
   choix = cle
   afficherPage()

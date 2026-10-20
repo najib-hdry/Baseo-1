@@ -150,6 +150,15 @@ function nomZone(d, base) {
   return z && zonesDuChantier(d, z.Chantier).length > 1 ? z.Nom : null
 }
 
+// Lieu d'un contrôle nettoyage ou d'une maintenance : zone (si le chantier en a plusieurs), base vie, étage, vestiaire ou pièce
+export function lieuRapport(d, chantierId, r) {
+  const zone = zonesDuChantier(d, chantierId).length > 1 ? d.parId.Zones.get(r.Zone)?.Nom : null
+  const base = d.parId.Bases_vie.get(r.Base_vie)
+  const etage = d.parId.Etages.get(r.Etage)
+  const endroit = d.parId.Vestiaires.get(r.Vestiaire)?.Nom ?? d.parId.Pieces.get(r.Piece)?.Nom
+  return [zone, base?.Nom ?? 'Toutes les bases vie', base && (etage?.Nom ?? 'Tous les étages'), endroit].filter(Boolean).join(' · ')
+}
+
 // Libellé « Zone A · Base vie 1 · RDC · V-1 · Casier 012 » d'un casier ou d'une pièce
 export function libelleLieu(d, { casier, piece, element }) {
   if (casier) {

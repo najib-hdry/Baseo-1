@@ -3,13 +3,14 @@
 // fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié),
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
-import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche } from './donnees.js'
+import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression } from './outils.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
 
 // Statuts d'une candidature (valeurs de la colonne Statut) ; les onglets les reprennent au pluriel, plus « Tous »
-const STATUTS_CANDIDAT = ['Reçue', 'En cours d’examen', 'Entretien programmé', 'Acceptée', 'Refusée']
+const STATUT_ACCEPTE = 'Acceptée' // ouvre la fiche d'embauche
+const STATUTS_CANDIDAT = ['Reçue', 'En cours d’examen', 'Entretien programmé', STATUT_ACCEPTE, 'Refusée']
 const ONGLETS_CANDIDATS = [['Reçue', 'Reçues'], ['En cours d’examen', 'En cours d’examen'], ['Entretien programmé', 'Entretien programmé'],
   ['Acceptée', 'Acceptés'], ['Refusée', 'Refusés'], ['', 'Tous']]
 const CLASSES_STATUT_CANDIDAT = { 'Reçue': 'badge-nouveau', 'En cours d’examen': 'badge-en_cours', 'Entretien programmé': 'badge-termine', 'Acceptée': 'badge-resolu', 'Refusée': 'badge-ouvert' }
@@ -24,13 +25,17 @@ const CRITERES_NIVEAU_2 = ['Niveau CAP/BEP ou inférieur', 'Moins de 26 ans', 'S
   'Réfugié / demandeur d’asile / bénéficiaire d’une protection', 'Sortant de l’ASE', 'Sortant de détention ou placé sous-main de justice',
   'Maîtrise de la langue française niveau A1 ou infra', 'Problème de mobilité']
 
+// Situation de logement qui rend obligatoire la pièce d'identité de l'hébergeur
+const LOGEMENT_HEBERGE = 'Hébergé(e) chez quelqu’un'
+const DOC_HEBERGEUR = 'Pièce d’identité de l’hébergeur'
+
 // Documents de la fiche d'embauche : [type (table Documents), titre, précision, faces demandées]
 const DOCUMENTS_EMBAUCHE = [
   ['Pièce d’identité', 'Carte d’identité ou titre de séjour / récépissé / attestation d’instruction d’une demande de titre de séjour',
     'Document valide et couvrant au moins la durée du premier contrat (4 mois minimum)', ['Recto', 'Verso']],
   ['Carte Vitale / attestation d’assurance maladie', 'Carte Vitale / attestation d’assurance maladie', '', ['Recto', 'Verso']],
   ['Justificatif de domicile', 'Justificatif de domicile', '', ['Recto']],
-  ['Pièce d’identité de l’hébergeur', 'Si le salarié est hébergé : attestation d’hébergement + pièce d’identité de l’hébergeur', '', ['Recto', 'Verso']],
+  [DOC_HEBERGEUR, 'Si le salarié est hébergé : attestation d’hébergement + pièce d’identité de l’hébergeur', '', ['Recto', 'Verso']],
   ['Attestation d’inscription à France Travail', 'Attestation d’inscription à France Travail', 'Identifiant + durée d’inscription', ['Recto']],
   ['RIB', 'RIB', '', ['Recto']],
   ['Attestation CAF', 'Attestation CAF', 'Nécessaire pour savoir si le salarié bénéficie d’aides sociales', ['Recto']],
@@ -85,7 +90,7 @@ const BLOCS_CANDIDAT = [
     ['Referent_social_telephone', 'Téléphone du référent ou de l’assistant social', 'tel'], ['Referent_social_email', 'Email du référent ou de l’assistant social', 'email'],
   ]],
   ['Logement', [
-    ['Situation_logement', 'Logement ou hébergé(e) chez quelqu’un ?', 'choix', ['Logement personnel', 'Hébergé(e) chez quelqu’un', 'Hébergement d’urgence ou foyer', 'Sans domicile', 'Autre']],
+    ['Situation_logement', 'Logement ou hébergé(e) chez quelqu’un ?', 'choix', ['Logement personnel', LOGEMENT_HEBERGE, 'Hébergement d’urgence ou foyer', 'Sans domicile', 'Autre']],
     ['Demande_logement', 'Une demande de logement a-t-elle été effectuée ?', 'choix', OUI_NON], ['Demande_logement_par', 'Si oui, par qui ?', 'texte'],
   ]],
   ['Ressources', [
@@ -132,7 +137,7 @@ export function creerEcranCandidats(racine, recharger) {
 
   function rendre() {
     if (!d) return
-    if (d.moi?.profil !== 'Admin') {
+    if (!estAdmin(d)) {
       racine.replaceChildren(h('h1', null, 'Gestion des candidats'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
@@ -161,13 +166,13 @@ export function creerEcranCandidats(racine, recharger) {
             h('td', null, c.Statut ? h('span', { className: `badge ${CLASSES_STATUT_CANDIDAT[c.Statut] ?? ''}` }, c.Statut) : '—',
               c.Embauche && h('span', { className: 'badge badge-embauche' }, 'Embauché')),
             h('td', null, nationalite(c)),
-            h('td', null, c.Telephone ? h('a', { href: `tel:${c.Telephone}`, onClick: (e) => e.stopPropagation() }, c.Telephone) : ''),
-            h('td', null, c.Email ? h('a', { href: `mailto:${c.Email}`, onClick: (e) => e.stopPropagation() }, c.Email) : ''),
+            h('td', null, lienContact('tel', c.Telephone)),
+            h('td', null, lienContact('mailto', c.Email)),
             h('td', null, poste(c)),
             h('td', null, cip(c)),
             h('td', null, passIae(c)),
             h('td', { className: 'tableau-actions' },
-              c.Statut === 'Acceptée' && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: (e) => { e.stopPropagation(); ouvrirFicheEmbauche(c) } }, 'Embauche'),
+              c.Statut === STATUT_ACCEPTE && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: (e) => { e.stopPropagation(); ouvrirFicheEmbauche(c) } }, 'Embauche'),
               h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (e) => { e.stopPropagation(); ouvrirFicheEntretien(c) } }, 'Entretien'),
               h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirFormulaire(c) } }, 'Modifier'),
               h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
@@ -299,10 +304,10 @@ export function creerEcranCandidats(racine, recharger) {
     if (type === 'date') return enFrancais(depuisGrist(v)) || '—'
     if (type === 'ref') return d[options[0]] ? d.parId[options[0]].get(v)?.[options[1]] || '—' : '—'
     if (type === 'nombre') return v != null && v !== '' ? euros.format(v) : '—'
-    if (type === 'tel') return v ? h('a', { href: `tel:${v}` }, v) : '—'
-    if (type === 'email') return v ? h('a', { href: `mailto:${v}` }, v) : '—'
+    if (type === 'tel') return lienContact('tel', v) || '—'
+    if (type === 'email') return lienContact('mailto', v) || '—'
     if (type === 'photo' || type === 'fichier') {
-      const id = Array.isArray(v) ? v.find((x) => x !== 'L') : null
+      const id = idsDeListe(v)[0]
       if (!id) return '—'
       if (!lien) return 'Fichier enregistré'
       return type === 'photo'
@@ -325,7 +330,7 @@ export function creerEcranCandidats(racine, recharger) {
     const { fermer, section } = ouvrirPanneau(titre, [
       h('div', { className: 'fiche-entete' },
         h('div', { className: 'carte-titre sous-texte' }, [naissance && `${enFrancais(naissance)} · ${age(naissance)} ans`, poste(c)].filter(Boolean).join(' · ') || ' '),
-        c.Statut === 'Acceptée' && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: () => { fermer(); ouvrirFicheEmbauche(c) } }, 'Fiche d’embauche'),
+        c.Statut === STATUT_ACCEPTE && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: () => { fermer(); ouvrirFicheEmbauche(c) } }, 'Fiche d’embauche'),
         h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirFicheEntretien(c) } }, 'Fiche d’entretien'),
         h('button', { className: 'bouton bouton-compact', onClick: () => { fermer(); ouvrirFormulaire(c) } }, 'Modifier'),
         h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { fermer(); ouvrirSuppression(c) } }, 'Supprimer')),
@@ -353,7 +358,7 @@ export function creerEcranCandidats(racine, recharger) {
     const entretiens = (d.Entretiens ?? []).filter((e) => e.Candidat === c.id).sort((a, b) => (b.Cree_le ?? 0) - (a.Cree_le ?? 0))
     const infos = [
       ['Prénom', c.Prenom || '—'], ['Nom', c.Nom || '—'],
-      ['Téléphone', c.Telephone ? h('a', { href: `tel:${c.Telephone}` }, c.Telephone) : '—'], ['RQTH', c.RQTH || '—'],
+      ['Téléphone', lienContact('tel', c.Telephone) || '—'], ['RQTH', c.RQTH || '—'],
       ['Validité de la pièce d’identité', dateAvecAlerte(c.Date_validite_piece_identite)], ['Fin du Pass IAE', dateAvecAlerte(c.Pass_IAE_fin)],
     ]
 
@@ -423,7 +428,7 @@ export function creerEcranCandidats(racine, recharger) {
       ['Statut', p.Statut || '—'],
       ['Date de démarrage', enFrancais(depuisGrist(p.Date_demarrage)) || '—'],
       ['Personnes recherchées', p.Nb_personnes ?? '—'],
-      ['Horaires', p.Horaires === 'Autre' ? p.Horaires_precision || 'Autre' : p.Horaires || '—'],
+      ['Horaires', libelleHoraires(p, '—')],
       ['Chantiers', chantiers.length ? chantiers.join(', ') : '—'],
     ]
     return h('section', { className: 'bloc-candidat' }, h('h3', null, p.Titre || 'Poste sans titre'),
@@ -436,21 +441,20 @@ export function creerEcranCandidats(racine, recharger) {
 
   async function ouvrirFicheEmbauche(c) {
     const lien = await lienPhotos().catch(() => null) // adresse temporaire des pièces jointes déjà enregistrées
-    const valeursListe = (v) => (Array.isArray(v) ? v.filter((x) => x !== 'L') : [])
-    const coches = { Criteres_niveau_1: new Set(valeursListe(c.Criteres_niveau_1)), Criteres_niveau_2: new Set(valeursListe(c.Criteres_niveau_2)) }
+    const coches = { Criteres_niveau_1: new Set(idsDeListe(c.Criteres_niveau_1)), Criteres_niveau_2: new Set(idsDeListe(c.Criteres_niveau_2)) }
     const tailles = { Taille_pantalon: c.Taille_pantalon ?? '', Taille_veste: c.Taille_veste ?? '', Pointure: c.Pointure ?? '' }
     const nouveaux = {} // { type: { Recto: fichier, Verso: fichier } }
     const documentsDuCandidat = (d.Documents ?? []).filter((r) => r.Candidat === c.id)
-    const pieceJointe = (v) => (Array.isArray(v) ? v.find((x) => x !== 'L') : null)
-    const heberge = c.Situation_logement === 'Hébergé(e) chez quelqu’un'
-    const rectoExige = (type) => type !== 'Pièce d’identité de l’hébergeur' || heberge
+    const pieceJointe = (v) => idsDeListe(v)[0] ?? null
+    const heberge = c.Situation_logement === LOGEMENT_HEBERGE
+    const rectoExige = (type) => type !== DOC_HEBERGEUR || heberge
     // Recto déjà enregistré ou choisi dans cette fiche
     const aUnRecto = (type) => Boolean(pieceJointe(documentsDuCandidat.find((r) => r.Type_document === type)?.Recto) || nouveaux[type]?.Recto)
 
     // Informations de base (lecture)
     const infos = [
       ['Prénom', c.Prenom || '—'], ['Nom', c.Nom || '—'],
-      ['Téléphone', c.Telephone ? h('a', { href: `tel:${c.Telephone}` }, c.Telephone) : '—'],
+      ['Téléphone', lienContact('tel', c.Telephone) || '—'],
       ['Validité de la pièce d’identité', dateAvecAlerte(c.Date_validite_piece_identite)], ['RQTH', c.RQTH || '—'],
       ['Fin du Pass IAE', dateAvecAlerte(c.Pass_IAE_fin)], ['Validé par le CIP', c.Valide_par_CIP || '—'],
       ['Embauché', c.Embauche ? 'Oui' : 'Non (coché à l’enregistrement de cette fiche)'],
@@ -548,26 +552,11 @@ export function creerEcranCandidats(racine, recharger) {
   // ---- Suppression ----
 
   function ouvrirSuppression(c) {
-    const erreur = h('p', { className: 'erreur', hidden: true })
-    const confirmer = h('button', { className: 'bouton bouton-danger' }, 'Supprimer définitivement')
-    confirmer.addEventListener('click', async () => {
-      confirmer.disabled = true
-      try {
-        await supprimerCandidat(c.id)
-        fermer()
-        await recharger()
-      } catch (err) {
-        erreur.textContent = err.message || 'La suppression a échoué.'
-        erreur.hidden = false
-        confirmer.disabled = false
-      }
-    })
-    const { fermer } = ouvrirPanneau(`Supprimer ${nom(c)} ?`, [
-      h('p', null, 'Toutes les informations de ce candidat seront supprimées.'),
-      h('p', { className: 'sous-texte' }, 'En cas d’erreur, la suppression s’annule dans l’Historique du document Grist.'),
-      erreur, confirmer,
-      h('button', { className: 'bouton', onClick: () => fermer() }, 'Annuler'),
-    ])
+    const nb = (table) => (d[table] ?? []).filter((r) => r.Candidat === c.id).length
+    const lies = [[nb('Documents'), 'document(s)'], [nb('Entretiens'), 'entretien(s)']].filter(([n]) => n > 0).map(([n, libelle]) => `${n} ${libelle}`)
+    fenetreSuppression(`Supprimer ${nom(c)} ?`, [
+      h('p', null, `Toutes les informations de ce candidat seront supprimées${lies.length ? `, avec ses ${lies.join(' et ses ')}` : ''}.`),
+    ], [['Supprimer définitivement', 'bouton-danger', () => supprimerCandidat(d, c.id)]], recharger)
   }
 
   return {

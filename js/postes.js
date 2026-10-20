@@ -1,7 +1,7 @@
 // Écran « Gestion des postes » (admin) : tableau de tous les postes avec recherche et filtre par statut,
 // fiche de création / modification, suppression avec confirmation.
-import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes } from './outils.js'
-import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste } from './donnees.js'
+import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression } from './outils.js'
+import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste, estAdmin, libelleHoraires } from './donnees.js'
 
 const TITRES_POSTES = ['Poste', 'Chantiers', 'Démarrage', 'Personnes', 'Horaires', 'Statut', '']
 const CLASSES_STATUT_POSTE = { 'À venir': 'badge-en_cours', 'En cours': 'badge-resolu', 'Archives': 'badge-termine' }
@@ -13,11 +13,10 @@ export function creerEcranPostes(racine, recharger) {
   let filtreStatut = 'tous' // 'tous' ou un statut
 
   const nomsChantiers = (p) => idsDeListe(p.Chantiers).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
-  const horaires = (p) => (p.Horaires === 'Autre' ? p.Horaires_precision || 'Autre' : p.Horaires ?? '')
 
   function rendre() {
     if (!d) return
-    if (d.moi?.profil !== 'Admin') {
+    if (!estAdmin(d)) {
       racine.replaceChildren(h('h1', null, 'Gestion des postes'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
@@ -46,7 +45,7 @@ export function creerEcranPostes(racine, recharger) {
           h('td', null, nomsChantiers(p)),
           h('td', null, enFrancais(depuisGrist(p.Date_demarrage))),
           h('td', { className: 'tableau-nombre' }, p.Nb_personnes ?? ''),
-          h('td', null, horaires(p)),
+          h('td', null, libelleHoraires(p)),
           h('td', null, p.Statut && h('span', { className: `badge ${CLASSES_STATUT_POSTE[p.Statut] ?? ''}` }, p.Statut)),
           h('td', { className: 'tableau-actions' },
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(p) } }, 'Modifier'),
@@ -137,24 +136,10 @@ export function creerEcranPostes(racine, recharger) {
   // ---- Suppression ----
 
   function ouvrirSuppression(p) {
-    const erreur = h('p', { className: 'erreur', hidden: true })
-    const confirmer = h('button', { className: 'bouton bouton-danger' }, 'Supprimer définitivement')
-    const archiver = h('button', { className: 'bouton', hidden: p.Statut === 'Archives' }, 'Plutôt passer en « Archives »')
-    const executer = async (bouton, fn) => {
-      bouton.disabled = true
-      try { await fn(); fermer(); await recharger() } catch (err) {
-        erreur.textContent = err.message || 'L’opération a échoué.'
-        erreur.hidden = false
-        bouton.disabled = false
-      }
-    }
-    confirmer.addEventListener('click', () => executer(confirmer, () => supprimerPoste(p.id)))
-    archiver.addEventListener('click', () => executer(archiver, () => archiverPoste(p.id)))
-    const { fermer } = ouvrirPanneau(`Supprimer ${p.Titre || 'ce poste'} ?`, [
-      h('p', { className: 'sous-texte' }, 'En cas d’erreur, la suppression s’annule dans l’Historique du document Grist.'),
-      erreur, confirmer, archiver,
-      h('button', { className: 'bouton', onClick: () => fermer() }, 'Annuler'),
-    ])
+    fenetreSuppression(`Supprimer ${p.Titre || 'ce poste'} ?`, [], [
+      ['Supprimer définitivement', 'bouton-danger', () => supprimerPoste(p.id)],
+      ...(p.Statut === 'Archives' ? [] : [['Plutôt passer en « Archives »', '', () => archiverPoste(p.id)]]),
+    ], recharger)
   }
 
   return {

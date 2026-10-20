@@ -5,7 +5,7 @@
 //   le vestiaire ou la pièce ; l'onglet Historique liste les derniers enregistrements.
 import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, reduirePhoto } from './outils.js'
 import { envoyerPhoto, enregistrer } from './donnees.js'
-import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
+import { cartesChantiers, vueChantier, selectionPourChantier, zonesDuChantier, basesVisibles, lieuRapport } from './navigation.js'
 
 export const NETTOYAGE = {
   titre: 'Contrôle nettoyage', table: 'Controles_nettoyage', nouveau: 'Nouveau contrôle', horaire: true,
@@ -20,7 +20,6 @@ export const MAINTENANCE = {
 }
 
 const NB_PHOTOS = 4
-const parNom = (a, b) => String(a.Nom).localeCompare(String(b.Nom))
 
 // Écran d'un type de rapport (`config` : NETTOYAGE ou MAINTENANCE), affiché dans `racine`
 export function creerEcranRapport(racine, recharger, config) {
@@ -33,7 +32,6 @@ export function creerEcranRapport(racine, recharger, config) {
   let minuteur = null
 
   const duChantier = (chantierId) => d[config.table].filter((r) => r.Chantier === chantierId)
-  const zonesDuChantier = (chantierId) => d.Zones.filter((z) => z.Chantier === chantierId)
 
   function rendre() {
     if (!d) return
@@ -101,14 +99,6 @@ export function creerEcranRapport(racine, recharger, config) {
 
   // ---- Derniers enregistrements du chantier ----
 
-  function lieuDe(r) {
-    const zone = zonesDuChantier(etat.chantierId).length > 1 ? d.parId.Zones.get(r.Zone)?.Nom : null
-    const base = d.parId.Bases_vie.get(r.Base_vie)
-    const etage = d.parId.Etages.get(r.Etage)
-    const endroit = d.parId.Vestiaires.get(r.Vestiaire)?.Nom ?? d.parId.Pieces.get(r.Piece)?.Nom
-    return [zone, base?.Nom ?? 'Toutes les bases vie', base && (etage?.Nom ?? 'Tous les étages'), endroit].filter(Boolean).join(' · ')
-  }
-
   function derniers() {
     const liste = duChantier(etat.chantierId)
       .sort((a, b) => (depuisGrist(b.Date) ?? '').localeCompare(depuisGrist(a.Date) ?? '') || b.id - a.id)
@@ -122,7 +112,7 @@ export function creerEcranRapport(racine, recharger, config) {
           h('span', { className: 'incident-haut' },
             config.choix.map((c) => r[c.col] && h('span', { className: 'incident-categorie' }, r[c.col])),
             h('span', { className: 'incident-date' }, [enFrancais(depuisGrist(r.Date)), r.Horaire_passage].filter(Boolean).join(' · '))),
-          lieuDe(r) && h('span', { className: 'incident-lieu' }, lieuDe(r)),
+          h('span', { className: 'incident-lieu' }, lieuRapport(d, etat.chantierId, r)),
           r.Commentaire && h('span', { className: 'incident-description' }, r.Commentaire),
           h('span', { className: 'rapport-pied' },
             h('span', { className: `badge ${r.Fiche_passage_complete ? 'badge-resolu' : 'badge-ouvert'}` },
@@ -138,10 +128,8 @@ export function creerEcranRapport(racine, recharger, config) {
   // « Toutes les bases vie » / « Tous les étages » enregistrent une base vie / un étage vide.
   // Si `form` arrive déjà rempli (lieu touché sur le plan), les listes partent de ce lieu.
   function selecteurLieu(form) {
-    const zones = zonesDuChantier(etat.chantierId)
-    const bases = () => (zones.length > 0
-      ? d.Bases_vie.filter((b) => b.Zone === form.zoneId)
-      : d.Bases_vie.filter((b) => b.Chantier === etat.chantierId)).sort(parNom)
+    const zones = zonesDuChantier(d, etat.chantierId)
+    const bases = () => basesVisibles(d, { chantierId: etat.chantierId, zoneId: form.zoneId })
     const etages = () => d.Etages.filter((e) => e.Base_vie === form.baseId)
     const conteneur = h('div', { className: 'formulaire' })
 

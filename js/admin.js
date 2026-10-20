@@ -1,9 +1,9 @@
 // Écran « Gestion des chantiers » (admin, première page) : tableau des chantiers par onglet de statut, changement de statut,
 // création d'un chantier entier (zones → bases vie → étages → vestiaires avec casiers, pièces),
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
-import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes } from './outils.js'
+import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin } from './donnees.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', 'Détail du chantier', '']
 // Ordre des onglets de la page
@@ -27,7 +27,7 @@ export function creerEcranAdmin(racine, recharger) {
 
   function rendre() {
     if (!d) return
-    if (d.moi?.profil !== 'Admin') {
+    if (!estAdmin(d)) {
       racine.replaceChildren(h('h1', null, 'Gestion des chantiers'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
@@ -113,7 +113,9 @@ export function creerEcranAdmin(racine, recharger) {
   // ---- Modification des composants d'un chantier existant ----
 
   function ouvrirComposants(c) {
-    const structure = structureDuChantier(d, c.id)
+    const structure = structureDuChantier(d, c.id) // modifiée par l'éditeur
+    const avant = structureDuChantier(d, c.id) // état à l'ouverture, pour repérer les changements faits entre-temps
+    let confirme = false // historique annoncé et accepté
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer les composants')
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
@@ -128,7 +130,7 @@ export function creerEcranAdmin(racine, recharger) {
       valider.disabled = true
       valider.textContent = 'Enregistrement…'
       try {
-        await modifierStructure(d, c.id, structure)
+        await modifierStructure(d, c.id, structure, { avant, confirme })
         fermer()
         await recharger()
         const aJour = d.parId.Chantiers.get(c.id)
@@ -137,8 +139,9 @@ export function creerEcranAdmin(racine, recharger) {
         erreur.textContent = err.message || 'L’enregistrement a échoué.'
         erreur.hidden = false
         valider.disabled = false
-        valider.textContent = 'Enregistrer les composants'
-        recharger() // un nouvel essai partira d'identifiants à jour
+        confirme = Boolean(err.historique) // le clic suivant confirme la perte de lieu de l'historique
+        valider.textContent = confirme ? 'Confirmer et enregistrer' : 'Enregistrer les composants'
+        if (!confirme) recharger() // un nouvel essai partira d'identifiants à jour
       }
     } },
     h('p', { className: 'sous-texte' },
@@ -212,7 +215,7 @@ export function creerEcranAdmin(racine, recharger) {
     blocInfos,
     !c && h('h3', { className: 'titre-section' }, 'Structure'),
     !c && editeurStructure(structure),
-    !c && h('p', { className: 'sous-texte' }, 'La structure d’un chantier existant se complète ensuite dans les tables Grist.'),
+    !c && h('p', { className: 'sous-texte' }, 'La structure d’un chantier existant se modifie ensuite avec « Modifier les composants » dans sa fiche détail.'),
     erreur, valider)
 
     const { fermer, section } = ouvrirPanneau(c ? `Modifier ${c.Nom}` : 'Nouveau chantier', formulaire)
@@ -229,7 +232,7 @@ export function creerEcranAdmin(racine, recharger) {
         for (const e of b.etages) {
           if (!e.nom.trim()) return 'Chaque étage doit avoir un nom.'
           if ([...e.vestiaires, ...e.pieces].some((x) => !x.nom.trim())) return 'Chaque vestiaire et chaque pièce doit avoir un nom.'
-          if (e.vestiaires.some((v) => !(Number(v.casiers) >= 0 && Number(v.casiers) <= 500))) return 'Le nombre de casiers doit être entre 0 et 500.'
+          if (e.vestiaires.some((v) => !(Number.isInteger(Number(v.casiers)) && Number(v.casiers) >= 0 && Number(v.casiers) <= 500))) return 'Le nombre de casiers doit être un entier entre 0 et 500.'
         }
       }
     }
@@ -320,32 +323,19 @@ export function creerEcranAdmin(racine, recharger) {
   function ouvrirSuppression(c) {
     const contenu = contenuChantier(d, c.id)
     const liste = Object.entries(contenu).filter(([, ids]) => ids.length > 0).map(([t, ids]) => `${ids.length} ${LIBELLES_CONTENU[t]}`)
-    const erreur = h('p', { className: 'erreur', hidden: true })
-    const confirmer = h('button', { className: 'bouton bouton-danger', disabled: true }, 'Supprimer définitivement')
+    // Suppression possible seulement après avoir tapé le nom du chantier
     const saisie = h('input', { className: 'champ', autocomplete: 'off', 'aria-label': 'Nom du chantier',
       onInput: (e) => { confirmer.disabled = e.target.value.trim() !== String(c.Nom).trim() } })
-    const terminer = h('button', { className: 'bouton' }, 'Plutôt passer en « Terminé » et masquer')
-
-    const executer = async (bouton, fn) => {
-      bouton.disabled = true
-      erreur.hidden = true
-      try { await fn(); fermer(); await recharger() } catch (err) {
-        erreur.textContent = err.message || 'L’opération a échoué.'
-        erreur.hidden = false
-        bouton.disabled = false
-      }
-    }
-    confirmer.addEventListener('click', () => executer(confirmer, () => supprimerChantier(d, c.id)))
-    terminer.addEventListener('click', () => executer(terminer, () => modifierChantier(c.id, { Statut: 'Terminé', Actif: false })))
-
-    const { fermer } = ouvrirPanneau(`Supprimer ${c.Nom}`, [
+    const [confirmer] = fenetreSuppression(`Supprimer ${c.Nom}`, [
       h('p', null, liste.length > 0
         ? `Seront supprimés avec le chantier : ${liste.join(', ')}. L’historique des attributions et des incidents sera perdu.`
         : 'Ce chantier est vide.'),
-      h('p', { className: 'sous-texte' }, 'En cas d’erreur, la suppression s’annule dans l’Historique du document Grist.'),
       h('label', { className: 'champ-groupe' }, `Pour confirmer, tape le nom du chantier : ${c.Nom}`, saisie),
-      erreur, confirmer, terminer,
-    ])
+    ], [
+      ['Supprimer définitivement', 'bouton-danger', () => supprimerChantier(d, c.id)],
+      ['Plutôt passer en « Terminé » et masquer', '', () => modifierChantier(c.id, { Statut: 'Terminé', Actif: false })],
+    ], recharger)
+    confirmer.disabled = true
   }
 
   return {

@@ -30,6 +30,8 @@ async function lireProfil() {
 
 // Chef d'équipe et admin : hors service, suivi des incidents ; le salarié déclare seulement
 export const peutGerer = (d) => d.moi?.profil !== 'Salarié'
+// Pages et actions réservées au profil Admin (`d` peut être null avant le premier chargement)
+export const estAdmin = (d) => d?.moi?.profil === 'Admin'
 
 // Charge toutes les tables et prépare les index utiles aux écrans ; `moi` null = pas d'accès
 export async function chargerTout() {
@@ -99,16 +101,15 @@ export async function creerEtAttribuer(d, casierId, form, dateDebut) {
   // Un seul envoi, appliqué en entier ou pas du tout : pas d'intervenant orphelin si l'attribution échoue.
   // Les nouvelles lignes reçoivent un identifiant choisi ici (le suivant du plus grand) pour pouvoir
   // y faire référence ; si quelqu'un l'a pris entre-temps, Grist refuse tout l'envoi.
-  const prochainId = (table) => Math.max(0, ...d[table].map((r) => r.id)) + 1
   const actions = []
   let entrepriseId = null
   const nomEntreprise = form.entreprise.trim()
   if (nomEntreprise) {
     const existante = d.Entreprises.find((e) => (e.Nom ?? '').toLowerCase() === nomEntreprise.toLowerCase())
-    entrepriseId = existante?.id ?? prochainId('Entreprises')
+    entrepriseId = existante?.id ?? compteur(d, 'Entreprises')()
     if (!existante) actions.push(['AddRecord', 'Entreprises', entrepriseId, { Nom: nomEntreprise }])
   }
-  const intervenantId = prochainId('Intervenants')
+  const intervenantId = compteur(d, 'Intervenants')()
   actions.push(
     ['AddRecord', 'Intervenants', intervenantId, {
       Prenom: form.prenom.trim(), Nom: form.nom.trim(), Entreprise: entrepriseId, Badge: badge || null, Employeur: form.employeur || null,
@@ -153,7 +154,14 @@ export async function envoyerPhoto(blob, nom = 'photo.jpg') {
 export const enregistrerCandidat = (candidatId, champs) =>
   action([candidatId == null ? ['AddRecord', 'Candidats', null, champs] : ['UpdateRecord', 'Candidats', candidatId, champs]])
 
-export const supprimerCandidat = (candidatId) => action([['RemoveRecord', 'Candidats', candidatId]])
+// Supprime le candidat avec ses documents (pièces d'identité, RIB…) et ses entretiens, en un seul envoi
+export async function supprimerCandidat(d, candidatId) {
+  const lies = (table) => d[table].filter((r) => r.Candidat === candidatId).map((r) => r.id)
+  await action([
+    ...['Documents', 'Entretiens'].map((t) => [t, lies(t)]).filter(([, ids]) => ids.length > 0).map(([t, ids]) => ['BulkRemoveRecord', t, ids]),
+    ['RemoveRecord', 'Candidats', candidatId],
+  ])
+}
 
 /**
  * Fiche d'embauche : met à jour le candidat (`champs` au format Grist) et ses documents en un seul envoi.
@@ -205,6 +213,13 @@ function compteur(d, table) {
   return () => suivant++
 }
 
+// Lignes [{ id, Col: v }] → BulkAddRecord avec les identifiants choisis (rien si la liste est vide)
+function ajoutGroupe(table, liste) {
+  if (liste.length === 0) return []
+  const colonnes = Object.keys(liste[0]).filter((c) => c !== 'id')
+  return [['BulkAddRecord', table, liste.map((l) => l.id), Object.fromEntries(colonnes.map((c) => [c, liste.map((l) => l[c])]))]]
+}
+
 // Colonnes `infos` (Nom, Adresse, Statut, Actif, dates ISO, jours travaillés, prix) au format Grist ;
 // seules les colonnes présentes sont écrites
 const infosVersGrist = (infos) => Object.fromEntries(Object.entries(infos).map(([col, v]) =>
@@ -242,15 +257,9 @@ export async function creerChantier(d, infos, structure) {
     }
   }
 
-  // Lignes [{ id, Col: v }] → BulkAddRecord avec les identifiants choisis
-  const ajout = (table, liste) => {
-    if (liste.length === 0) return []
-    const colonnes = Object.keys(liste[0]).filter((c) => c !== 'id')
-    return [['BulkAddRecord', table, liste.map((l) => l.id), Object.fromEntries(colonnes.map((c) => [c, liste.map((l) => l[c])]))]]
-  }
   await action([
     ['AddRecord', 'Chantiers', chantierId, infosVersGrist(infos)],
-    ...Object.entries(lignes).flatMap(([table, liste]) => ajout(table, liste)),
+    ...Object.entries(lignes).flatMap(([table, liste]) => ajoutGroupe(table, liste)),
   ])
 }
 
@@ -277,10 +286,12 @@ export function structureDuChantier(d, chantierId) {
  * Enregistre la structure modifiée d'un chantier en un seul envoi (tout ou rien) :
  * renommages et types, nouveaux éléments, éléments retirés (avec leurs casiers),
  * nombre de casiers par vestiaire (ajout à la suite, retrait des derniers numéros).
- * Refuse de retirer un casier occupé.
+ * `avant` : structure prise à l'ouverture de l'éditeur ; si elle a changé depuis (autre admin), rien n'est écrit.
+ * Refuse de retirer un casier occupé ; si des lignes d'historique perdent leur lieu, demande `confirme`.
  */
-export async function modifierStructure(d, chantierId, structure) {
-  const avant = structureDuChantier(d, chantierId)
+export async function modifierStructure(d, chantierId, structure, { avant, confirme = false }) {
+  if (JSON.stringify(structureDuChantier(d, chantierId)) !== JSON.stringify(avant))
+    throw new Error('Les composants de ce chantier ont été modifiés entre-temps (par quelqu’un d’autre ?). Ferme cette fenêtre et rouvre-la pour repartir de la version à jour.')
   const id = { Zones: compteur(d, 'Zones'), Bases_vie: compteur(d, 'Bases_vie'), Etages: compteur(d, 'Etages'),
     Vestiaires: compteur(d, 'Vestiaires'), Casiers: compteur(d, 'Casiers'), Pieces: compteur(d, 'Pieces') }
   const avecZones = !d.absentes.has('Zones')
@@ -346,14 +357,21 @@ export async function modifierStructure(d, chantierId, structure) {
   if (occupes.length > 0)
     throw new Error(`Impossible : ${occupes.length} casier(s) à retirer sont occupés (${occupes.slice(0, 5).map((c) => c.Numero).join(', ')}…). Libère-les d’abord.`)
 
-  const ajout = (table, liste) => {
-    if (liste.length === 0) return []
-    const colonnes = Object.keys(liste[0]).filter((c) => c !== 'id')
-    return [['BulkAddRecord', table, liste.map((l) => l.id), Object.fromEntries(colonnes.map((c) => [c, liste.map((l) => l[c])]))]]
+  // Historique qui perdrait son lieu : attributions passées, incidents, contrôles nettoyage, maintenances
+  const dans = (ids) => { const s = new Set(ids); return (v) => s.has(v) }
+  const [casier, piece, vestiaire, etage, base] = [casiersRetires.map((c) => c.id), retraits.Pieces, retraits.Vestiaires, retraits.Etages, retraits.Bases_vie].map(dans)
+  const historique = d.Attributions.filter((a) => casier(a.Casier)).length
+    + d.Incidents.filter((i) => casier(i.Casier) || piece(i.Piece)).length
+    + [...d.Controles_nettoyage, ...d.Maintenance].filter((r) => vestiaire(r.Vestiaire) || piece(r.Piece) || etage(r.Etage) || base(r.Base_vie)).length
+  if (historique > 0 && !confirme) {
+    const err = new Error(`${historique} ligne(s) d’historique (attributions passées, incidents, contrôles, maintenances) concernent les éléments retirés : elles resteront dans Grist, mais sans lieu. Clique sur « Confirmer et enregistrer » pour continuer.`)
+    err.historique = true
+    throw err
   }
+
   const retrait = (table, ids) => (ids.length > 0 ? [['BulkRemoveRecord', table, ids]] : [])
   const actions = [
-    ...Object.entries(ajouts).flatMap(([t, liste]) => ajout(t, liste)),
+    ...Object.entries(ajouts).flatMap(([t, liste]) => ajoutGroupe(t, liste)),
     ...mises.map(([t, i, champs]) => ['UpdateRecord', t, i, champs]),
     ...retrait('Casiers', casiersRetires.map((c) => c.id)),
     ...retrait('Pieces', retraits.Pieces), ...retrait('Vestiaires', retraits.Vestiaires),
@@ -415,7 +433,10 @@ export const supprimerFiche = (table, ligneId) => action([['RemoveRecord', table
 // ---- Gestion des postes (admin) ----
 
 export const STATUTS_POSTE = ['À venir', 'En cours', 'Archives']
-export const HORAIRES_POSTE = ['4', '5', '6', '7', 'Autre']
+const HORAIRES_AUTRE = 'Autre'
+export const HORAIRES_POSTE = ['4', '5', '6', '7', HORAIRES_AUTRE]
+// Horaires lisibles d'un poste : la précision quand le choix est « Autre » ; `vide` sans horaires
+export const libelleHoraires = (p, vide = '') => (p.Horaires === HORAIRES_AUTRE ? p.Horaires_precision || HORAIRES_AUTRE : p.Horaires || vide)
 
 // Liste de références Grist (['L', 1, 2]) ↔ tableau d'identifiants
 export const idsDeListe = (v) => (Array.isArray(v) ? v.filter((x) => x !== 'L') : [])
@@ -425,14 +446,14 @@ const posteVersGrist = (champs) => ({
   ...champs,
   Date_demarrage: versGrist(champs.Date_demarrage),
   Chantiers: champs.Chantiers.length > 0 ? ['L', ...champs.Chantiers] : null,
-  Horaires_precision: champs.Horaires === 'Autre' ? champs.Horaires_precision : '',
+  Horaires_precision: champs.Horaires === HORAIRES_AUTRE ? champs.Horaires_precision : '',
 })
 
 function verifierPoste(champs) {
   if (!champs.Titre) throw new Error('Le titre du poste est obligatoire.')
   if (champs.Nb_personnes != null && !(Number.isInteger(champs.Nb_personnes) && champs.Nb_personnes >= 0))
     throw new Error('Le nombre de personnes doit être un entier positif.')
-  if (champs.Horaires === 'Autre' && !champs.Horaires_precision) throw new Error('Précise les horaires (choix « Autre »).')
+  if (champs.Horaires === HORAIRES_AUTRE && !champs.Horaires_precision) throw new Error('Précise les horaires (choix « Autre »).')
 }
 
 export async function creerPoste(champs) {

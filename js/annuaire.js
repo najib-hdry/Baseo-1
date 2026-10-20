@@ -1,11 +1,9 @@
 // Écrans « annuaire » (admin) : tableau avec recherche, fiche de création / modification, suppression.
 // Une même logique pour deux tables, décrites par ENTREPRISES et SOUS_TRAITANTS.
-import { h, ouvrirPanneau, etiqueterLignes } from './outils.js'
-import { enregistrerFiche, supprimerFiche } from './donnees.js'
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression } from './outils.js'
+import { enregistrerFiche, supprimerFiche, estAdmin } from './donnees.js'
 
 const responsable = (r) => [r.Responsable_prenom, r.Responsable_nom].filter(Boolean).join(' ')
-const lienTel = (r) => (r.Telephone ? h('a', { href: `tel:${r.Telephone}`, onClick: (ev) => ev.stopPropagation() }, r.Telephone) : '')
-const lienMail = (r) => (r.Email ? h('a', { href: `mailto:${r.Email}`, onClick: (ev) => ev.stopPropagation() }, r.Email) : '')
 const nomEntreprise = (d, r) => d.parId.Entreprises.get(r.Entreprise)?.Nom ?? ''
 
 /**
@@ -28,8 +26,8 @@ export const ENTREPRISES = {
   colonnes: [
     ['Entreprise', (d, r) => r.Nom || 'Sans nom'],
     ['Responsable', (d, r) => responsable(r)],
-    ['Téléphone', (d, r) => lienTel(r)],
-    ['Email', (d, r) => lienMail(r)],
+    ['Téléphone', (d, r) => lienContact('tel', r.Telephone)],
+    ['Email', (d, r) => lienContact('mailto', r.Email)],
     ['Intervenants', (d, r) => d.Intervenants.filter((i) => i.Entreprise === r.id).length],
   ],
   liens: (d, r) => [
@@ -53,8 +51,8 @@ export const SOUS_TRAITANTS = {
     ['Sous-traitant', (d, r) => r.Nom || 'Sans nom'],
     ['Entreprise', (d, r) => nomEntreprise(d, r)],
     ['Responsable', (d, r) => responsable(r)],
-    ['Téléphone', (d, r) => lienTel(r)],
-    ['Email', (d, r) => lienMail(r)],
+    ['Téléphone', (d, r) => lienContact('tel', r.Telephone)],
+    ['Email', (d, r) => lienContact('mailto', r.Email)],
   ],
   liens: () => [],
 }
@@ -67,7 +65,7 @@ export function creerEcranAnnuaire(racine, recharger, config) {
 
   function rendre() {
     if (!d) return
-    if (d.moi?.profil !== 'Admin') {
+    if (!estAdmin(d)) {
       racine.replaceChildren(h('h1', null, config.titre), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
@@ -155,28 +153,11 @@ export function creerEcranAnnuaire(racine, recharger, config) {
 
   function ouvrirSuppression(r) {
     const liens = config.liens(d, r).filter(([n]) => n > 0).map(([n, libelle]) => `${n} ${libelle}`)
-    const erreur = h('p', { className: 'erreur', hidden: true })
-    const confirmer = h('button', { className: 'bouton bouton-danger' }, 'Supprimer définitivement')
-    confirmer.addEventListener('click', async () => {
-      confirmer.disabled = true
-      try {
-        await supprimerFiche(config.table, r.id)
-        fermer()
-        await recharger()
-      } catch (err) {
-        erreur.textContent = err.message || 'La suppression a échoué.'
-        erreur.hidden = false
-        confirmer.disabled = false
-      }
-    })
-    const { fermer } = ouvrirPanneau(`Supprimer ${r.Nom || config.ce} ?`, [
+    fenetreSuppression(`Supprimer ${r.Nom || config.ce} ?`, [
       h('p', null, liens.length > 0
         ? `Rattachés : ${liens.join(', ')}. Ils resteront dans l’application, mais sans lien vers ${config.ce}.`
         : `Rien n’est rattaché à ${config.ce}.`),
-      h('p', { className: 'sous-texte' }, 'En cas d’erreur, la suppression s’annule dans l’Historique du document Grist.'),
-      erreur, confirmer,
-      h('button', { className: 'bouton', onClick: () => fermer() }, 'Annuler'),
-    ])
+    ], [['Supprimer définitivement', 'bouton-danger', () => supprimerFiche(config.table, r.id)]], recharger)
   }
 
   return {

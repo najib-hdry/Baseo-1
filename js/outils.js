@@ -64,6 +64,43 @@ export function dateHeure(v) {
   return Number.isNaN(ms) ? '' : new Date(ms).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+// Lien tél. / e-mail (`type` : 'tel' ou 'mailto') ; chaîne vide sans valeur. Le clic n'ouvre pas la ligne du tableau.
+export const lienContact = (type, valeur) => (valeur ? h('a', { href: `${type}:${valeur}`, onClick: (ev) => ev.stopPropagation() }, valeur) : '')
+
+/**
+ * Fenêtre de confirmation d'une suppression. `texte` : nœuds affichés en tête ; `boutons` : [[libellé, classe, action async]].
+ * Après succès : fermeture puis rechargement ; après échec : message et rechargement (un nouvel essai part de données à jour).
+ * Renvoie les boutons créés (dans l'ordre) pour que l'appelant puisse les activer ou les masquer.
+ */
+export function fenetreSuppression(titre, texte, boutons, recharger) {
+  const erreur = h('p', { className: 'erreur', hidden: true })
+  const elements = boutons.map(([libelle, classe, fn]) => {
+    const bouton = h('button', { className: `bouton ${classe}` }, libelle)
+    bouton.addEventListener('click', async () => {
+      erreur.hidden = true
+      bouton.disabled = true
+      try {
+        await fn()
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'L’opération a échoué.'
+        erreur.hidden = false
+        bouton.disabled = false
+        recharger()
+      }
+    })
+    return bouton
+  })
+  const { fermer } = ouvrirPanneau(titre, [
+    ...texte,
+    h('p', { className: 'sous-texte' }, 'En cas d’erreur, la suppression s’annule dans l’Historique du document Grist.'),
+    erreur, ...elements,
+    h('button', { className: 'bouton', onClick: () => fermer() }, 'Annuler'),
+  ])
+  return elements
+}
+
 // Réduit une photo (1600 px max, JPEG) ; si le navigateur ne sait pas la décoder, renvoie l'original
 export async function reduirePhoto(fichier) {
   try {
