@@ -1,9 +1,9 @@
 // Écran « Gestion des candidats » (admin) : tableau des candidats avec recherche, et formulaire
 // « Ajouter un candidat » en blocs (le même sert à modifier un candidat), fiche détail en lecture, suppression,
-// fiche d'entretien (infos de base, nouvel entretien, entretiens réalisés).
+// fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
 import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien } from './donnees.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
 
@@ -351,8 +351,8 @@ export function creerEcranCandidats(racine, recharger) {
       }
     } }, zone, erreur, valider)
 
-    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), 'Fiche d’entretien')
-    const { fermer, section } = ouvrirPanneau(titre, [
+    // Onglet « Entretien » : infos de base, nouvel entretien, entretiens réalisés
+    const ongletEntretien = [
       h('section', { className: 'bloc-candidat' }, h('h3', null, nom(c)),
         h('dl', { className: 'fiche-infos fiche-entretien-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))),
       h('section', { className: 'bloc-candidat' }, h('h3', null, 'Nouvel entretien'),
@@ -363,9 +363,41 @@ export function creerEcranCandidats(racine, recharger) {
           : h('ul', { className: 'entretiens' }, entretiens.map((e) => h('li', { className: 'entretien' },
             h('span', { className: 'entretien-date' }, dateHeureComplete(e.Cree_le)),
             h('p', { className: 'entretien-texte' }, e.Entretien || '—'))))),
-    ])
+    ]
+
+    // Onglets de la fiche ; changer d'onglet ne redessine que le contenu (le texte en cours de saisie est gardé)
+    const contenu = h('div', { className: 'fiche-contenu' })
+    const barre = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche d’entretien' })
+    const afficherOnglet = (cle) => {
+      barre.replaceChildren(...[['entretien', 'Entretien'], ['poste', 'Poste']].map(([k, libelle]) =>
+        h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle), onClick: () => afficherOnglet(k) }, libelle)))
+      contenu.replaceChildren(...(cle === 'poste' ? [ongletPoste(c)] : ongletEntretien))
+    }
+    afficherOnglet('entretien')
+
+    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), 'Fiche d’entretien')
+    const { fermer, section } = ouvrirPanneau(titre, [barre, contenu])
     section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')
     zone.focus()
+  }
+
+  // Onglet « Poste » de la fiche d'entretien : informations du poste affilié au candidat
+  function ongletPoste(c) {
+    const p = d.parId.Postes.get(c.Poste)
+    if (!p) return h('section', { className: 'bloc-candidat' }, h('h3', null, 'Poste'),
+      h('p', { className: 'message' }, 'Aucun poste n’est affilié à ce candidat. Choisis-le avec « Modifier », bloc Poste.'))
+    const chantiers = idsDeListe(p.Chantiers).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean)
+    const infos = [
+      ['Statut', p.Statut || '—'],
+      ['Date de démarrage', enFrancais(depuisGrist(p.Date_demarrage)) || '—'],
+      ['Personnes recherchées', p.Nb_personnes ?? '—'],
+      ['Horaires', p.Horaires === 'Autre' ? p.Horaires_precision || 'Autre' : p.Horaires || '—'],
+      ['Chantiers', chantiers.length ? chantiers.join(', ') : '—'],
+    ]
+    return h('section', { className: 'bloc-candidat' }, h('h3', null, p.Titre || 'Poste sans titre'),
+      h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
+      h('h3', null, 'Mission'),
+      h('p', { className: 'entretien-texte' }, p.Mission || '—'))
   }
 
   // ---- Suppression ----
