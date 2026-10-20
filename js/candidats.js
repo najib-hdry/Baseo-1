@@ -141,18 +141,20 @@ export function creerEcranCandidats(racine, recharger) {
     dessinerLignes()
     racine.replaceChildren(
       h('h1', null, 'Gestion des candidats'),
-      h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Statut des candidatures' },
-        ONGLETS_CANDIDATS.map(([statut, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(statut === onglet),
-          onClick: () => { onglet = statut; rendre() } }, `${libelle} (${statut ? d.Candidats.filter((c) => c.Statut === statut).length : d.Candidats.length})`))),
-      h('div', { className: 'barre-outils' },
-        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, nationalité, téléphone, email, poste, CIP…)', value: recherche,
-          'aria-label': 'Rechercher un candidat', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
-        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFormulaire(null) }, '＋ Ajouter un candidat')),
-      compteur,
-      h('div', { className: 'tableau-defilant' },
-        h('table', { className: 'tableau' },
-          h('thead', null, h('tr', null, TITRES_CANDIDATS.map((t) => h('th', null, t)))),
-          corps)))
+      // Onglets, recherche et tableau dans une même carte blanche à bordure noire
+      h('section', { className: 'carte-tableau carte-noire' },
+        h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Statut des candidatures' },
+          ONGLETS_CANDIDATS.map(([statut, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(statut === onglet),
+            onClick: () => { onglet = statut; rendre() } }, `${libelle} (${statut ? d.Candidats.filter((c) => c.Statut === statut).length : d.Candidats.length})`))),
+        h('div', { className: 'barre-outils' },
+          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, nationalité, téléphone, email, poste, CIP…)', value: recherche,
+            'aria-label': 'Rechercher un candidat', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
+          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFormulaire(null) }, '＋ Ajouter un candidat')),
+        compteur,
+        h('div', { className: 'tableau-defilant' },
+          h('table', { className: 'tableau' },
+            h('thead', null, h('tr', null, TITRES_CANDIDATS.map((t) => h('th', null, t)))),
+            corps))))
   }
 
   // ---- Formulaire : ajout (`c` null) ou modification d'un candidat ----
