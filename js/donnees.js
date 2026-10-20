@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -148,6 +148,23 @@ export const enregistrerCandidat = (candidatId, champs) =>
   action([candidatId == null ? ['AddRecord', 'Candidats', null, champs] : ['UpdateRecord', 'Candidats', candidatId, champs]])
 
 export const supprimerCandidat = (candidatId) => action([['RemoveRecord', 'Candidats', candidatId]])
+
+/**
+ * Fiche d'embauche : met à jour le candidat (`champs` au format Grist) et ses documents en un seul envoi.
+ * `documents` : { type: { Recto?: idPièceJointe, Verso?: idPièceJointe } } ; une ligne Documents par type et par candidat
+ * (créée si besoin) ; seules les faces envoyées sont remplacées.
+ */
+export async function enregistrerEmbauche(d, candidatId, champs, documents) {
+  const actions = [['UpdateRecord', 'Candidats', candidatId, champs]]
+  for (const [type, faces] of Object.entries(documents)) {
+    const valeurs = Object.fromEntries(Object.entries(faces).map(([face, id]) => [face, ['L', id]]))
+    const existant = d.Documents.find((r) => r.Candidat === candidatId && r.Type_document === type)
+    actions.push(existant
+      ? ['UpdateRecord', 'Documents', existant.id, valeurs]
+      : ['AddRecord', 'Documents', null, { Candidat: candidatId, Type_document: type, ...valeurs }])
+  }
+  await action(actions)
+}
 
 // Nouvel entretien d'un candidat ; « Créé le » est rempli par Grist (date et heure de création)
 export const creerEntretien = (candidatId, texte) => action([['AddRecord', 'Entretiens', null, { Candidat: candidatId, Entretien: texte }]])

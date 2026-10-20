@@ -1,9 +1,10 @@
 // Écran « Gestion des candidats » (admin) : tableau des candidats avec recherche, et formulaire
 // « Ajouter un candidat » en blocs (le même sert à modifier un candidat), fiche détail en lecture, suppression,
-// fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié).
+// fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié),
+// fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
 import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe } from './donnees.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
 
@@ -15,6 +16,39 @@ const CLASSES_STATUT_CANDIDAT = { 'Reçue': 'badge-nouveau', 'En cours d’exame
 
 const OUI_NON = ['Oui', 'Non']
 const NIVEAUX_LANGUE = ['Aucun', 'Débutant', 'Intermédiaire', 'Courant', 'Langue maternelle']
+
+// Fiche d'embauche : critères d'éligibilité (mêmes valeurs que les colonnes Grist à choix multiples)
+const CRITERES_NIVEAU_1 = ['RSA', 'ASS', 'AAH', 'Demandeur d’emploi depuis 24 mois ou plus']
+const CRITERES_NIVEAU_2 = ['Niveau CAP/BEP ou inférieur', 'Moins de 26 ans', 'Sénior : 50 ans ou plus', 'Parent isolé', 'Situation de handicap / RQTH',
+  'Demandeur d’emploi depuis 12 à 24 mois', 'Sans logement ou hébergé', 'Résident QPV', 'Résident FRR',
+  'Réfugié / demandeur d’asile / bénéficiaire d’une protection', 'Sortant de l’ASE', 'Sortant de détention ou placé sous-main de justice',
+  'Maîtrise de la langue française niveau A1 ou infra', 'Problème de mobilité']
+
+// Documents de la fiche d'embauche : [type (table Documents), titre, précision, faces demandées]
+const DOCUMENTS_EMBAUCHE = [
+  ['Pièce d’identité', 'Carte d’identité ou titre de séjour / récépissé / attestation d’instruction d’une demande de titre de séjour',
+    'Document valide et couvrant au moins la durée du premier contrat (4 mois minimum)', ['Recto', 'Verso']],
+  ['Carte Vitale / attestation d’assurance maladie', 'Carte Vitale / attestation d’assurance maladie', '', ['Recto', 'Verso']],
+  ['Justificatif de domicile', 'Justificatif de domicile', '', ['Recto']],
+  ['Pièce d’identité de l’hébergeur', 'Si le salarié est hébergé : attestation d’hébergement + pièce d’identité de l’hébergeur', '', ['Recto', 'Verso']],
+  ['Attestation d’inscription à France Travail', 'Attestation d’inscription à France Travail', 'Identifiant + durée d’inscription', ['Recto']],
+  ['RIB', 'RIB', '', ['Recto']],
+  ['Attestation CAF', 'Attestation CAF', 'Nécessaire pour savoir si le salarié bénéficie d’aides sociales', ['Recto']],
+]
+
+// Zone d'import d'un fichier (clic ou glisser-déposer) ; `onChoix(fichier)` reçoit le fichier choisi.
+// `deja` : un fichier est déjà enregistré ; `lien` : adresse pour l'ouvrir
+function zoneFichier(onChoix, { deja = false, lien = null, accept = '.pdf,.doc,.docx,.odt,image/*' } = {}) {
+  const nom = h('span', { className: 'sous-texte' }, deja ? 'Un fichier est déjà enregistré ; en choisir un autre le remplace.' : 'Ou glissez et déposez votre fichier ici')
+  const choisir = (f) => { if (f) { onChoix(f); nom.textContent = f.name } }
+  const entree = h('input', { type: 'file', hidden: true, accept, onChange: (e) => choisir(e.target.files?.[0]) })
+  const zone = h('label', { className: 'zone-fichier',
+    onDragover: (e) => { e.preventDefault(); zone.classList.add('survol') },
+    onDragleave: () => zone.classList.remove('survol'),
+    onDrop: (e) => { e.preventDefault(); zone.classList.remove('survol'); choisir(e.dataTransfer.files?.[0]) } },
+  h('span', { className: 'bouton bouton-compact' }, 'Importer un fichier'), nom, entree)
+  return lien ? h('div', { className: 'zone-avec-lien' }, zone, h('a', { href: lien, target: '_blank', rel: 'noreferrer' }, 'Voir le fichier enregistré')) : zone
+}
 
 /**
  * Blocs du formulaire, deux par ligne, dans l'ordre des colonnes Grist.
@@ -132,6 +166,7 @@ export function creerEcranCandidats(racine, recharger) {
             h('td', null, cip(c)),
             h('td', null, passIae(c)),
             h('td', { className: 'tableau-actions' },
+              c.Statut === 'Acceptée' && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: (e) => { e.stopPropagation(); ouvrirFicheEmbauche(c) } }, 'Embauche'),
               h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (e) => { e.stopPropagation(); ouvrirFicheEntretien(c) } }, 'Entretien'),
               h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirFormulaire(c) } }, 'Modifier'),
               h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
@@ -193,15 +228,8 @@ export function creerEcranCandidats(racine, recharger) {
         valeurs[col] = brut ?? ''
         saisie = h('textarea', { className: 'champ champ-texte', value: valeurs[col], onInput: (e) => maj(e.target.value) })
       } else if (type === 'photo' || type === 'fichier') {
-        const nom = h('span', { className: 'sous-texte' },
-          Array.isArray(brut) && brut.length > 1 ? 'Un fichier est déjà enregistré ; en choisir un autre le remplace.' : 'Ou glissez et déposez votre fichier ici')
-        const entree = h('input', { type: 'file', hidden: true, accept: type === 'photo' ? 'image/*' : '.pdf,.doc,.docx,.odt,image/*',
-          onChange: (e) => { fichiers[col] = e.target.files?.[0] ?? null; nom.textContent = fichiers[col] ? fichiers[col].name : nom.textContent } })
-        const zone = h('label', { className: 'zone-fichier',
-          onDragover: (e) => { e.preventDefault(); zone.classList.add('survol') },
-          onDragleave: () => zone.classList.remove('survol'),
-          onDrop: (e) => { e.preventDefault(); zone.classList.remove('survol'); const f = e.dataTransfer.files?.[0]; if (f) { fichiers[col] = f; nom.textContent = f.name } } },
-        h('span', { className: 'bouton bouton-compact' }, 'Importer un fichier'), nom, entree)
+        const zone = zoneFichier((f) => { fichiers[col] = f },
+          { deja: Array.isArray(brut) && brut.length > 1, accept: type === 'photo' ? 'image/*' : '.pdf,.doc,.docx,.odt,image/*' })
         return h('div', { className: 'champ-groupe' }, etiquette, zone)
       } else {
         valeurs[col] = brut ?? ''
@@ -296,6 +324,7 @@ export function creerEcranCandidats(racine, recharger) {
     const { fermer, section } = ouvrirPanneau(titre, [
       h('div', { className: 'fiche-entete' },
         h('div', { className: 'carte-titre sous-texte' }, [naissance && `${enFrancais(naissance)} · ${age(naissance)} ans`, poste(c)].filter(Boolean).join(' · ') || ' '),
+        c.Statut === 'Acceptée' && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: () => { fermer(); ouvrirFicheEmbauche(c) } }, 'Fiche d’embauche'),
         h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirFicheEntretien(c) } }, 'Fiche d’entretien'),
         h('button', { className: 'bouton bouton-compact', onClick: () => { fermer(); ouvrirFormulaire(c) } }, 'Modifier'),
         h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { fermer(); ouvrirSuppression(c) } }, 'Supprimer')),
@@ -400,6 +429,104 @@ export function creerEcranCandidats(racine, recharger) {
       h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
       h('h3', null, 'Mission'),
       h('p', { className: 'entretien-texte' }, p.Mission || '—'))
+  }
+
+  // ---- Fiche d'embauche (candidats acceptés) : infos, critères, documents recto / verso, tailles ----
+
+  async function ouvrirFicheEmbauche(c) {
+    const lien = await lienPhotos().catch(() => null) // adresse temporaire des pièces jointes déjà enregistrées
+    const valeursListe = (v) => (Array.isArray(v) ? v.filter((x) => x !== 'L') : [])
+    const coches = { Criteres_niveau_1: new Set(valeursListe(c.Criteres_niveau_1)), Criteres_niveau_2: new Set(valeursListe(c.Criteres_niveau_2)) }
+    const tailles = { Taille_pantalon: c.Taille_pantalon ?? '', Taille_veste: c.Taille_veste ?? '', Pointure: c.Pointure ?? '' }
+    const nouveaux = {} // { type: { Recto: fichier, Verso: fichier } }
+    const documentsDuCandidat = (d.Documents ?? []).filter((r) => r.Candidat === c.id)
+    const pieceJointe = (v) => (Array.isArray(v) ? v.find((x) => x !== 'L') : null)
+
+    // Informations de base (lecture)
+    const infos = [
+      ['Prénom', c.Prenom || '—'], ['Nom', c.Nom || '—'],
+      ['Téléphone', c.Telephone ? h('a', { href: `tel:${c.Telephone}` }, c.Telephone) : '—'],
+      ['Validité de la pièce d’identité', dateAvecAlerte(c.Date_validite_piece_identite)], ['RQTH', c.RQTH || '—'],
+      ['Fin du Pass IAE', dateAvecAlerte(c.Pass_IAE_fin)], ['Validé par le CIP', c.Valide_par_CIP || '—'],
+    ]
+
+    // Critères : cases à cocher, avec le nombre coché face au minimum
+    const blocCriteres = (col, titre, valeurs, minimum) => {
+      const compteur = h('span', { className: 'badge' })
+      const majCompteur = () => {
+        const n = coches[col].size
+        compteur.textContent = `${n} coché${n > 1 ? 's' : ''} · minimum ${minimum}`
+        compteur.className = `badge ${n >= minimum ? 'badge-resolu' : 'badge-ouvert'}`
+      }
+      majCompteur()
+      return h('section', { className: 'bloc-candidat' },
+        h('h3', { className: 'titre-criteres' }, `${titre} *`, compteur),
+        h('div', { className: 'cases-criteres' }, valeurs.map((v) => h('label', { className: 'case' },
+          h('input', { type: 'checkbox', checked: coches[col].has(v), onChange: (e) => { e.target.checked ? coches[col].add(v) : coches[col].delete(v); majCompteur() } }),
+          v))))
+    }
+
+    // Documents : une zone par face ; un fichier déjà enregistré peut être ouvert ou remplacé
+    const blocDocument = ([type, titre, precision, faces]) => {
+      const existant = documentsDuCandidat.find((r) => r.Type_document === type)
+      return h('section', { className: 'bloc-document' },
+        h('h4', null, titre), precision && h('p', { className: 'sous-texte' }, precision),
+        faces.map((face) => {
+          const id = pieceJointe(existant?.[face])
+          return h('div', { className: 'champ-groupe' }, faces.length > 1 ? `${type} ${face.toLowerCase()}` : null,
+            zoneFichier((f) => { (nouveaux[type] ??= {})[face] = f }, { deja: Boolean(id), lien: id && lien ? lien(id) : null }))
+        }))
+    }
+
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer la fiche d’embauche')
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        // Envoi des nouveaux fichiers (les images sont réduites), puis une seule écriture Grist
+        const documents = {}
+        for (const [type, faces] of Object.entries(nouveaux)) {
+          for (const [face, f] of Object.entries(faces)) {
+            const id = f.type.startsWith('image/') ? await envoyerPhoto(await reduirePhoto(f), `${type} ${face}.jpg`) : await envoyerPhoto(f, f.name)
+            ;(documents[type] ??= {})[face] = id
+          }
+        }
+        const liste = (ensemble, ordre) => { const v = ordre.filter((x) => ensemble.has(x)); return v.length ? ['L', ...v] : null }
+        await enregistrerEmbauche(d, c.id, {
+          Criteres_niveau_1: liste(coches.Criteres_niveau_1, CRITERES_NIVEAU_1),
+          Criteres_niveau_2: liste(coches.Criteres_niveau_2, CRITERES_NIVEAU_2),
+          ...Object.fromEntries(Object.entries(tailles).map(([col, v]) => [col, String(v).trim()])),
+        }, documents)
+        fermer()
+        await recharger()
+        const aJour = d.parId.Candidats.get(c.id)
+        if (aJour) ouvrirFicheEmbauche(aJour) // rouvre la fiche à jour
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = 'Enregistrer la fiche d’embauche'
+      }
+    } },
+    h('section', { className: 'bloc-candidat' }, h('h3', null, nom(c)),
+      h('dl', { className: 'fiche-infos fiche-entretien-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))),
+    blocCriteres('Criteres_niveau_1', 'Niveau 1 (1 critère minimum)', CRITERES_NIVEAU_1, 1),
+    blocCriteres('Criteres_niveau_2', 'Niveau 2 (3 critères minimum)', CRITERES_NIVEAU_2, 3),
+    h('section', { className: 'bloc-candidat' }, h('h3', null, 'Documents'),
+      d.absentes.has('Documents') ? h('p', { className: 'message' }, 'Ce document n’a pas de table Documents.') : h('div', { className: 'documents-embauche' }, DOCUMENTS_EMBAUCHE.map(blocDocument))),
+    h('section', { className: 'bloc-candidat' }, h('h3', null, 'Équipement'),
+      h('div', { className: 'grille-2' }, [['Taille_pantalon', 'Taille de pantalon'], ['Taille_veste', 'Taille de veste'], ['Pointure', 'Pointure']]
+        .map(([col, libelle]) => h('label', { className: 'champ-groupe' }, libelle,
+          h('input', { className: 'champ', autocomplete: 'off', value: tailles[col], onInput: (e) => { tailles[col] = e.target.value } }))))),
+    erreur,
+    h('div', { className: 'fiche-actions' }, valider))
+
+    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), 'Fiche d’embauche')
+    const { fermer, section } = ouvrirPanneau(titre, formulaire)
+    section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')
   }
 
   // ---- Suppression ----
