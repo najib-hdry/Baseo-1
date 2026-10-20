@@ -4,7 +4,13 @@
 import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes } from './outils.js'
 import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos } from './donnees.js'
 
-const TITRES_CANDIDATS = ['Candidat', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', 'France Travail', '']
+const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
+
+// Statuts d'une candidature (valeurs de la colonne Statut) ; les onglets les reprennent au pluriel, plus « Tous »
+const STATUTS_CANDIDAT = ['Reçue', 'En cours d’examen', 'Entretien programmé', 'Acceptée', 'Refusée']
+const ONGLETS_CANDIDATS = [['Reçue', 'Reçues'], ['En cours d’examen', 'En cours d’examen'], ['Entretien programmé', 'Entretien programmé'],
+  ['Acceptée', 'Acceptés'], ['Refusée', 'Refusés'], ['', 'Tous']]
+const CLASSES_STATUT_CANDIDAT = { 'Reçue': 'badge-nouveau', 'En cours d’examen': 'badge-en_cours', 'Entretien programmé': 'badge-termine', 'Acceptée': 'badge-resolu', 'Refusée': 'badge-ouvert' }
 
 const OUI_NON = ['Oui', 'Non']
 const NIVEAUX_LANGUE = ['Aucun', 'Débutant', 'Intermédiaire', 'Courant', 'Langue maternelle']
@@ -15,6 +21,9 @@ const NIVEAUX_LANGUE = ['Aucun', 'Débutant', 'Intermédiaire', 'Courant', 'Lang
  * ref (options = [table, colonne affichée]), photo, fichier.
  */
 const BLOCS_CANDIDAT = [
+  ['Suivi de la candidature', [
+    ['Statut', 'Statut', 'choix', STATUTS_CANDIDAT], ['Valide_par_CIP', 'Validé par le CIP', 'choix', OUI_NON], ['Date_entretien', 'Date d’entretien', 'date'],
+  ]],
   ['Informations personnelles', [
     ['Prenom', 'Prénom', 'texte'], ['Nom', 'Nom', 'texte'], ['Date_naissance', 'Date de naissance', 'date'],
     ['Nationalite', 'Nationalité', 'ref', ['Nationalites', 'Nationalite']], ['Telephone', 'Téléphone', 'tel'], ['Email', 'Email', 'email'],
@@ -74,6 +83,7 @@ function age(iso) {
 export function creerEcranCandidats(racine, recharger) {
   let d = null
   let recherche = ''
+  let onglet = '' // statut affiché ; '' = tous
 
   const nom = (c) => [c.Prenom, c.Nom].filter(Boolean).join(' ') || 'Sans nom'
   const nationalite = (c) => d.parId.Nationalites.get(c.Nationalite)?.Nationalite ?? ''
@@ -100,6 +110,7 @@ export function creerEcranCandidats(racine, recharger) {
     const dessinerLignes = () => {
       const filtre = recherche.trim().toLowerCase()
       const liste = d.Candidats
+        .filter((c) => !onglet || c.Statut === onglet)
         .filter((c) => !filtre || [nom(c), nationalite(c), c.Telephone, c.Email, poste(c), cip(c)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)) || String(a.Prenom).localeCompare(String(b.Prenom)))
       compteur.textContent = `${liste.length} candidat${liste.length > 1 ? 's' : ''}${filtre ? ` sur ${d.Candidats.length}` : ''}`
@@ -111,13 +122,13 @@ export function creerEcranCandidats(racine, recharger) {
             h('td', null,
               h('div', { className: 'tableau-nom' }, nom(c)),
               naissance && h('div', { className: 'sous-texte' }, `${enFrancais(naissance)} · ${age(naissance)} ans`)),
+            h('td', null, c.Statut ? h('span', { className: `badge ${CLASSES_STATUT_CANDIDAT[c.Statut] ?? ''}` }, c.Statut) : '—'),
             h('td', null, nationalite(c)),
             h('td', null, c.Telephone ? h('a', { href: `tel:${c.Telephone}`, onClick: (e) => e.stopPropagation() }, c.Telephone) : ''),
             h('td', null, c.Email ? h('a', { href: `mailto:${c.Email}`, onClick: (e) => e.stopPropagation() }, c.Email) : ''),
             h('td', null, poste(c)),
             h('td', null, cip(c)),
             h('td', null, passIae(c)),
-            h('td', null, c.Inscrit_France_Travail ?? ''),
             h('td', { className: 'tableau-actions' },
               h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirFormulaire(c) } }, 'Modifier'),
               h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
@@ -127,6 +138,9 @@ export function creerEcranCandidats(racine, recharger) {
     dessinerLignes()
     racine.replaceChildren(
       h('h1', null, 'Gestion des candidats'),
+      h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Statut des candidatures' },
+        ONGLETS_CANDIDATS.map(([statut, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(statut === onglet),
+          onClick: () => { onglet = statut; rendre() } }, `${libelle} (${statut ? d.Candidats.filter((c) => c.Statut === statut).length : d.Candidats.length})`))),
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, nationalité, téléphone, email, poste, CIP…)', value: recherche,
           'aria-label': 'Rechercher un candidat', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
