@@ -158,7 +158,8 @@ export function creerEcranCandidats(racine, recharger) {
             h('td', null,
               h('div', { className: 'tableau-nom' }, nom(c)),
               naissance && h('div', { className: 'sous-texte' }, `${enFrancais(naissance)} · ${age(naissance)} ans`)),
-            h('td', null, c.Statut ? h('span', { className: `badge ${CLASSES_STATUT_CANDIDAT[c.Statut] ?? ''}` }, c.Statut) : '—'),
+            h('td', null, c.Statut ? h('span', { className: `badge ${CLASSES_STATUT_CANDIDAT[c.Statut] ?? ''}` }, c.Statut) : '—',
+              c.Embauche && h('span', { className: 'badge badge-embauche' }, 'Embauché')),
             h('td', null, nationalite(c)),
             h('td', null, c.Telephone ? h('a', { href: `tel:${c.Telephone}`, onClick: (e) => e.stopPropagation() }, c.Telephone) : ''),
             h('td', null, c.Email ? h('a', { href: `mailto:${c.Email}`, onClick: (e) => e.stopPropagation() }, c.Email) : ''),
@@ -452,6 +453,7 @@ export function creerEcranCandidats(racine, recharger) {
       ['Téléphone', c.Telephone ? h('a', { href: `tel:${c.Telephone}` }, c.Telephone) : '—'],
       ['Validité de la pièce d’identité', dateAvecAlerte(c.Date_validite_piece_identite)], ['RQTH', c.RQTH || '—'],
       ['Fin du Pass IAE', dateAvecAlerte(c.Pass_IAE_fin)], ['Validé par le CIP', c.Valide_par_CIP || '—'],
+      ['Embauché', c.Embauche ? 'Oui' : 'Non (coché à l’enregistrement de cette fiche)'],
     ]
 
     // Critères : cases à cocher, avec le nombre coché face au minimum
@@ -508,6 +510,7 @@ export function creerEcranCandidats(racine, recharger) {
         }
         const liste = (ensemble, ordre) => { const v = ordre.filter((x) => ensemble.has(x)); return v.length ? ['L', ...v] : null }
         await enregistrerEmbauche(d, c.id, {
+          Embauche: true, // la fiche d'embauche enregistrée vaut embauche
           Criteres_niveau_1: liste(coches.Criteres_niveau_1, CRITERES_NIVEAU_1),
           Criteres_niveau_2: liste(coches.Criteres_niveau_2, CRITERES_NIVEAU_2),
           ...Object.fromEntries(Object.entries(tailles).map(([col, v]) => [col, String(v).trim()])),
