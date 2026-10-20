@@ -1,8 +1,9 @@
 // Écran « Gestion des candidats » (admin) : tableau des candidats avec recherche, et formulaire
-// « Ajouter un candidat » en blocs (le même sert à modifier un candidat), fiche détail en lecture, suppression.
+// « Ajouter un candidat » en blocs (le même sert à modifier un candidat), fiche détail en lecture, suppression,
+// fiche d'entretien (infos de base, nouvel entretien, entretiens réalisés).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
 import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos } from './donnees.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
 
@@ -29,7 +30,8 @@ const BLOCS_CANDIDAT = [
     ['Nationalite', 'Nationalité', 'ref', ['Nationalites', 'Nationalite']], ['Telephone', 'Téléphone', 'tel'], ['Email', 'Email', 'email'],
   ]],
   ['Situation administrative', [
-    ['Numero_securite_sociale', 'Numéro de sécurité sociale', 'texte'], ['Date_validite_titre_sejour', 'Date validité titre de séjour', 'date'],
+    ['Numero_securite_sociale', 'Numéro de sécurité sociale', 'texte'], ['Date_validite_piece_identite', 'Date de validité de la pièce d’identité', 'date'],
+    ['Date_validite_titre_sejour', 'Date validité titre de séjour', 'date'],
     ['CMU', 'CMU', 'choix', OUI_NON], ['RQTH', 'RQTH', 'choix', OUI_NON],
     ['Pass_IAE_debut', 'Pass IAE date début', 'date'], ['Pass_IAE_fin', 'Pass IAE date fin', 'date'],
   ]],
@@ -130,6 +132,7 @@ export function creerEcranCandidats(racine, recharger) {
             h('td', null, cip(c)),
             h('td', null, passIae(c)),
             h('td', { className: 'tableau-actions' },
+              h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (e) => { e.stopPropagation(); ouvrirFicheEntretien(c) } }, 'Entretien'),
               h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirFormulaire(c) } }, 'Modifier'),
               h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
         })))
@@ -291,11 +294,78 @@ export function creerEcranCandidats(racine, recharger) {
     const { fermer, section } = ouvrirPanneau(titre, [
       h('div', { className: 'fiche-entete' },
         h('div', { className: 'carte-titre sous-texte' }, [naissance && `${enFrancais(naissance)} · ${age(naissance)} ans`, poste(c)].filter(Boolean).join(' · ') || ' '),
+        h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirFicheEntretien(c) } }, 'Fiche d’entretien'),
         h('button', { className: 'bouton bouton-compact', onClick: () => { fermer(); ouvrirFormulaire(c) } }, 'Modifier'),
         h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { fermer(); ouvrirSuppression(c) } }, 'Supprimer')),
       contenu,
     ])
     section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')
+  }
+
+  // ---- Fiche d'entretien : infos de base, nouvel entretien, entretiens réalisés ----
+
+  // Date ISO échue (avant aujourd'hui) ou qui arrive à échéance dans les 30 jours
+  const echeance = (iso) => {
+    const jours = (new Date(iso) - new Date(new Date().toDateString())) / 86400000
+    return jours < 0 ? ['badge-ouvert', 'Expirée'] : jours <= 30 ? ['badge-en_cours', 'Bientôt'] : null
+  }
+  const dateAvecAlerte = (v) => {
+    const iso = depuisGrist(v)
+    if (!iso) return '—'
+    const alerte = echeance(iso)
+    return [enFrancais(iso), alerte && h('span', { className: `badge ${alerte[0]}` }, alerte[1])]
+  }
+  const dateHeureComplete = (v) => (v ? new Date(v * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
+
+  function ouvrirFicheEntretien(c) {
+    const entretiens = (d.Entretiens ?? []).filter((e) => e.Candidat === c.id).sort((a, b) => (b.Cree_le ?? 0) - (a.Cree_le ?? 0))
+    const infos = [
+      ['Prénom', c.Prenom || '—'], ['Nom', c.Nom || '—'],
+      ['Téléphone', c.Telephone ? h('a', { href: `tel:${c.Telephone}` }, c.Telephone) : '—'], ['RQTH', c.RQTH || '—'],
+      ['Validité de la pièce d’identité', dateAvecAlerte(c.Date_validite_piece_identite)], ['Fin du Pass IAE', dateAvecAlerte(c.Pass_IAE_fin)],
+    ]
+
+    // Nouvel entretien : un compte rendu ; la date et l'heure sont ajoutées par Grist
+    let texte = ''
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit', disabled: true }, 'Enregistrer l’entretien')
+    const zone = h('textarea', { className: 'champ champ-texte', placeholder: 'Compte rendu de l’entretien…', 'aria-label': 'Compte rendu de l’entretien',
+      onInput: (e) => { texte = e.target.value; valider.disabled = !texte.trim() } })
+    const nouveau = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      if (!texte.trim()) return
+      erreur.hidden = true
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        await creerEntretien(c.id, texte.trim())
+        fermer()
+        await recharger()
+        const aJour = d.parId.Candidats.get(c.id)
+        if (aJour) ouvrirFicheEntretien(aJour) // rouvre la fiche avec le nouvel entretien en tête
+      } catch (err) {
+        erreur.textContent = err.message || 'L’entretien n’a pas pu être enregistré.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = 'Enregistrer l’entretien'
+      }
+    } }, zone, erreur, valider)
+
+    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), 'Fiche d’entretien')
+    const { fermer, section } = ouvrirPanneau(titre, [
+      h('section', { className: 'bloc-candidat' }, h('h3', null, nom(c)),
+        h('dl', { className: 'fiche-infos fiche-entretien-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))),
+      h('section', { className: 'bloc-candidat' }, h('h3', null, 'Nouvel entretien'),
+        d.absentes.has('Entretiens') ? h('p', { className: 'message' }, 'Ce document n’a pas de table Entretiens.') : nouveau),
+      h('section', { className: 'bloc-candidat' }, h('h3', null, `Entretiens réalisés (${entretiens.length})`),
+        entretiens.length === 0
+          ? h('p', { className: 'message' }, 'Aucun entretien pour l’instant.')
+          : h('ul', { className: 'entretiens' }, entretiens.map((e) => h('li', { className: 'entretien' },
+            h('span', { className: 'entretien-date' }, dateHeureComplete(e.Cree_le)),
+            h('p', { className: 'entretien-texte' }, e.Entretien || '—'))))),
+    ])
+    section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')
+    zone.focus()
   }
 
   // ---- Suppression ----

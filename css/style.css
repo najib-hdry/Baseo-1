@@ -493,6 +493,12 @@ button.tiroir-lien.active { background: var(--signal); }
 .visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Onglets de statut des candidatures */
 .onglets-candidats { margin: 16px 0 0; padding: 0 0 4px; }
+/* Fiche d'entretien */
+.fiche-entretien-infos dd { display: flex; align-items: center; gap: 8px; }
+.entretiens { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.entretien { display: grid; gap: 4px; padding: 12px 14px; background: var(--fond); border-radius: var(--rayon); }
+.entretien-date { font-size: .8rem; font-weight: 700; color: var(--encre-douce); }
+.entretien-texte { margin: 0; white-space: pre-wrap; }
 /* Fiche détail du candidat */
 .photo-candidat { display: block; max-width: 160px; max-height: 200px; object-fit: cover; border-radius: 10px; }
 .fiche-seule { margin: 0; }
