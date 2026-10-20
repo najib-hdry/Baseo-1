@@ -496,6 +496,8 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Carte blanche à bordure noire de 2 px (page Candidats) */
 .carte-tableau.carte-noire { background: #fff; border: 2px solid #000; }
 .carte-noire .barre-outils { margin-top: 12px; }
+/* Les messages d'erreur restent rouges malgré les textes noirs des fiches */
+.panneau.panneau-fiche .erreur { color: var(--hs); }
 /* Fiche d'embauche */
 .titre-criteres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .cases-criteres { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0 16px; }

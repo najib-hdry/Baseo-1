@@ -441,6 +441,10 @@ export function creerEcranCandidats(racine, recharger) {
     const nouveaux = {} // { type: { Recto: fichier, Verso: fichier } }
     const documentsDuCandidat = (d.Documents ?? []).filter((r) => r.Candidat === c.id)
     const pieceJointe = (v) => (Array.isArray(v) ? v.find((x) => x !== 'L') : null)
+    const heberge = c.Situation_logement === 'Hébergé(e) chez quelqu’un'
+    const rectoExige = (type) => type !== 'Pièce d’identité de l’hébergeur' || heberge
+    // Recto déjà enregistré ou choisi dans cette fiche
+    const aUnRecto = (type) => Boolean(pieceJointe(documentsDuCandidat.find((r) => r.Type_document === type)?.Recto) || nouveaux[type]?.Recto)
 
     // Informations de base (lecture)
     const infos = [
@@ -473,7 +477,9 @@ export function creerEcranCandidats(racine, recharger) {
         h('h4', null, titre), precision && h('p', { className: 'sous-texte' }, precision),
         faces.map((face) => {
           const id = pieceJointe(existant?.[face])
-          return h('div', { className: 'champ-groupe' }, faces.length > 1 ? `${type} ${face.toLowerCase()}` : null,
+          const obligatoire = face === 'Recto' && rectoExige(type)
+          const libelle = `${faces.length > 1 ? `${type} ${face.toLowerCase()}` : 'Fichier'}${obligatoire ? ' *' : ' (facultatif)'}`
+          return h('div', { className: 'champ-groupe' }, libelle,
             zoneFichier((f) => { (nouveaux[type] ??= {})[face] = f }, { deja: Boolean(id), lien: id && lien ? lien(id) : null }))
         }))
     }
@@ -483,6 +489,12 @@ export function creerEcranCandidats(racine, recharger) {
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
       e.preventDefault()
       erreur.hidden = true
+      const manquants = DOCUMENTS_EMBAUCHE.filter(([type]) => rectoExige(type) && !aUnRecto(type)).map(([type]) => type)
+      if (manquants.length > 0) {
+        erreur.textContent = `Recto obligatoire manquant : ${manquants.join(', ')}.`
+        erreur.hidden = false
+        return
+      }
       valider.disabled = true
       valider.textContent = 'Enregistrement…'
       try {
@@ -516,6 +528,7 @@ export function creerEcranCandidats(racine, recharger) {
     blocCriteres('Criteres_niveau_1', 'Niveau 1 (1 critère minimum)', CRITERES_NIVEAU_1, 1),
     blocCriteres('Criteres_niveau_2', 'Niveau 2 (3 critères minimum)', CRITERES_NIVEAU_2, 3),
     h('section', { className: 'bloc-candidat' }, h('h3', null, 'Documents'),
+      h('p', { className: 'sous-texte' }, `Recto obligatoire (*), verso facultatif.${heberge ? '' : ' Pièce d’identité de l’hébergeur : seulement si le candidat est hébergé.'}`),
       d.absentes.has('Documents') ? h('p', { className: 'message' }, 'Ce document n’a pas de table Documents.') : h('div', { className: 'documents-embauche' }, DOCUMENTS_EMBAUCHE.map(blocDocument))),
     h('section', { className: 'bloc-candidat' }, h('h3', null, 'Équipement'),
       h('div', { className: 'grille-2' }, [['Taille_pantalon', 'Taille de pantalon'], ['Taille_veste', 'Taille de veste'], ['Pointure', 'Pointure']]
