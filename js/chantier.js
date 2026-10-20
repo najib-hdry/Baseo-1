@@ -1,6 +1,6 @@
 // Fiche détail d'un chantier (page admin), en onglets :
 // Composants (structure), Informations, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
-import { h, depuisGrist, enFrancais, dateHeure, etiqueterLignes } from './outils.js'
+import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes } from './outils.js'
 import { idsDeListe } from './donnees.js'
 import { zonesDuChantier, basesVisibles, libelleLieu } from './navigation.js'
 
@@ -14,7 +14,6 @@ export const ONGLETS_FICHE = [
   ['postes', 'Postes'],
 ]
 
-const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`
 
 // Occupation d'une liste de casiers : total, occupés, hors service, libres

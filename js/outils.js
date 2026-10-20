@@ -55,6 +55,9 @@ export function depuisGrist(v) {
   const ms = v instanceof Date ? v.getTime() : typeof v === 'number' ? v * 1000 : Date.parse(v)
   return Number.isNaN(ms) ? null : new Date(ms).toISOString().slice(0, 10)
 }
+// Montant en euros à la française (1 234,56 €)
+export const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
+
 export const enFrancais = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '')
 export function dateHeure(v) {
   const ms = v instanceof Date ? v.getTime() : typeof v === 'number' ? v * 1000 : Date.parse(v)

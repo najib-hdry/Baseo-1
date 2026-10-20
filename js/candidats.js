@@ -1,10 +1,10 @@
 // Écran « Gestion des candidats » (admin) : tableau des candidats avec recherche, et formulaire
-// « Ajouter un candidat » en blocs (le même sert à modifier un candidat).
+// « Ajouter un candidat » en blocs (le même sert à modifier un candidat), fiche détail en lecture, suppression.
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
-import { h, depuisGrist, enFrancais, versGrist, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat } from './donnees.js'
+import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes } from './outils.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos } from './donnees.js'
 
-const TITRES_CANDIDATS = ['Candidat', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', 'France Travail']
+const TITRES_CANDIDATS = ['Candidat', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', 'France Travail', '']
 
 const OUI_NON = ['Oui', 'Non']
 const NIVEAUX_LANGUE = ['Aucun', 'Débutant', 'Intermédiaire', 'Courant', 'Langue maternelle']
@@ -107,7 +107,7 @@ export function creerEcranCandidats(racine, recharger) {
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CANDIDATS.length }, filtre ? 'Aucun candidat ne correspond.' : 'Aucun candidat pour l’instant.'))]
         : liste.map((c) => {
           const naissance = depuisGrist(c.Date_naissance)
-          return h('tr', { className: 'tableau-ligne', title: 'Modifier ce candidat', onClick: () => ouvrirFormulaire(c) },
+          return h('tr', { className: 'tableau-ligne', title: 'Voir la fiche du candidat', onClick: () => ouvrirFiche(c) },
             h('td', null,
               h('div', { className: 'tableau-nom' }, nom(c)),
               naissance && h('div', { className: 'sous-texte' }, `${enFrancais(naissance)} · ${age(naissance)} ans`)),
@@ -117,7 +117,10 @@ export function creerEcranCandidats(racine, recharger) {
             h('td', null, poste(c)),
             h('td', null, cip(c)),
             h('td', null, passIae(c)),
-            h('td', null, c.Inscrit_France_Travail ?? ''))
+            h('td', null, c.Inscrit_France_Travail ?? ''),
+            h('td', { className: 'tableau-actions' },
+              h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirFormulaire(c) } }, 'Modifier'),
+              h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
         })))
       etiqueterLignes(corps, TITRES_CANDIDATS)
     }
@@ -238,6 +241,72 @@ export function creerEcranCandidats(racine, recharger) {
       c ? `${[c.Prenom, c.Nom].filter(Boolean).join(' ') || 'Candidat'}` : 'Ajouter un candidat')
     const { fermer, section } = ouvrirPanneau(titre, formulaire)
     section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')
+  }
+
+  // ---- Fiche détail (lecture) ----
+
+  // Valeur lisible d'un champ selon son type ; vide → tiret
+  function valeurLisible(c, [col, , type, options], lien) {
+    const v = c[col]
+    if (type === 'date') return enFrancais(depuisGrist(v)) || '—'
+    if (type === 'ref') return d[options[0]] ? d.parId[options[0]].get(v)?.[options[1]] || '—' : '—'
+    if (type === 'nombre') return v != null && v !== '' ? euros.format(v) : '—'
+    if (type === 'tel') return v ? h('a', { href: `tel:${v}` }, v) : '—'
+    if (type === 'email') return v ? h('a', { href: `mailto:${v}` }, v) : '—'
+    if (type === 'photo' || type === 'fichier') {
+      const id = Array.isArray(v) ? v.find((x) => x !== 'L') : null
+      if (!id) return '—'
+      if (!lien) return 'Fichier enregistré'
+      return type === 'photo'
+        ? h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, h('img', { className: 'photo-candidat', src: lien(id), alt: 'Photo du candidat' }))
+        : h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, 'Ouvrir le CV')
+    }
+    return v === '' || v == null ? '—' : String(v)
+  }
+
+  async function ouvrirFiche(c) {
+    const lien = await lienPhotos().catch(() => null) // adresse temporaire des pièces jointes (photo, CV)
+    const contenu = h('div', { className: 'blocs-candidat' },
+      BLOCS_CANDIDAT.map(([titre, champs]) => h('section', { className: 'bloc-candidat' }, h('h3', null, titre),
+        h('dl', { className: 'fiche-infos' }, champs.map((f) => [
+          champs.length === 1 && f[1] === titre ? null : h('dt', null, f[1]),
+          h('dd', { className: champs.length === 1 && f[1] === titre ? 'fiche-seule' : '' }, valeurLisible(c, f, lien)),
+        ].filter(Boolean))))))
+    const naissance = depuisGrist(c.Date_naissance)
+    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), nom(c))
+    const { fermer, section } = ouvrirPanneau(titre, [
+      h('div', { className: 'fiche-entete' },
+        h('div', { className: 'carte-titre sous-texte' }, [naissance && `${enFrancais(naissance)} · ${age(naissance)} ans`, poste(c)].filter(Boolean).join(' · ') || ' '),
+        h('button', { className: 'bouton bouton-compact', onClick: () => { fermer(); ouvrirFormulaire(c) } }, 'Modifier'),
+        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { fermer(); ouvrirSuppression(c) } }, 'Supprimer')),
+      contenu,
+    ])
+    section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')
+  }
+
+  // ---- Suppression ----
+
+  function ouvrirSuppression(c) {
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const confirmer = h('button', { className: 'bouton bouton-danger' }, 'Supprimer définitivement')
+    confirmer.addEventListener('click', async () => {
+      confirmer.disabled = true
+      try {
+        await supprimerCandidat(c.id)
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'La suppression a échoué.'
+        erreur.hidden = false
+        confirmer.disabled = false
+      }
+    })
+    const { fermer } = ouvrirPanneau(`Supprimer ${nom(c)} ?`, [
+      h('p', null, 'Toutes les informations de ce candidat seront supprimées.'),
+      h('p', { className: 'sous-texte' }, 'En cas d’erreur, la suppression s’annule dans l’Historique du document Grist.'),
+      erreur, confirmer,
+      h('button', { className: 'bouton', onClick: () => fermer() }, 'Annuler'),
+    ])
   }
 
   return {

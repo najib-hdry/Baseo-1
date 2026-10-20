@@ -147,6 +147,8 @@ export async function envoyerPhoto(blob, nom = 'photo.jpg') {
 export const enregistrerCandidat = (candidatId, champs) =>
   action([candidatId == null ? ['AddRecord', 'Candidats', null, champs] : ['UpdateRecord', 'Candidats', candidatId, champs]])
 
+export const supprimerCandidat = (candidatId) => action([['RemoveRecord', 'Candidats', candidatId]])
+
 // Adresse temporaire pour afficher une pièce jointe
 export async function lienPhotos() {
   const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: true })
