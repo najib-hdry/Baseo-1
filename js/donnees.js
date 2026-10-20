@@ -72,6 +72,9 @@ export function detailCasier(d, c) {
     prenom: i?.Prenom ?? '',
     nom: i?.Nom ?? '',
     entreprise: (i && d.parId.Entreprises.get(i.Entreprise)?.Nom) || '',
+    employeur: (i && d.parId.Sous_traitants.get(i.Employeur)?.Nom) || '',
+    coffre: a?.Coffre ?? '',
+    cle: a?.Numero_cle ?? '',
   }
 }
 
@@ -108,9 +111,12 @@ export async function creerEtAttribuer(d, casierId, form, dateDebut) {
   const intervenantId = prochainId('Intervenants')
   actions.push(
     ['AddRecord', 'Intervenants', intervenantId, {
-      Prenom: form.prenom.trim(), Nom: form.nom.trim(), Entreprise: entrepriseId, Badge: badge || null,
+      Prenom: form.prenom.trim(), Nom: form.nom.trim(), Entreprise: entrepriseId, Badge: badge || null, Employeur: form.employeur || null,
     }],
-    ['AddRecord', 'Attributions', null, { Casier: casierId, Intervenant: intervenantId, Date_debut: versGrist(dateDebut) }])
+    ['AddRecord', 'Attributions', null, {
+      Casier: casierId, Intervenant: intervenantId, Date_debut: versGrist(dateDebut),
+      Coffre: form.coffre, Numero_cle: form.coffre === 'Oui' ? form.cle.trim() : '',
+    }])
   try {
     await action(actions)
   } catch {
