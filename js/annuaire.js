@@ -98,15 +98,17 @@ export function creerEcranAnnuaire(racine, recharger, config) {
     dessinerLignes()
     racine.replaceChildren(
       h('h1', null, config.titre),
-      h('div', { className: 'barre-outils' },
-        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, responsable, téléphone, email…)', value: recherche,
-          'aria-label': `Rechercher un ${config.unite}`, onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
-        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, `＋ ${config.nouveau}`)),
-      compteur,
-      h('div', { className: 'tableau-defilant' },
-        h('table', { className: 'tableau' },
-          h('thead', null, h('tr', null, titres.map((t) => h('th', null, t)))),
-          corps)))
+      // Recherche et tableau dans une carte blanche à bordure noire
+      h('section', { className: 'carte-tableau' },
+        h('div', { className: 'barre-outils' },
+          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, responsable, téléphone, email…)', value: recherche,
+            'aria-label': `Rechercher un ${config.unite}`, onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
+          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, `＋ ${config.nouveau}`)),
+        compteur,
+        h('div', { className: 'tableau-defilant' },
+          h('table', { className: 'tableau' },
+            h('thead', null, h('tr', null, titres.map((t) => h('th', null, t)))),
+            corps))))
   }
 
   // ---- Fiche : création (`r` null) ou modification ----

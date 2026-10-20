@@ -178,7 +178,7 @@ export function creerEcranCandidats(racine, recharger) {
     racine.replaceChildren(
       h('h1', null, 'Gestion des candidats'),
       // Onglets, recherche et tableau dans une même carte blanche à bordure noire
-      h('section', { className: 'carte-tableau carte-noire' },
+      h('section', { className: 'carte-tableau' },
         h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Statut des candidatures' },
           ONGLETS_CANDIDATS.map(([statut, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(statut === onglet),
             onClick: () => { onglet = statut; rendre() } }, `${libelle} (${statut ? d.Candidats.filter((c) => c.Statut === statut).length : d.Candidats.length})`))),

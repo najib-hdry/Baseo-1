@@ -58,17 +58,19 @@ export function creerEcranPostes(racine, recharger) {
     const filtres = [['tous', 'Tous les statuts'], ...STATUTS_POSTE.map((s) => [s, s])]
     racine.replaceChildren(
       h('h1', null, 'Gestion des postes'),
-      h('div', { className: 'barre-outils' },
-        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (titre, mission, chantier…)', value: recherche,
-          'aria-label': 'Rechercher un poste', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
-        h('select', { className: 'champ champ-compact champ-statut', 'aria-label': 'Filtrer par statut', onChange: (e) => { filtreStatut = e.target.value; dessinerLignes() } },
-          filtres.map(([v, libelle]) => h('option', { value: v, selected: filtreStatut === v }, libelle))),
-        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, '＋ Nouveau poste')),
-      compteur,
-      h('div', { className: 'tableau-defilant' },
-        h('table', { className: 'tableau' },
-          h('thead', null, h('tr', null, TITRES_POSTES.map((t) => h('th', null, t)))),
-          corps)))
+      // Recherche, filtre et tableau dans une carte blanche à bordure noire
+      h('section', { className: 'carte-tableau' },
+        h('div', { className: 'barre-outils' },
+          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (titre, mission, chantier…)', value: recherche,
+            'aria-label': 'Rechercher un poste', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
+          h('select', { className: 'champ champ-compact champ-statut', 'aria-label': 'Filtrer par statut', onChange: (e) => { filtreStatut = e.target.value; dessinerLignes() } },
+            filtres.map(([v, libelle]) => h('option', { value: v, selected: filtreStatut === v }, libelle))),
+          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, '＋ Nouveau poste')),
+        compteur,
+        h('div', { className: 'tableau-defilant' },
+          h('table', { className: 'tableau' },
+            h('thead', null, h('tr', null, TITRES_POSTES.map((t) => h('th', null, t)))),
+            corps))))
   }
 
   // ---- Fiche : création (`p` null) ou modification ----

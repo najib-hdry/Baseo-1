@@ -456,7 +456,7 @@ button.tiroir-lien.active { background: var(--signal); }
 .onglets-statut .onglet { border-radius: 5px; }
 
 /* Gestion des chantiers : onglets, bouton et tableau réunis dans une carte bordée */
-.carte-tableau { margin-top: 16px; padding: 14px; background: var(--surface); border: 1px solid var(--trait); border-radius: 14px; }
+.carte-tableau { margin-top: 16px; padding: 14px; background: #fff; border: 2px solid #000; border-radius: 14px; }
 .carte-tableau .barre-outils { margin-top: 0; }
 .carte-tableau .tableau-defilant { margin-top: 12px; border: 1px solid var(--trait); border-radius: 10px; box-shadow: none; }
 
@@ -494,8 +494,7 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Onglets de statut des candidatures (en tête de la carte noire) */
 .onglets-candidats { margin: 0; padding: 0 0 4px; }
 /* Carte blanche à bordure noire de 2 px (page Candidats) */
-.carte-tableau.carte-noire { background: #fff; border: 2px solid #000; }
-.carte-noire .barre-outils { margin-top: 12px; }
+.onglets-candidats + .barre-outils { margin-top: 12px; }
 /* Les messages d'erreur restent rouges malgré les textes noirs des fiches */
 .panneau.panneau-fiche .erreur { color: var(--hs); }
 /* Fiche d'embauche */
