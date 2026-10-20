@@ -460,8 +460,8 @@ button.tiroir-lien.active { background: var(--signal); }
 .carte-tableau .barre-outils { margin-top: 0; }
 .carte-tableau .tableau-defilant { margin-top: 12px; border: 1px solid var(--trait); border-radius: 10px; box-shadow: none; }
 
-/* En-tête des tableaux : texte noir plein sur fond blanc, séparé des lignes par un trait */
-.tableau th { color: #000; background: #fff; border-bottom: 2px solid var(--trait); }
+/* En-tête des tableaux : texte noir plein sur fond jaune clair, séparé des lignes par un trait */
+.tableau th { color: #000; background: #fce2a9; border-bottom: 2px solid var(--trait); }
 
 /* Fiche détail d'un chantier (admin) */
 .fiche-entete { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
