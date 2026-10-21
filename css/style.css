@@ -594,3 +594,9 @@ button.tiroir-lien.active { background: var(--signal); }
   .graph-ligne { grid-template-columns: 1fr auto; }
   .graph-piste { grid-column: 1 / -1; }
 }
+
+/* Contacts d'un chantier : liste dans la fiche, ajout d'un contact dans le formulaire */
+.contacts-chantier { margin: 0; padding-left: 18px; }
+.contacts-chantier li { margin: 2px 0; }
+.nouveau-contact { display: grid; gap: 10px; margin-top: 10px; padding: 12px; border: 1px dashed var(--trait); border-radius: var(--rayon); }
+.nouveau-contact .fiche-actions { justify-content: flex-start; gap: 8px; }

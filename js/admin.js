@@ -3,9 +3,9 @@
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact } from './donnees.js'
 
-const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Visible', 'Statut', 'Détail du chantier', '']
+const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Contacts', 'Visible', 'Statut', 'Détail du chantier', '']
 // Ordre des onglets de la page
 const ONGLETS_CHANTIERS = ['En cours', 'Terminé', 'À venir', 'Nouveau']
 const LIBELLES_CONTENU = {
@@ -50,7 +50,7 @@ export function creerEcranAdmin(racine, recharger) {
           h('table', { className: 'tableau' },
             h('thead', null, h('tr', null, TITRES_CHANTIERS.map((t) => h('th', null, t)))),
             etiqueterLignes(h('tbody', null, chantiers.length === 0
-              ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: 7 }, 'Aucun chantier avec ce statut.'))
+              ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CHANTIERS.length }, 'Aucun chantier avec ce statut.'))
               : chantiers.map(ligne)), TITRES_CHANTIERS)))))
   }
 
@@ -71,6 +71,7 @@ export function creerEcranAdmin(racine, recharger) {
         h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
       h('td', null, periode.some(Boolean) ? `${periode[0] || '?'} → ${periode[1] || '?'}` : '—'),
       h('td', { className: 'sous-texte' }, structure),
+      h('td', null, idsDeListe(c.Contacts).map((id) => nomContact(d.parId.Contacts.get(id))).filter(Boolean).join(', ') || '—'),
       h('td', null, h('span', { className: `badge ${c.Actif ? 'badge-resolu' : 'badge-termine'}` }, c.Actif ? 'Oui' : 'Masqué')),
       h('td', null, statut),
       h('td', null, h('button', { className: 'bouton bouton-compact bouton-detail', onClick: (e) => { e.stopPropagation(); ouvrirFiche(c) } }, 'Voir le détail')),
@@ -152,6 +153,7 @@ export function creerEcranAdmin(racine, recharger) {
       Nom: c?.Nom ?? '', Adresse: c?.Adresse ?? '', Statut: c?.Statut || 'Nouveau', Actif: c ? Boolean(c.Actif) : true,
       Date_debut: depuisGrist(c?.Date_debut) ?? '', Date_fin: depuisGrist(c?.Date_fin) ?? '', Date_contrat: depuisGrist(c?.Date_contrat) ?? '',
       Samedi_travaille: Boolean(c?.Samedi_travaille), Dimanche_travaille: Boolean(c?.Dimanche_travaille), Prix_casier: c?.Prix_casier ?? null,
+      ...(d.absentes.has('Contacts') ? {} : { Contacts: idsDeListe(c?.Contacts) }),
     }
     const structure = { zones: [nouvelleZone(1)] }
     const erreur = h('p', { className: 'erreur', hidden: true })
@@ -176,7 +178,8 @@ export function creerEcranAdmin(racine, recharger) {
         champ('Prix du casier (€)', 'Prix_casier', { type: 'number', min: 0, step: 0.01 })),
       coche('Samedi jour travaillé', 'Samedi_travaille'),
       coche('Dimanche jour travaillé', 'Dimanche_travaille'),
-      coche('Visible dans l’application (actif)', 'Actif'))
+      coche('Visible dans l’application (actif)', 'Actif'),
+      !d.absentes.has('Contacts') && blocContacts(infos))
 
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
       e.preventDefault()
@@ -212,6 +215,54 @@ export function creerEcranAdmin(racine, recharger) {
 
     const { fermer, section } = ouvrirPanneau(c ? `Modifier ${c.Nom}` : 'Nouveau chantier', formulaire)
     section.classList.add('panneau-large')
+  }
+
+  // Contacts du chantier : cases à cocher (référence multiple) et ajout d'un nouveau contact sans quitter le formulaire
+  function blocContacts(infos) {
+    const cases = h('div', { className: 'cases-chantiers' })
+    const dessinerCases = () => cases.replaceChildren(...(d.Contacts.length === 0
+      ? [h('p', { className: 'sous-texte' }, 'Aucun contact pour l’instant.')]
+      : [...d.Contacts].sort((a, b) => nomContact(a).localeCompare(nomContact(b))).map((k) => h('label', { className: 'case' },
+        h('input', { type: 'checkbox', checked: infos.Contacts.includes(k.id), onChange: (e) => {
+          infos.Contacts = e.target.checked ? [...infos.Contacts, k.id] : infos.Contacts.filter((id) => id !== k.id)
+        } }),
+        [nomContact(k) || 'Sans nom', k.Fonction].filter(Boolean).join(' · ')))))
+    dessinerCases()
+
+    // Mini-formulaire (pas de <form> imbriqué) : le contact créé est ajouté à la liste et coché
+    const nouveau = { Prenom: '', Nom: '', Fonction: '', Telephone: '', Email: '' }
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const saisie = (libelle, cle, type = 'text') => h('label', { className: 'champ-groupe' }, libelle,
+      h('input', { className: 'champ', type, autocomplete: 'off', onInput: (e) => { nouveau[cle] = e.target.value } }))
+    const ajouter = h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button' }, 'Ajouter ce contact')
+    const zone = h('div', { className: 'nouveau-contact', hidden: true },
+      h('div', { className: 'grille-2' }, saisie('Prénom', 'Prenom'), saisie('Nom', 'Nom'), saisie('Fonction', 'Fonction'),
+        saisie('Téléphone', 'Telephone', 'tel'), saisie('Email', 'Email', 'email')),
+      erreur,
+      h('div', { className: 'fiche-actions' }, ajouter,
+        h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { zone.hidden = true; bouton.hidden = false } }, 'Annuler')))
+    ajouter.addEventListener('click', async () => {
+      erreur.hidden = true
+      ajouter.disabled = true
+      try {
+        const champs = Object.fromEntries(Object.entries(nouveau).map(([col, v]) => [col, v.trim()]))
+        const id = await creerContact(champs)
+        d.Contacts.push({ id, ...champs })
+        d.parId.Contacts.set(id, d.Contacts.at(-1))
+        infos.Contacts = [...infos.Contacts, id]
+        dessinerCases()
+        zone.hidden = true
+        bouton.hidden = false
+        zone.querySelectorAll('input').forEach((i) => { i.value = '' })
+        Object.keys(nouveau).forEach((k) => { nouveau[k] = '' })
+      } catch (err) {
+        erreur.textContent = err.message || 'Le contact n’a pas pu être ajouté.'
+        erreur.hidden = false
+      }
+      ajouter.disabled = false
+    })
+    const bouton = h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { zone.hidden = false; bouton.hidden = true } }, '＋ Nouveau contact')
+    return h('fieldset', { className: 'groupe' }, h('legend', null, 'Contacts'), cases, bouton, zone)
   }
 
   // ---- Éditeur de structure ----

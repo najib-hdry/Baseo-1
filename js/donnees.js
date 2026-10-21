@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -221,10 +221,20 @@ function ajoutGroupe(table, liste) {
   return [['BulkAddRecord', table, liste.map((l) => l.id), Object.fromEntries(colonnes.map((c) => [c, liste.map((l) => l[c])]))]]
 }
 
-// Colonnes `infos` (Nom, Adresse, Statut, Actif, dates ISO, jours travaillés, prix) au format Grist ;
+// Colonnes `infos` (Nom, Adresse, Statut, Actif, dates ISO, jours travaillés, prix, Contacts = ids) au format Grist ;
 // seules les colonnes présentes sont écrites
 const infosVersGrist = (infos) => Object.fromEntries(Object.entries(infos).map(([col, v]) =>
-  [col, col.startsWith('Date_') ? versGrist(v) : v]))
+  [col, col.startsWith('Date_') ? versGrist(v) : col === 'Contacts' ? (v.length > 0 ? ['L', ...v] : null) : v]))
+
+// Nouveau contact ; renvoie son identifiant
+export async function creerContact(champs) {
+  if (!champs.Nom && !champs.Prenom) throw new Error('Indique au moins le nom ou le prénom du contact.')
+  const { retValues } = await action([['AddRecord', 'Contacts', null, champs]])
+  return retValues[0]
+}
+
+// « Prénom Nom » d'un contact (ou d'un utilisateur)
+export const nomContact = (r) => [r?.Prenom, r?.Nom].filter(Boolean).join(' ')
 
 /**
  * Crée un chantier et toute sa structure en un seul envoi (tout ou rien).

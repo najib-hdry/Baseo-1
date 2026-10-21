@@ -1,7 +1,7 @@
 // Fiche détail d'un chantier (page admin), en onglets :
 // Composants (structure), Informations, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
-import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes } from './outils.js'
-import { idsDeListe, libelleHoraires } from './donnees.js'
+import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes, lienContact } from './outils.js'
+import { idsDeListe, libelleHoraires, nomContact } from './donnees.js'
 import { zonesDuChantier, basesVisibles, libelleLieu, lieuRapport } from './navigation.js'
 import { NETTOYAGE, MAINTENANCE } from './rapports.js'
 
@@ -93,10 +93,15 @@ function composants(d, c) {
 
 // ---- Onglet Informations ----
 
-function informations(c) {
+function informations(d, c) {
   const date = (v) => enFrancais(depuisGrist(v)) || '—'
   const oui = (v) => (v ? 'Oui' : 'Non')
+  // Contacts : nom, fonction, téléphone et e-mail cliquables
+  const contacts = idsDeListe(c.Contacts).map((id) => d.parId.Contacts.get(id)).filter(Boolean)
   const lignes = [
+    ['Contacts', contacts.length === 0 ? '—' : h('ul', { className: 'contacts-chantier' }, contacts.map((k) => h('li', null,
+      h('strong', null, nomContact(k) || 'Sans nom'), k.Fonction && ` · ${k.Fonction}`,
+      k.Telephone && [' · ', lienContact('tel', k.Telephone)], k.Email && [' · ', lienContact('mailto', k.Email)])))],
     ['Adresse', c.Adresse || '—'],
     ['Statut', c.Statut || 'Sans statut'],
     ['Visible dans l’application', c.Actif ? 'Oui' : 'Non (masqué)'],
@@ -251,7 +256,7 @@ function postes(d, c) {
 
 // Contenu de l'onglet `onglet` de la fiche du chantier `c`
 export function contenuFiche(d, c, onglet) {
-  if (onglet === 'informations') return informations(c)
+  if (onglet === 'informations') return informations(d, c)
   if (onglet === 'casiers') return casiers(d, c)
   if (onglet === 'incidents') return incidents(d, c)
   if (onglet === 'nettoyage') return nettoyage(d, c)
