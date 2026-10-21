@@ -293,16 +293,6 @@ h2 { font-size: 1.3rem; }
 
 /* Page incidents */
 .incidents { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
-.incident {
-  width: 100%; display: flex; gap: 12px; padding: 12px;
-  font: inherit; text-align: left; color: var(--encre); cursor: pointer;
-  background: var(--surface); border: 2px solid transparent; border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(21, 33, 43, .08);
-}
-.incident:hover { border-color: var(--trait); }
-.incident:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
-.incident-photo { flex: none; width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
-.incident-corps { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .incident-haut { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .incident-categorie { font-weight: 600; }
 .incident-date { margin-left: auto; font-size: .8rem; color: var(--encre-douce); }
@@ -647,3 +637,7 @@ body.synchro .entete::after {
 @media (prefers-reduced-motion: reduce) { body.synchro .entete::after { animation: none; background: var(--libre); opacity: .5; } }
 .plan3d-barre { margin-top: 12px; text-align: right; font-size: .85rem; }
 .vue-plan .plan3d-barre + .plan3d { margin-top: 4px; }
+
+/* Suivi des incidents en tableau : vignette de la photo, description sur deux lignes au plus */
+.tableau-photo { display: block; width: 48px; height: 48px; object-fit: cover; border-radius: 8px; }
+.cellule-description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 360px; }

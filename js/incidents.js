@@ -1,6 +1,6 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
-// toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi liste les incidents.
-import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto } from './outils.js'
+// toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
+import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes } from './outils.js'
 import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
@@ -154,54 +154,85 @@ export function creerEcranIncidents(racine, recharger) {
     Résolu: [['Ouvert', 'Rouvrir', '']],
   }
 
-  async function rendreSuivi(zone) {
-    const incidents = d.Incidents
-      .filter((i) => chantierIncident(i) === etat.chantierId)
-      .sort((a, b) => (b.Signale_le ?? 0) - (a.Signale_le ?? 0))
-    const filtre = FILTRES_SUIVI.find((f) => f.cle === etat.filtreSuivi)
-    const visibles = incidents.filter(filtre.garde)
-    const lien = await lienPhotos().catch(() => null)
-    const lieu = (i) => libelleLieu(d, { casier: d.parId.Casiers.get(i.Casier), piece: d.parId.Pieces.get(i.Piece), element: i.Element })
-
-    zone.replaceChildren(
-      h('div', { className: 'filtres' }, FILTRES_SUIVI.map((f) =>
-        h('button', { className: 'filtre', 'aria-pressed': String(f.cle === etat.filtreSuivi), onClick: () => { etat.filtreSuivi = f.cle; rendre() } },
-          `${f.libelle} ${incidents.filter(f.garde).length}`))),
-      visibles.length === 0
-        ? h('p', { className: 'message' }, etat.filtreSuivi === 'actifs' ? 'Aucun incident à traiter.' : 'Aucun incident dans cette catégorie.')
-        : h('ul', { className: 'incidents' }, visibles.map((i) => {
-          const pid = photoId(i.Photo)
-          return h('li', null, h('button', { className: 'incident', onClick: () => ouvrirDetail(i, lieu(i), pid && lien?.(pid)) },
-            pid && lien && h('img', { className: 'incident-photo', src: lien(pid), alt: '', loading: 'lazy' }),
-            h('span', { className: 'incident-corps' },
-              h('span', { className: 'incident-haut' },
-                h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert'),
-                h('span', { className: 'incident-categorie' }, i.Categorie ?? ''),
-                h('span', { className: 'incident-date' }, i.Signale_le ? dateHeure(i.Signale_le) : '')),
-              h('span', { className: 'incident-lieu' }, lieu(i)),
-              h('span', { className: 'incident-description' }, i.Description ?? ''))))
-        })))
-  }
-
-  function ouvrirDetail(i, lieu, photo) {
-    const erreur = h('p', { className: 'erreur', hidden: true })
-    // Le salarié consulte le suivi sans changer le statut
-    const boutons = (peutGerer(d) ? ACTIONS[i.Statut] ?? ACTIONS.Ouvert : []).map(([statut, libelle, classe]) => {
-      const b = h('button', { className: `bouton ${classe}` }, libelle)
-      b.addEventListener('click', async () => {
+  // Boutons de changement de statut d'un incident (aucun pour le salarié, qui consulte seulement) ;
+  // `apres` : appelé après l'écriture réussie, `surErreur(message)` en cas d'échec
+  const boutonsStatut = (i, { compact = false, apres = () => {}, surErreur }) =>
+    (peutGerer(d) ? ACTIONS[i.Statut] ?? ACTIONS.Ouvert : []).map(([statut, libelle, classe]) => {
+      const b = h('button', { className: `bouton ${classe}${compact ? ' bouton-compact' : ''}` }, libelle)
+      b.addEventListener('click', async (ev) => {
+        ev.stopPropagation() // dans le tableau, le clic ne doit pas ouvrir le détail
         b.disabled = true
         try {
           await changerStatut(i.id, statut, aujourdhui())
-          fermer()
+          apres()
           await recharger()
         } catch {
-          erreur.textContent = 'La modification a échoué.'
-          erreur.hidden = false
+          surErreur('La modification a échoué.')
           b.disabled = false
         }
       })
       return b
     })
+
+  const TITRES_SUIVI = ['Photo', 'Signalé le', 'Lieu', 'Catégorie', 'Description', 'Statut', 'Résolu le', '']
+
+  // Suivi : tableau des incidents du chantier (filtres en onglets, recherche, actions sur chaque ligne)
+  async function rendreSuivi(zone) {
+    const incidents = d.Incidents
+      .filter((i) => chantierIncident(i) === etat.chantierId)
+      .sort((a, b) => (b.Signale_le ?? 0) - (a.Signale_le ?? 0))
+    const lien = await lienPhotos().catch(() => null)
+    const lieu = (i) => libelleLieu(d, { casier: d.parId.Casiers.get(i.Casier), piece: d.parId.Pieces.get(i.Piece), element: i.Element })
+    const corps = h('tbody')
+    const compteur = h('p', { className: 'sous-texte' })
+    const erreur = h('p', { className: 'erreur', hidden: true })
+
+    // Ne redessine que les lignes : le champ de recherche garde le curseur
+    const dessinerLignes = () => {
+      const filtre = FILTRES_SUIVI.find((f) => f.cle === etat.filtreSuivi)
+      const texte = (etat.rechercheSuivi ?? '').trim().toLowerCase()
+      const visibles = incidents.filter(filtre.garde)
+        .filter((i) => !texte || [lieu(i), i.Categorie, i.Description, i.Statut].some((v) => String(v ?? '').toLowerCase().includes(texte)))
+      compteur.textContent = `${visibles.length} incident${visibles.length > 1 ? 's' : ''}`
+      corps.replaceChildren(...(visibles.length === 0
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_SUIVI.length },
+          texte ? 'Aucun incident ne correspond à la recherche.' : etat.filtreSuivi === 'actifs' ? 'Aucun incident à traiter.' : 'Aucun incident dans cette catégorie.'))]
+        : visibles.map((i) => {
+          const pid = photoId(i.Photo)
+          const resolu = depuisGrist(i.Resolu_le)
+          return h('tr', { className: 'tableau-ligne', title: 'Voir le détail', onClick: () => ouvrirDetail(i, lieu(i), pid && lien?.(pid)) },
+            h('td', null, pid && lien ? h('img', { className: 'tableau-photo', src: lien(pid), alt: 'Photo', loading: 'lazy' }) : '—'),
+            h('td', null, i.Signale_le ? dateHeure(i.Signale_le) : '—'),
+            h('td', { className: 'tableau-nom' }, lieu(i)),
+            h('td', null, i.Categorie ?? ''),
+            h('td', null, h('span', { className: 'cellule-description' }, i.Description ?? '')),
+            h('td', null, h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')),
+            h('td', null, resolu ? enFrancais(resolu) : '—'),
+            h('td', { className: 'tableau-actions' }, boutonsStatut(i, { compact: true,
+              surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } })))
+        })))
+      etiqueterLignes(corps, TITRES_SUIVI)
+    }
+    dessinerLignes()
+
+    zone.replaceChildren(h('section', { className: 'carte-tableau' },
+      h('div', { className: 'barre-outils' },
+        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Filtrer les incidents' },
+          FILTRES_SUIVI.map((f) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(f.cle === etat.filtreSuivi),
+            onClick: () => { etat.filtreSuivi = f.cle; rendre() } }, `${f.libelle} (${incidents.filter(f.garde).length})`))),
+        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (lieu, catégorie, description…)', value: etat.rechercheSuivi ?? '',
+          'aria-label': 'Rechercher un incident', onInput: (e) => { etat.rechercheSuivi = e.target.value; dessinerLignes() } })),
+      compteur, erreur,
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' },
+          h('thead', null, h('tr', null, TITRES_SUIVI.map((t) => h('th', null, t)))),
+          corps))))
+  }
+
+  function ouvrirDetail(i, lieu, photo) {
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    // Le salarié consulte le suivi sans changer le statut
+    const boutons = boutonsStatut(i, { apres: () => fermer(), surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } })
     const resolu = depuisGrist(i.Resolu_le)
     const { fermer } = ouvrirPanneau(i.Categorie ?? 'Incident', [
       h('p', null, h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')),
