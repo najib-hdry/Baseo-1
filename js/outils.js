@@ -111,38 +111,44 @@ export const galeriePhotos = (ids, lien) => (ids.length === 0 || !lien
 
 /**
  * Photos modifiables d'un formulaire : celles déjà enregistrées (✕ pour retirer) et de nouvelles, `max` au plus.
- * `ids(envoyer)` envoie les nouvelles photos (réduites) avec `envoyer(blob)` et renvoie la liste finale des identifiants.
+ * - `modifie()` : vrai si une photo a été retirée ou ajoutée (sinon inutile de réécrire les colonnes photo) ;
+ * - `ids(envoyer)` envoie les nouvelles photos (réduites, en parallèle) avec `envoyer(blob)` et renvoie la liste finale.
+ *   Une photo déjà envoyée ne l'est pas une seconde fois si l'enregistrement échoue puis est relancé.
  */
 export function editeurPhotos({ ids = [], lien, max = Infinity }) {
-  let gardees = [...ids]
-  let nouvelles = []
+  // Chaque élément a sa propre entrée : une même pièce jointe présente deux fois se retire une seule fois
+  let gardees = ids.map((id) => ({ id }))
+  let nouvelles = [] // { fichier, url (aperçu), id (après envoi) }
+  let modifie = false
   const zone = h('div', { className: 'galerie-photos galerie-modifiable' })
   const texte = h('span')
   const ajout = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onChange: (e) => {
-    nouvelles = [...nouvelles, ...e.target.files].slice(0, max - gardees.length)
+    const place = max - gardees.length - nouvelles.length
+    nouvelles = [...nouvelles, ...[...e.target.files].slice(0, place).map((fichier) => ({ fichier, url: URL.createObjectURL(fichier) }))]
     e.target.value = ''
+    modifie = true
     dessiner()
   } })
   const bouton = h('label', { className: 'bouton bouton-compact bouton-photo-ajout' }, texte, ajout)
   const vignette = (img, retirer) => h('span', { className: 'photo-modifiable' }, img,
-    h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': 'Retirer cette photo', onClick: () => { retirer(); dessiner() } }, '✕'))
+    h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': 'Retirer cette photo', onClick: () => { retirer(); modifie = true; dessiner() } }, '✕'))
   function dessiner() {
     zone.replaceChildren(
-      ...gardees.map((id) => vignette(lien ? h('img', { src: lien(id), alt: 'Photo enregistrée' }) : h('span', { className: 'sous-texte' }, 'Photo'),
-        () => { gardees = gardees.filter((x) => x !== id) })),
-      ...nouvelles.map((f) => vignette(h('img', { src: URL.createObjectURL(f), alt: 'Nouvelle photo' }),
-        () => { nouvelles = nouvelles.filter((x) => x !== f) })))
-    const n = gardees.length + nouvelles.length
-    texte.textContent = `📷 Ajouter des photos${Number.isFinite(max) ? ` (${n}/${max})` : ''}`
-    bouton.hidden = n >= max
+      ...gardees.map((g) => vignette(lien ? h('img', { src: lien(g.id), alt: 'Photo enregistrée' }) : h('span', { className: 'sous-texte' }, 'Photo'),
+        () => { gardees = gardees.filter((x) => x !== g) })),
+      ...nouvelles.map((n) => vignette(h('img', { src: n.url, alt: 'Nouvelle photo' }),
+        () => { URL.revokeObjectURL(n.url); nouvelles = nouvelles.filter((x) => x !== n) })))
+    const total = gardees.length + nouvelles.length
+    texte.textContent = `📷 Ajouter des photos${Number.isFinite(max) ? ` (${total}/${max})` : ''}`
+    bouton.hidden = total >= max
   }
   dessiner()
   return {
     element: h('div', { className: 'champ-groupe' }, 'Photos', zone, bouton),
+    modifie: () => modifie,
     async ids(envoyer) {
-      const ajoutees = []
-      for (const f of nouvelles) ajoutees.push(await envoyer(await reduirePhoto(f)))
-      return [...gardees, ...ajoutees]
+      await Promise.all(nouvelles.filter((n) => n.id == null).map(async (n) => { n.id = await envoyer(await reduirePhoto(n.fichier)) }))
+      return [...gardees.map((g) => g.id), ...nouvelles.map((n) => n.id)]
     },
   }
 }

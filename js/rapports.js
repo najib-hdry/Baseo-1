@@ -3,7 +3,7 @@
 // - Nettoyage : bouton « Nouveau contrôle », lieu choisi dans des listes, derniers enregistrements dessous.
 // - Maintenance (`parPlan`) : comme la déclaration d'incident, sans casiers — plan 3D, étage, puis on touche
 //   le vestiaire ou la pièce ; l'onglet Historique présente les enregistrements en tableau (fiche, modifier, supprimer).
-import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos } from './outils.js'
+import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos } from './outils.js'
 import { envoyerPhoto, enregistrer, lienPhotos, modifierLigne, supprimerFiche, peutGerer, estAdmin, idsDeListe } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, zonesDuChantier, basesVisibles, lieuRapport } from './navigation.js'
 
@@ -20,6 +20,16 @@ export const MAINTENANCE = {
 }
 
 const NB_PHOTOS = 4
+const COLONNES_PHOTO = Array.from({ length: NB_PHOTOS }, (_, i) => `Photo_${i + 1}`)
+// Du plus récent au plus ancien (date, puis ordre de saisie)
+const parDateDecroissante = (a, b) => (depuisGrist(b.Date) ?? '').localeCompare(depuisGrist(a.Date) ?? '') || b.id - a.id
+// Toutes les photos d'une ligne : une cellule Photo_N peut contenir plusieurs pièces jointes (ajoutées dans Grist)
+const photosDe = (r) => COLONNES_PHOTO.flatMap((col) => idsDeListe(r[col]))
+// Répartit des identifiants dans Photo_1..Photo_4 (une par colonne ; s'il y en a plus, le reste dans la dernière)
+const colonnesPhotos = (ids) => Object.fromEntries(COLONNES_PHOTO.map((col, i) => {
+  const part = i < NB_PHOTOS - 1 ? ids.slice(i, i + 1) : ids.slice(i)
+  return [col, part.length > 0 ? ['L', ...part] : null]
+}))
 
 // Écran d'un type de rapport (`config` : NETTOYAGE ou MAINTENANCE), affiché dans `racine`
 export function creerEcranRapport(racine, recharger, config) {
@@ -52,7 +62,7 @@ export function creerEcranRapport(racine, recharger, config) {
             { type: 'hs', valeur: liste.filter((r) => !r.Fiche_passage_complete).length, libelle: 'Incomplètes' },
           ]
         },
-        onOuvrir: (c) => { Object.assign(etat, { onglet: 'declarer' }, selectionPourChantier(d, c.id)); rendre() },
+        onOuvrir: (c) => { Object.assign(etat, { onglet: 'declarer', filtreHisto: '', recherche: '' }, selectionPourChantier(d, c.id)); rendre() },
       }))
       return
     }
@@ -101,14 +111,12 @@ export function creerEcranRapport(racine, recharger, config) {
   // ---- Derniers enregistrements du chantier ----
 
   function derniers() {
-    const liste = duChantier(etat.chantierId)
-      .sort((a, b) => (depuisGrist(b.Date) ?? '').localeCompare(depuisGrist(a.Date) ?? '') || b.id - a.id)
-      .slice(0, 10)
+    const liste = duChantier(etat.chantierId).sort(parDateDecroissante).slice(0, 10)
     if (liste.length === 0) return h('p', { className: 'message' }, 'Aucun enregistrement pour ce chantier.')
     return [
       h('h2', { className: 'titre-section' }, 'Derniers enregistrements'),
       h('ul', { className: 'incidents' }, liste.map((r) => {
-        const photos = Array.from({ length: NB_PHOTOS }, (_, i) => r[`Photo_${i + 1}`]).filter((p) => Array.isArray(p) && p.length > 1).length
+        const photos = photosDe(r).length
         return h('li', { className: 'rapport' },
           h('span', { className: 'incident-haut' },
             config.choix.map((c) => r[c.col] && h('span', { className: 'incident-categorie' }, r[c.col])),
@@ -125,20 +133,19 @@ export function creerEcranRapport(racine, recharger, config) {
 
   // ---- Historique en tableau (maintenance) : filtres par action, recherche, fiche, modifier, supprimer ----
 
-  const photosDe = (r) => Array.from({ length: NB_PHOTOS }, (_, i) => idsDeListe(r[`Photo_${i + 1}`])[0]).filter(Boolean)
   const badgeFiche = (r) => h('span', { className: `badge ${r.Fiche_passage_complete ? 'badge-resolu' : 'badge-ouvert'}` },
     r.Fiche_passage_complete ? 'Complète' : 'Incomplète')
   const dateDe = (r) => [enFrancais(depuisGrist(r.Date)) || '—', r.Horaire_passage].filter(Boolean).join(' · ')
 
   async function rendreHistorique(zone) {
-    const liste = duChantier(etat.chantierId)
-      .sort((a, b) => (depuisGrist(b.Date) ?? '').localeCompare(depuisGrist(a.Date) ?? '') || b.id - a.id)
+    const liste = duChantier(etat.chantierId).sort(parDateDecroissante)
     const lien = await lienPhotos().catch(() => null)
     const premier = config.choix[0]
     const titres = ['Photo', 'Date', 'Lieu', ...config.choix.map((c) => c.libelle), 'Fiche de passage', 'Commentaire', '']
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
-    const lieu = (r) => lieuRapport(d, etat.chantierId, r)
+    const lieux = new Map(liste.map((r) => [r.id, lieuRapport(d, etat.chantierId, r)]))
+    const lieu = (r) => lieux.get(r.id)
 
     // Ne redessine que les lignes : le champ de recherche garde le curseur
     const dessinerLignes = () => {
@@ -171,12 +178,16 @@ export function creerEcranRapport(racine, recharger, config) {
     }
     dessinerLignes()
 
+    const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': `Filtrer par ${premier.libelle.toLowerCase()}` },
+      [['', 'Tous'], ...premier.valeurs.map((v) => [v, v])].map(([v, libelle]) => h('button', { className: 'onglet', role: 'tab',
+        'aria-selected': String((etat.filtreHisto ?? '') === v), onClick: (e) => {
+          etat.filtreHisto = v
+          onglets.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b === e.currentTarget)))
+          dessinerLignes()
+        } },
+      `${libelle} (${v ? liste.filter((r) => r[premier.col] === v).length : liste.length})`)))
     zone.replaceChildren(h('section', { className: 'carte-tableau' },
-      h('div', { className: 'barre-outils' },
-        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': `Filtrer par ${premier.libelle.toLowerCase()}` },
-          [['', 'Tous'], ...premier.valeurs.map((v) => [v, v])].map(([v, libelle]) => h('button', { className: 'onglet', role: 'tab',
-            'aria-selected': String((etat.filtreHisto ?? '') === v), onClick: () => { etat.filtreHisto = v; rendre() } },
-          `${libelle} (${v ? liste.filter((r) => r[premier.col] === v).length : liste.length})`))),
+      h('div', { className: 'barre-outils' }, onglets,
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (lieu, type, commentaire…)', value: etat.recherche ?? '',
           'aria-label': 'Rechercher un enregistrement', onInput: (e) => { etat.recherche = e.target.value; dessinerLignes() } })),
       compteur,
@@ -211,7 +222,8 @@ export function creerEcranRapport(racine, recharger, config) {
   function ouvrirModification(r, lien) {
     const champs = { date: depuisGrist(r.Date) ?? '', horaire: r.Horaire_passage ?? '', complete: Boolean(r.Fiche_passage_complete), commentaire: r.Commentaire ?? '' }
     for (const c of config.choix) champs[c.col] = r[c.col] ?? ''
-    const photos = editeurPhotos({ ids: photosDe(r), lien, max: NB_PHOTOS })
+    const existantes = photosDe(r)
+    const photos = editeurPhotos({ ids: existantes, lien, max: Math.max(NB_PHOTOS, existantes.length) })
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer')
 
@@ -228,14 +240,14 @@ export function creerEcranRapport(racine, recharger, config) {
       valider.disabled = true
       valider.textContent = 'Enregistrement…'
       try {
-        const ids = await photos.ids(envoyerPhoto)
+        const colonnes = photos.modifie() ? colonnesPhotos(await photos.ids(envoyerPhoto)) : {}
         await modifierLigne(config.table, r.id, {
           ...Object.fromEntries(config.choix.map((c) => [c.col, champs[c.col]])),
           Date: versGrist(champs.date),
           ...(config.horaire ? { Horaire_passage: champs.horaire.trim() } : {}),
           Fiche_passage_complete: champs.complete,
           Commentaire: champs.commentaire.trim(),
-          ...Object.fromEntries(Array.from({ length: NB_PHOTOS }, (_, i) => [`Photo_${i + 1}`, ids[i] ? ['L', ids[i]] : null])),
+          ...colonnes,
         })
         fermer()
         await recharger()
@@ -251,7 +263,9 @@ export function creerEcranRapport(racine, recharger, config) {
       config.choix.map((c) => h('label', { className: 'champ-groupe' }, c.libelle,
         h('select', { className: 'champ', onChange: (e) => { champs[c.col] = e.target.value } },
           h('option', { value: '', selected: !champs[c.col] }, '—'),
-          c.valeurs.map((v) => h('option', { value: v, selected: champs[c.col] === v }, v))))),
+          // Une valeur enregistrée qui n'est plus dans la liste reste visible et choisie
+          [...(champs[c.col] && !c.valeurs.includes(champs[c.col]) ? [champs[c.col]] : []), ...c.valeurs]
+            .map((v) => h('option', { value: v, selected: champs[c.col] === v }, v))))),
       h('label', { className: 'champ-groupe' }, 'Date',
         h('input', { className: 'champ', type: 'date', value: champs.date, max: aujourdhui(), onInput: (e) => { champs.date = e.target.value } })),
       config.horaire && h('label', { className: 'champ-groupe' }, 'Horaire de passage',
@@ -320,7 +334,7 @@ export function creerEcranRapport(racine, recharger, config) {
   function ouvrirFormulaire(lieu) {
     const form = {
       zoneId: null, baseId: null, etageId: null, lieu: '', ...(lieu ? lieuChoisi(lieu) : {}),
-      date: aujourdhui(), horaire: '', complete: false, commentaire: '', photos: [],
+      date: aujourdhui(), horaire: '', complete: false, commentaire: '',
     }
     for (const c of config.choix) form[c.col] = ''
 
@@ -339,25 +353,7 @@ export function creerEcranRapport(racine, recharger, config) {
     })
 
     // Photos : jusqu'à 4, ajoutées une par une ou plusieurs à la fois
-    const apercu = h('div', { className: 'photos' })
-    const fichier = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true })
-    const libellePhoto = h('span')
-    const boutonPhoto = h('label', { className: 'bouton bouton-photo' }, libellePhoto, fichier)
-    const dessinerPhotos = () => {
-      apercu.replaceChildren(...form.photos.map((f, i) => h('div', { className: 'photo' },
-        h('img', { src: URL.createObjectURL(f), alt: `Photo ${i + 1}`, onLoad: (e) => URL.revokeObjectURL(e.target.src) }),
-        h('button', { className: 'photo-retirer', type: 'button', 'aria-label': `Retirer la photo ${i + 1}`,
-          onClick: () => { form.photos.splice(i, 1); dessinerPhotos() } }, '✕'))))
-      apercu.hidden = form.photos.length === 0
-      boutonPhoto.hidden = form.photos.length >= NB_PHOTOS
-      libellePhoto.textContent = `📷 Ajouter des photos (${form.photos.length}/${NB_PHOTOS})`
-    }
-    fichier.addEventListener('change', () => {
-      form.photos.push(...[...fichier.files].slice(0, NB_PHOTOS - form.photos.length))
-      fichier.value = ''
-      dessinerPhotos()
-    })
-    dessinerPhotos()
+    const photos = editeurPhotos({ max: NB_PHOTOS })
 
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
       e.preventDefault()
@@ -366,8 +362,7 @@ export function creerEcranRapport(racine, recharger, config) {
       envoyer.disabled = true
       envoyer.textContent = 'Envoi…'
       try {
-        const photos = []
-        for (const p of form.photos) photos.push(await envoyerPhoto(await reduirePhoto(p)))
+        const ids = await photos.ids(envoyerPhoto)
         const [genre, lieuId] = form.lieu.split(':')
         await enregistrer(config.table, {
           ...Object.fromEntries(config.choix.map((c) => [c.col, form[c.col]])),
@@ -381,7 +376,7 @@ export function creerEcranRapport(racine, recharger, config) {
           ...(config.horaire ? { Horaire_passage: form.horaire.trim() } : {}),
           Fiche_passage_complete: form.complete,
           Commentaire: form.commentaire.trim(),
-          ...Object.fromEntries(photos.map((id, i) => [`Photo_${i + 1}`, ['L', id]])),
+          ...colonnesPhotos(ids),
         })
         fermer()
         banniere = h('p', { className: 'confirmation', role: 'status' }, 'Enregistré ✓')
@@ -407,7 +402,7 @@ export function creerEcranRapport(racine, recharger, config) {
       'Fiche de passage complète'),
     h('textarea', { className: 'champ champ-texte', placeholder: 'Commentaire', 'aria-label': 'Commentaire',
       onInput: (e) => { form.commentaire = e.target.value } }),
-    boutonPhoto, apercu, erreur, envoyer)
+    photos.element, erreur, envoyer)
 
     const chantier = d.parId.Chantiers.get(etat.chantierId)
     const { fermer } = ouvrirPanneau(config.nouveau, [h('p', { className: 'lieu-choisi' }, chantier?.Nom ?? ''), formulaire])

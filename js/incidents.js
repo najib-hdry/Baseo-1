@@ -37,7 +37,7 @@ export function creerEcranIncidents(racine, recharger) {
           ]
         },
         onOuvrir: (c) => {
-          Object.assign(etat, { filtre: 'tous', onglet: 'signaler' }, selectionPourChantier(d, c.id))
+          Object.assign(etat, { filtre: 'tous', onglet: 'signaler', filtreSuivi: 'actifs', rechercheSuivi: '' }, selectionPourChantier(d, c.id))
           rendre()
         },
       }))
@@ -182,7 +182,9 @@ export function creerEcranIncidents(racine, recharger) {
       .filter((i) => chantierIncident(i) === etat.chantierId)
       .sort((a, b) => (b.Signale_le ?? 0) - (a.Signale_le ?? 0))
     const lien = await lienPhotos().catch(() => null)
-    const lieu = (i) => libelleLieu(d, { casier: d.parId.Casiers.get(i.Casier), piece: d.parId.Pieces.get(i.Piece), element: i.Element })
+    // Lieu calculé une fois par incident (et non à chaque frappe dans la recherche)
+    const lieux = new Map(incidents.map((i) => [i.id, libelleLieu(d, { casier: d.parId.Casiers.get(i.Casier), piece: d.parId.Pieces.get(i.Piece), element: i.Element })]))
+    const lieu = (i) => lieux.get(i.id)
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     const erreur = h('p', { className: 'erreur', hidden: true })
@@ -220,11 +222,16 @@ export function creerEcranIncidents(racine, recharger) {
     }
     dessinerLignes()
 
+    // Onglets de filtre : seules les lignes sont redessinées
+    const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Filtrer les incidents' },
+      FILTRES_SUIVI.map((f) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(f.cle === etat.filtreSuivi),
+        onClick: (e) => {
+          etat.filtreSuivi = f.cle
+          onglets.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b === e.currentTarget)))
+          dessinerLignes()
+        } }, `${f.libelle} (${incidents.filter(f.garde).length})`)))
     zone.replaceChildren(h('section', { className: 'carte-tableau' },
-      h('div', { className: 'barre-outils' },
-        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Filtrer les incidents' },
-          FILTRES_SUIVI.map((f) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(f.cle === etat.filtreSuivi),
-            onClick: () => { etat.filtreSuivi = f.cle; rendre() } }, `${f.libelle} (${incidents.filter(f.garde).length})`))),
+      h('div', { className: 'barre-outils' }, onglets,
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (lieu, catégorie, description…)', value: etat.rechercheSuivi ?? '',
           'aria-label': 'Rechercher un incident', onInput: (e) => { etat.rechercheSuivi = e.target.value; dessinerLignes() } })),
       compteur, erreur,
@@ -278,8 +285,8 @@ export function creerEcranIncidents(racine, recharger) {
       valider.disabled = true
       valider.textContent = 'Enregistrement…'
       try {
-        const ids = await photos.ids(envoyerPhoto)
-        await modifierIncident(i, { ...champs, Element: champs.Element.trim(), Description: champs.Description.trim(), photos: ids }, aujourdhui())
+        const nouvellesPhotos = photos.modifie() ? await photos.ids(envoyerPhoto) : null
+        await modifierIncident(i, { ...champs, Element: champs.Element.trim(), Description: champs.Description.trim(), photos: nouvellesPhotos }, aujourdhui())
         fermer()
         await recharger()
       } catch (err) {
