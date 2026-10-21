@@ -108,7 +108,10 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
 
   // Deux blocs : le plan (zones, bases vie, plan 3D, étages, pièces) et le contenu de l'étage (vestiaires, casiers…),
   // empilés sur téléphone, côte à côte sur ordinateur (voir .vue-chantier dans le CSS)
-  const plan = [onglets('Zones', zones, etat.zoneId, choisirZone), onglets('Bases vie', bases, etat.baseId, choisirBase)]
+  // Zones et bases vie au-dessus des deux blocs : sur ordinateur, les étages (gauche) et les vestiaires (droite)
+  // commencent ainsi à la même hauteur
+  const haut = [onglets('Zones', zones, etat.zoneId, choisirZone), onglets('Bases vie', bases, etat.baseId, choisirBase)]
+  const plan = []
   const noeuds = []
 
   if (etagesBase.length > 0) {
@@ -160,7 +163,7 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
             mode === 'incidents' && marques?.casiers.has(c.id) && h('span', { className: 'pastille', 'aria-label': 'incident en cours' }, '!')))))
   }
   // sans les onglets absents (null) ni les blocs conditionnels (false)
-  return [h('div', { className: 'vue-chantier' },
+  return [...haut.filter(Boolean), h('div', { className: 'vue-chantier' },
     h('div', { className: 'vue-plan' }, plan.filter(Boolean)),
     h('div', { className: 'vue-contenu' }, noeuds.filter(Boolean)))]
 }

@@ -616,7 +616,6 @@ button.tiroir-lien.active { background: var(--signal); }
   .vue-plan { display: flex; flex-direction: column; }
   /* Étages et pièces au-dessus du plan 3D : visibles sans défiler */
   .vue-plan > [aria-label="Étages"], .vue-plan > .pieces { order: -1; }
-  .vue-plan > .onglets:not([aria-label="Étages"]), .vue-plan > p.sous-texte { order: -2; }
   .vue-plan .onglets, .vue-plan .plan3d { margin-left: 0; margin-right: 0; }
   .vue-plan .onglets { padding-left: 0; padding-right: 0; }
   .vue-plan .plan3d { min-height: 280px; border-radius: 14px; }
