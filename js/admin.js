@@ -3,7 +3,7 @@
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable } from './donnees.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Contacts', 'Visible', 'Statut', 'Détail du chantier', '']
 // Ordre des onglets de la page
@@ -236,11 +236,13 @@ export function creerEcranAdmin(racine, recharger) {
       const restants = d.Contacts.filter((k) => !infos.Contacts.includes(k.id)).sort((a, b) => libelle(a).localeCompare(libelle(b)))
       liste.replaceChildren(
         h('option', { value: '', selected: true }, d.Contacts.length === 0 ? 'Aucun contact existant' : restants.length === 0 ? 'Tous les contacts sont choisis' : '-- Choisir un contact existant --'),
-        restants.map((k) => h('option', { value: String(k.id) }, libelle(k))))
+        ...restants.map((k) => h('option', { value: String(k.id) }, libelle(k))))
       liste.disabled = restants.length === 0
     }
     const cases = h('div', { className: 'formulaire' }, choisis, liste)
     dessinerCases()
+    // Contacts ajoutés directement dans Grist depuis le dernier chargement : relus à l'ouverture du formulaire
+    relireTable(d, 'Contacts').then(dessinerCases, () => {})
 
     // Mini-formulaire (pas de <form> imbriqué) : le contact créé est ajouté à la liste et coché
     const nouveau = { Prenom: '', Nom: '', Fonction: '', Telephone: '', Email: '' }

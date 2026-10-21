@@ -226,6 +226,13 @@ function ajoutGroupe(table, liste) {
 const infosVersGrist = (infos) => Object.fromEntries(Object.entries(infos).map(([col, v]) =>
   [col, col.startsWith('Date_') ? versGrist(v) : col === 'Contacts' ? (v.length > 0 ? ['L', ...v] : null) : v]))
 
+// Relit une seule table dans Grist (lignes ajoutées ailleurs, ex. directement dans le tableau Grist,
+// que le widget ne voit pas : il ne se recharge que sur les changements de sa table liée)
+export async function relireTable(d, table) {
+  d[table] = enLignes(await grist.docApi.fetchTable(table))
+  d.parId[table] = new Map(d[table].map((r) => [r.id, r]))
+}
+
 // Nouveau contact ; renvoie son identifiant
 export async function creerContact(champs) {
   if (!champs.Nom && !champs.Prenom) throw new Error('Indique au moins le nom ou le prénom du contact.')
