@@ -165,19 +165,22 @@ export function creerEcranAdmin(racine, recharger) {
     const coche = (libelle, cle) => h('label', { className: 'case' },
       h('input', { type: 'checkbox', checked: infos[cle], onChange: (e) => { infos[cle] = e.target.checked } }), libelle)
 
+    // Sur un écran large, les champs se placent côte à côte (grille-2 : colonnes de 200 px minimum)
     const blocInfos = h('div', { className: 'formulaire' },
-      champ('Nom du chantier', 'Nom', { required: true, autocomplete: 'off' }),
-      champ('Adresse', 'Adresse', { autocomplete: 'off' }),
-      h('label', { className: 'champ-groupe' }, 'Statut',
-        h('select', { className: 'champ', onChange: (e) => { infos.Statut = e.target.value } },
-          STATUTS_CHANTIER.map((s) => h('option', { value: s, selected: infos.Statut === s }, s)))),
+      h('div', { className: 'grille-2' },
+        champ('Nom du chantier', 'Nom', { required: true, autocomplete: 'off' }),
+        champ('Adresse', 'Adresse', { autocomplete: 'off' }),
+        h('label', { className: 'champ-groupe' }, 'Statut',
+          h('select', { className: 'champ', onChange: (e) => { infos.Statut = e.target.value } },
+            STATUTS_CHANTIER.map((s) => h('option', { value: s, selected: infos.Statut === s }, s))))),
       h('div', { className: 'grille-2' },
         champ('Date de contrat', 'Date_contrat', { type: 'date' }),
         champ('Date de fin', 'Date_fin', { type: 'date' }),
         champ('Prix du casier (€)', 'Prix_casier', { type: 'number', min: 0, step: 0.01 })),
-      coche('Samedi jour travaillé', 'Samedi_travaille'),
-      coche('Dimanche jour travaillé', 'Dimanche_travaille'),
-      coche('Visible dans l’application (actif)', 'Actif'),
+      h('div', { className: 'cases-ligne' },
+        coche('Samedi jour travaillé', 'Samedi_travaille'),
+        coche('Dimanche jour travaillé', 'Dimanche_travaille'),
+        coche('Visible dans l’application (actif)', 'Actif')),
       !d.absentes.has('Contacts') && blocContacts(infos))
 
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
@@ -213,7 +216,7 @@ export function creerEcranAdmin(racine, recharger) {
     erreur, valider)
 
     const { fermer, section } = ouvrirPanneau(c ? `Modifier ${c.Nom}` : 'Nouveau chantier', formulaire)
-    section.classList.add('panneau-large')
+    section.classList.add('panneau-large', 'panneau-chantier')
   }
 
   // Contacts du chantier (référence multiple) : choix d'un contact existant dans une liste, contacts choisis en étiquettes
