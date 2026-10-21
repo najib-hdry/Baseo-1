@@ -1,7 +1,7 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
-import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes } from './outils.js'
-import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer } from './donnees.js'
+import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression } from './outils.js'
+import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer, estAdmin, idsDeListe, modifierIncident, supprimerIncident } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
 // Écran « Gestion des incidents », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -20,7 +20,7 @@ export function creerEcranIncidents(racine, recharger) {
     const piece = d.parId.Pieces.get(i.Piece)
     return casier?.Chantier ?? piece?.Chantier ?? i.Chantier
   }
-  const photoId = (v) => (Array.isArray(v) ? v.filter((x) => x !== 'L')[0] : null)
+  const photoId = (v) => idsDeListe(v)[0] ?? null
 
   function rendre() {
     if (!d) return
@@ -200,7 +200,8 @@ export function creerEcranIncidents(racine, recharger) {
         : visibles.map((i) => {
           const pid = photoId(i.Photo)
           const resolu = depuisGrist(i.Resolu_le)
-          return h('tr', { className: 'tableau-ligne', title: 'Voir le détail', onClick: () => ouvrirDetail(i, lieu(i), pid && lien?.(pid)) },
+          const sansClic = (fn) => (ev) => { ev.stopPropagation(); fn() } // un bouton de la ligne n'ouvre pas aussi la fiche
+          return h('tr', { className: 'tableau-ligne', title: 'Voir la fiche', onClick: () => ouvrirDetail(i, lieu(i), lien) },
             h('td', null, pid && lien ? h('img', { className: 'tableau-photo', src: lien(pid), alt: 'Photo', loading: 'lazy' }) : '—'),
             h('td', null, i.Signale_le ? dateHeure(i.Signale_le) : '—'),
             h('td', { className: 'tableau-nom' }, lieu(i)),
@@ -208,8 +209,12 @@ export function creerEcranIncidents(racine, recharger) {
             h('td', null, h('span', { className: 'cellule-description' }, i.Description ?? '')),
             h('td', null, h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')),
             h('td', null, resolu ? enFrancais(resolu) : '—'),
-            h('td', { className: 'tableau-actions' }, boutonsStatut(i, { compact: true,
-              surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } })))
+            // Action principale du statut, puis fiche, modification et suppression
+            h('td', { className: 'tableau-actions' },
+              boutonsStatut(i, { compact: true, surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } }).slice(0, 1),
+              h('button', { className: 'bouton bouton-compact', onClick: sansClic(() => ouvrirDetail(i, lieu(i), lien)) }, 'Fiche'),
+              peutGerer(d) && h('button', { className: 'bouton bouton-compact', onClick: sansClic(() => ouvrirModification(i, lieu(i), lien)) }, 'Modifier'),
+              estAdmin(d) && h('button', { className: 'bouton bouton-compact bouton-danger', onClick: sansClic(() => ouvrirSuppression(i, lieu(i))) }, 'Supprimer')))
         })))
       etiqueterLignes(corps, TITRES_SUIVI)
     }
@@ -229,21 +234,101 @@ export function creerEcranIncidents(racine, recharger) {
           corps))))
   }
 
-  function ouvrirDetail(i, lieu, photo) {
+  // Galerie des photos d'un incident (chacune s'ouvre en grand dans un nouvel onglet)
+  const galerie = (ids, lien) => (ids.length === 0 || !lien
+    ? h('p', { className: 'sous-texte' }, ids.length ? 'Photos enregistrées (aperçu indisponible).' : 'Aucune photo.')
+    : h('div', { className: 'galerie-photos' }, ids.map((id, n) =>
+      h('a', { href: lien(id), target: '_blank', rel: 'noreferrer', title: 'Ouvrir la photo en grand' },
+        h('img', { src: lien(id), alt: `Photo ${n + 1} de l’incident`, loading: 'lazy' })))))
+
+  // Fiche d'un incident : informations, toutes les photos, actions
+  function ouvrirDetail(i, lieu, lien) {
     const erreur = h('p', { className: 'erreur', hidden: true })
-    // Le salarié consulte le suivi sans changer le statut
+    // Le salarié consulte la fiche sans changer le statut
     const boutons = boutonsStatut(i, { apres: () => fermer(), surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } })
     const resolu = depuisGrist(i.Resolu_le)
-    const { fermer } = ouvrirPanneau(i.Categorie ?? 'Incident', [
-      h('p', null, h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')),
-      h('p', { className: 'incident-lieu' }, lieu),
-      h('p', null, i.Description ?? ''),
-      h('p', { className: 'sous-texte' },
-        `Signalé le ${i.Signale_le ? dateHeure(i.Signale_le) : '—'}${i.Signale_par ? ` par ${i.Signale_par}` : ''}${resolu ? ` · résolu le ${enFrancais(resolu)}` : ''}`),
-      photo && h('a', { href: photo, target: '_blank', rel: 'noreferrer' }, h('img', { className: 'detail-photo', src: photo, alt: 'Photo de l’incident' })),
+    const ids = idsDeListe(i.Photo)
+    const infos = [
+      ['Statut', h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')],
+      ['Lieu', lieu],
+      ['Catégorie', i.Categorie || '—'],
+      ['Description', i.Description || '—'],
+      ['Signalé le', i.Signale_le ? dateHeure(i.Signale_le) : '—'],
+      ['Signalé par', i.Signale_par || '—'],
+      ['Résolu le', resolu ? enFrancais(resolu) : '—'],
+    ]
+    const { fermer, section } = ouvrirPanneau(`Incident · ${i.Categorie ?? ''}`, [
+      h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
+      h('h3', { className: 'titre-section' }, `Photos (${ids.length})`),
+      galerie(ids, lien),
       erreur,
-      ...boutons,
+      h('div', { className: 'fiche-boutons' }, ...boutons,
+        peutGerer(d) && h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirModification(i, lieu, lien) } }, 'Modifier'),
+        estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => { fermer(); ouvrirSuppression(i, lieu) } }, 'Supprimer')),
     ])
+    section.classList.add('panneau-large')
+  }
+
+  // Modification : catégorie, élément (pièce), description, statut, photos (retirer ou ajouter)
+  function ouvrirModification(i, lieu, lien) {
+    const champs = { Categorie: i.Categorie ?? '', Element: i.Element ?? '', Description: i.Description ?? '', Statut: i.Statut || 'Ouvert' }
+    let gardees = idsDeListe(i.Photo)
+    let nouvelles = []
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer')
+    const choix = (libelle, cle, valeurs) => h('label', { className: 'champ-groupe' }, libelle,
+      h('select', { className: 'champ', onChange: (e) => { champs[cle] = e.target.value } },
+        valeurs.map((v) => h('option', { value: v, selected: champs[cle] === v }, v))))
+
+    // Photos : celles gardées (✕ pour retirer) et celles ajoutées
+    const zonePhotos = h('div', { className: 'galerie-photos galerie-modifiable' })
+    const dessinerPhotos = () => zonePhotos.replaceChildren(
+      ...gardees.map((id) => h('span', { className: 'photo-modifiable' },
+        lien ? h('img', { src: lien(id), alt: 'Photo enregistrée' }) : h('span', { className: 'sous-texte' }, 'Photo'),
+        h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': 'Retirer cette photo', onClick: () => { gardees = gardees.filter((x) => x !== id); dessinerPhotos() } }, '✕'))),
+      ...nouvelles.map((f, n) => h('span', { className: 'photo-modifiable' },
+        h('img', { src: URL.createObjectURL(f), alt: 'Nouvelle photo' }),
+        h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': 'Retirer cette photo', onClick: () => { nouvelles = nouvelles.filter((_, k) => k !== n); dessinerPhotos() } }, '✕'))))
+    dessinerPhotos()
+    const ajout = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true,
+      onChange: (e) => { nouvelles = [...nouvelles, ...e.target.files]; e.target.value = ''; dessinerPhotos() } })
+
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        const ajoutees = []
+        for (const f of nouvelles) ajoutees.push(await envoyerPhoto(await reduirePhoto(f)))
+        await modifierIncident(i, { ...champs, Element: champs.Element.trim(), Description: champs.Description.trim(), photos: [...gardees, ...ajoutees] }, aujourdhui())
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'La modification a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = 'Enregistrer'
+      }
+    } },
+    h('p', { className: 'lieu-choisi' }, lieu),
+    h('div', { className: 'grille-2' }, choix('Catégorie', 'Categorie', CATEGORIES), choix('Statut', 'Statut', Object.keys(STATUTS))),
+    i.Piece ? h('label', { className: 'champ-groupe' }, 'Élément (lavabo, porte, lumière…)',
+      h('input', { className: 'champ', autocomplete: 'off', value: champs.Element, onInput: (e) => { champs.Element = e.target.value } })) : null,
+    h('label', { className: 'champ-groupe' }, 'Description',
+      h('textarea', { className: 'champ champ-texte', value: champs.Description, onInput: (e) => { champs.Description = e.target.value } })),
+    h('div', { className: 'champ-groupe' }, 'Photos', zonePhotos,
+      h('label', { className: 'bouton bouton-compact bouton-photo-ajout' }, '📷 Ajouter des photos', ajout)),
+    erreur, valider)
+    const { fermer, section } = ouvrirPanneau('Modifier l’incident', formulaire)
+    section.classList.add('panneau-large')
+  }
+
+  function ouvrirSuppression(i, lieu) {
+    fenetreSuppression(`Supprimer cet incident ?`, [
+      h('p', null, `${i.Categorie ?? 'Incident'} · ${lieu}`),
+      i.Description && h('p', { className: 'sous-texte' }, i.Description),
+    ].filter(Boolean), [['Supprimer définitivement', 'bouton-danger', () => supprimerIncident(i.id)]], recharger)
   }
 
   return {

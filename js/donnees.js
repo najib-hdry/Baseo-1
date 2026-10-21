@@ -497,3 +497,16 @@ export const changerStatut = (incidentId, statut, aujourdhuiIso) =>
     Statut: statut,
     Resolu_le: statut === 'Résolu' ? versGrist(aujourdhuiIso) : null,
   }]])
+
+/**
+ * Modifie un incident : `champs` = { Categorie, Element, Description, Statut, photos (identifiants de pièces jointes) }.
+ * La date de résolution est gardée si l'incident était déjà résolu, posée à aujourd'hui s'il le devient, effacée sinon.
+ */
+export function modifierIncident(incident, { photos, ...champs }, aujourdhuiIso) {
+  if (!champs.Categorie) throw new Error('Choisis une catégorie.')
+  if (!champs.Description) throw new Error('La description est obligatoire.')
+  const resolu = champs.Statut === 'Résolu' ? (incident.Statut === 'Résolu' && incident.Resolu_le) || versGrist(aujourdhuiIso) : null
+  return action([['UpdateRecord', 'Incidents', incident.id, { ...champs, Resolu_le: resolu, Photo: photos.length > 0 ? ['L', ...photos] : null }]])
+}
+
+export const supprimerIncident = (incidentId) => action([['RemoveRecord', 'Incidents', incidentId]])
