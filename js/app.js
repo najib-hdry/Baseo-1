@@ -47,6 +47,17 @@ let donnees = null
 
 const sousTitre = h('div', { className: 'entete-info' })
 
+// Profil connecté et liens des pages (communs au tiroir du téléphone et au menu latéral de l'ordinateur)
+const liensMenu = (avant = () => {}) => [
+  donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
+  pagesVisibles().map((p) => h('button', {
+    className: `tiroir-lien${p.cle === pageCourante() ? ' active' : ''}`,
+    'aria-current': p.cle === pageCourante() ? 'page' : null,
+    onClick: () => { avant(); allerA(p.cle) },
+  }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle)),
+]
+
+// Téléphone : menu en tiroir, ouvert par le bouton ☰
 function ouvrirMenu() {
   const fermer = () => {
     voile.remove()
@@ -58,14 +69,14 @@ function ouvrirMenu() {
       h('div', { className: 'tiroir-haut' },
         h('span', { className: 'tiroir-titre' }, 'Mes pages'),
         h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: fermer }, '✕')),
-      donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
-      pagesVisibles().map((p) => h('button', {
-        className: `tiroir-lien${p.cle === pageCourante() ? ' active' : ''}`,
-        onClick: () => { fermer(); allerA(p.cle) },
-      }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle))))
+      liensMenu(fermer)))
   document.body.append(voile)
   window.addEventListener('keydown', touche)
 }
+
+// Ordinateur : menu latéral toujours ouvert (le CSS l'affiche à partir de 900 px et masque alors le bouton ☰)
+const menuLateral = h('nav', { className: 'menu-lateral', 'aria-label': 'Mes pages' })
+const dessinerMenuLateral = () => menuLateral.replaceChildren(h('span', { className: 'tiroir-titre' }, 'Mes pages'), ...liensMenu().flat().filter(Boolean))
 
 const entete = h('header', { className: 'entete' },
   h('button', { className: 'burger', 'aria-label': 'Menu', onClick: ouvrirMenu },
@@ -92,6 +103,7 @@ function allerA(cle) {
 function afficherPage() {
   const page = pageCourante()
   sousTitre.textContent = PAGES.find((p) => p.cle === page).libelle
+  dessinerMenuLateral() // page active et pages visibles (admin) à jour
   if (donnees && !donnees.moi) {
     principal.replaceChildren(h('h1', null, 'Accès non configuré'),
       h('p', { className: 'message' }, 'Ton compte n’a pas encore de profil actif dans l’application. Demande à l’administrateur de t’ajouter dans la table Utilisateurs.'))
@@ -133,6 +145,10 @@ function recharger() {
 
 try {
   document.body.prepend(entete)
+  // Menu latéral et page côte à côte (le menu n'apparaît que sur grand écran)
+  const disposition = h('div', { className: 'disposition' })
+  principal.replaceWith(disposition)
+  disposition.append(menuLateral, principal)
   afficherPage()
   grist.ready({ requiredAccess: 'full' })
   grist.onRecords(() => recharger()) // toute modification de la table liée relance l'affichage

@@ -636,3 +636,17 @@ body.synchro .entete::after {
 .fiche-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
 .fiche-boutons .bouton { flex: 1 1 160px; }
 .cellule-photo { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Menu latéral toujours ouvert sur grand écran (≥ 900 px) ; sur téléphone, le bouton ☰ ouvre le tiroir */
+.menu-lateral { display: none; }
+@media (min-width: 900px) {
+  .burger { display: none; }
+  .disposition { display: flex; align-items: flex-start; }
+  .disposition > .widget { flex: 1; min-width: 0; }
+  .menu-lateral {
+    display: grid; align-content: start; gap: 2px; flex: none; width: 230px;
+    position: sticky; top: 66px; height: calc(100vh - 66px); overflow-y: auto;
+    padding: 16px 10px; background: var(--surface); border-right: 1px solid var(--trait);
+  }
+  .menu-lateral .tiroir-titre { padding: 0 14px 8px; }
+}
