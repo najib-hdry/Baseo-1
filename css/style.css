@@ -650,3 +650,4 @@ body.synchro .entete::after {
 .bouton-photo-ajout { justify-self: start; cursor: pointer; }
 .fiche-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
 .fiche-boutons .bouton { flex: 1 1 160px; }
+.cellule-photo { display: inline-flex; align-items: center; gap: 6px; }

@@ -1,6 +1,6 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
-import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression } from './outils.js'
+import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos } from './outils.js'
 import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer, estAdmin, idsDeListe, modifierIncident, supprimerIncident } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
@@ -234,13 +234,6 @@ export function creerEcranIncidents(racine, recharger) {
           corps))))
   }
 
-  // Galerie des photos d'un incident (chacune s'ouvre en grand dans un nouvel onglet)
-  const galerie = (ids, lien) => (ids.length === 0 || !lien
-    ? h('p', { className: 'sous-texte' }, ids.length ? 'Photos enregistrées (aperçu indisponible).' : 'Aucune photo.')
-    : h('div', { className: 'galerie-photos' }, ids.map((id, n) =>
-      h('a', { href: lien(id), target: '_blank', rel: 'noreferrer', title: 'Ouvrir la photo en grand' },
-        h('img', { src: lien(id), alt: `Photo ${n + 1} de l’incident`, loading: 'lazy' })))))
-
   // Fiche d'un incident : informations, toutes les photos, actions
   function ouvrirDetail(i, lieu, lien) {
     const erreur = h('p', { className: 'erreur', hidden: true })
@@ -260,7 +253,7 @@ export function creerEcranIncidents(racine, recharger) {
     const { fermer, section } = ouvrirPanneau(`Incident · ${i.Categorie ?? ''}`, [
       h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
       h('h3', { className: 'titre-section' }, `Photos (${ids.length})`),
-      galerie(ids, lien),
+      galeriePhotos(ids, lien),
       erreur,
       h('div', { className: 'fiche-boutons' }, ...boutons,
         peutGerer(d) && h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirModification(i, lieu, lien) } }, 'Modifier'),
@@ -272,26 +265,12 @@ export function creerEcranIncidents(racine, recharger) {
   // Modification : catégorie, élément (pièce), description, statut, photos (retirer ou ajouter)
   function ouvrirModification(i, lieu, lien) {
     const champs = { Categorie: i.Categorie ?? '', Element: i.Element ?? '', Description: i.Description ?? '', Statut: i.Statut || 'Ouvert' }
-    let gardees = idsDeListe(i.Photo)
-    let nouvelles = []
+    const photos = editeurPhotos({ ids: idsDeListe(i.Photo), lien })
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer')
     const choix = (libelle, cle, valeurs) => h('label', { className: 'champ-groupe' }, libelle,
       h('select', { className: 'champ', onChange: (e) => { champs[cle] = e.target.value } },
         valeurs.map((v) => h('option', { value: v, selected: champs[cle] === v }, v))))
-
-    // Photos : celles gardées (✕ pour retirer) et celles ajoutées
-    const zonePhotos = h('div', { className: 'galerie-photos galerie-modifiable' })
-    const dessinerPhotos = () => zonePhotos.replaceChildren(
-      ...gardees.map((id) => h('span', { className: 'photo-modifiable' },
-        lien ? h('img', { src: lien(id), alt: 'Photo enregistrée' }) : h('span', { className: 'sous-texte' }, 'Photo'),
-        h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': 'Retirer cette photo', onClick: () => { gardees = gardees.filter((x) => x !== id); dessinerPhotos() } }, '✕'))),
-      ...nouvelles.map((f, n) => h('span', { className: 'photo-modifiable' },
-        h('img', { src: URL.createObjectURL(f), alt: 'Nouvelle photo' }),
-        h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': 'Retirer cette photo', onClick: () => { nouvelles = nouvelles.filter((_, k) => k !== n); dessinerPhotos() } }, '✕'))))
-    dessinerPhotos()
-    const ajout = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true,
-      onChange: (e) => { nouvelles = [...nouvelles, ...e.target.files]; e.target.value = ''; dessinerPhotos() } })
 
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
       e.preventDefault()
@@ -299,9 +278,8 @@ export function creerEcranIncidents(racine, recharger) {
       valider.disabled = true
       valider.textContent = 'Enregistrement…'
       try {
-        const ajoutees = []
-        for (const f of nouvelles) ajoutees.push(await envoyerPhoto(await reduirePhoto(f)))
-        await modifierIncident(i, { ...champs, Element: champs.Element.trim(), Description: champs.Description.trim(), photos: [...gardees, ...ajoutees] }, aujourdhui())
+        const ids = await photos.ids(envoyerPhoto)
+        await modifierIncident(i, { ...champs, Element: champs.Element.trim(), Description: champs.Description.trim(), photos: ids }, aujourdhui())
         fermer()
         await recharger()
       } catch (err) {
@@ -317,8 +295,7 @@ export function creerEcranIncidents(racine, recharger) {
       h('input', { className: 'champ', autocomplete: 'off', value: champs.Element, onInput: (e) => { champs.Element = e.target.value } })) : null,
     h('label', { className: 'champ-groupe' }, 'Description',
       h('textarea', { className: 'champ champ-texte', value: champs.Description, onInput: (e) => { champs.Description = e.target.value } })),
-    h('div', { className: 'champ-groupe' }, 'Photos', zonePhotos,
-      h('label', { className: 'bouton bouton-compact bouton-photo-ajout' }, '📷 Ajouter des photos', ajout)),
+    photos.element,
     erreur, valider)
     const { fermer, section } = ouvrirPanneau('Modifier l’incident', formulaire)
     section.classList.add('panneau-large')

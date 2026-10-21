@@ -101,6 +101,52 @@ export function fenetreSuppression(titre, texte, boutons, recharger) {
   return elements
 }
 
+// Galerie des photos d'une fiche (identifiants de pièces jointes Grist) ; chaque photo s'ouvre en grand dans un nouvel onglet.
+// `lien(id)` : adresse temporaire d'une pièce jointe (null si indisponible)
+export const galeriePhotos = (ids, lien) => (ids.length === 0 || !lien
+  ? h('p', { className: 'sous-texte' }, ids.length ? 'Photos enregistrées (aperçu indisponible).' : 'Aucune photo.')
+  : h('div', { className: 'galerie-photos' }, ids.map((id, n) =>
+    h('a', { href: lien(id), target: '_blank', rel: 'noreferrer', title: 'Ouvrir la photo en grand' },
+      h('img', { src: lien(id), alt: `Photo ${n + 1}`, loading: 'lazy' })))))
+
+/**
+ * Photos modifiables d'un formulaire : celles déjà enregistrées (✕ pour retirer) et de nouvelles, `max` au plus.
+ * `ids(envoyer)` envoie les nouvelles photos (réduites) avec `envoyer(blob)` et renvoie la liste finale des identifiants.
+ */
+export function editeurPhotos({ ids = [], lien, max = Infinity }) {
+  let gardees = [...ids]
+  let nouvelles = []
+  const zone = h('div', { className: 'galerie-photos galerie-modifiable' })
+  const texte = h('span')
+  const ajout = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onChange: (e) => {
+    nouvelles = [...nouvelles, ...e.target.files].slice(0, max - gardees.length)
+    e.target.value = ''
+    dessiner()
+  } })
+  const bouton = h('label', { className: 'bouton bouton-compact bouton-photo-ajout' }, texte, ajout)
+  const vignette = (img, retirer) => h('span', { className: 'photo-modifiable' }, img,
+    h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': 'Retirer cette photo', onClick: () => { retirer(); dessiner() } }, '✕'))
+  function dessiner() {
+    zone.replaceChildren(
+      ...gardees.map((id) => vignette(lien ? h('img', { src: lien(id), alt: 'Photo enregistrée' }) : h('span', { className: 'sous-texte' }, 'Photo'),
+        () => { gardees = gardees.filter((x) => x !== id) })),
+      ...nouvelles.map((f) => vignette(h('img', { src: URL.createObjectURL(f), alt: 'Nouvelle photo' }),
+        () => { nouvelles = nouvelles.filter((x) => x !== f) })))
+    const n = gardees.length + nouvelles.length
+    texte.textContent = `📷 Ajouter des photos${Number.isFinite(max) ? ` (${n}/${max})` : ''}`
+    bouton.hidden = n >= max
+  }
+  dessiner()
+  return {
+    element: h('div', { className: 'champ-groupe' }, 'Photos', zone, bouton),
+    async ids(envoyer) {
+      const ajoutees = []
+      for (const f of nouvelles) ajoutees.push(await envoyer(await reduirePhoto(f)))
+      return [...gardees, ...ajoutees]
+    },
+  }
+}
+
 // Réduit une photo (1600 px max, JPEG) ; si le navigateur ne sait pas la décoder, renvoie l'original
 export async function reduirePhoto(fichier) {
   try {

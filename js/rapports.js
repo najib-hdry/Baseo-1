@@ -2,9 +2,9 @@
 // (lieu, date, fiche, commentaire, 4 photos).
 // - Nettoyage : bouton « Nouveau contrôle », lieu choisi dans des listes, derniers enregistrements dessous.
 // - Maintenance (`parPlan`) : comme la déclaration d'incident, sans casiers — plan 3D, étage, puis on touche
-//   le vestiaire ou la pièce ; l'onglet Historique liste les derniers enregistrements.
-import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, reduirePhoto } from './outils.js'
-import { envoyerPhoto, enregistrer } from './donnees.js'
+//   le vestiaire ou la pièce ; l'onglet Historique présente les enregistrements en tableau (fiche, modifier, supprimer).
+import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos } from './outils.js'
+import { envoyerPhoto, enregistrer, lienPhotos, modifierLigne, supprimerFiche, peutGerer, estAdmin, idsDeListe } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, zonesDuChantier, basesVisibles, lieuRapport } from './navigation.js'
 
 export const NETTOYAGE = {
@@ -72,18 +72,20 @@ export function creerEcranRapport(racine, recharger, config) {
     const bascule = h('div', { className: 'choix choix-2 bascule-vue' },
       [['declarer', 'Déclarer'], ['historique', 'Historique']].map(([cle, libelle]) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle)))
+    if (etat.onglet === 'historique') {
+      const zone = h('div')
+      racine.replaceChildren(...entete, bascule, ...confirmation, zone)
+      rendreHistorique(zone)
+      return
+    }
     racine.replaceChildren(...entete, bascule, ...confirmation,
-      ...(etat.onglet === 'historique'
-        ? [derniers()].flat()
-        : [
-          h('p', { className: 'aide-signalement' }, 'Choisis l’étage, puis touche le vestiaire ou la pièce concerné.'),
-          ...vueChantier(d, etat, {
-            mode: 'lieux',
-            onVestiaire: (vestiaire) => ouvrirFormulaire({ vestiaire }),
-            onPiece: (piece) => ouvrirFormulaire({ piece }),
-            rafraichir: rendre,
-          }),
-        ]))
+      h('p', { className: 'aide-signalement' }, 'Choisis l’étage, puis touche le vestiaire ou la pièce concerné.'),
+      ...vueChantier(d, etat, {
+        mode: 'lieux',
+        onVestiaire: (vestiaire) => ouvrirFormulaire({ vestiaire }),
+        onPiece: (piece) => ouvrirFormulaire({ piece }),
+        rafraichir: rendre,
+      }))
   }
 
   // Zone, base vie, étage et lieu d'un vestiaire ou d'une pièce touché sur le plan
@@ -119,6 +121,156 @@ export function creerEcranRapport(racine, recharger, config) {
             photos > 0 && h('span', { className: 'incident-lieu' }, `📷 ${photos}`)))
       })),
     ]
+  }
+
+  // ---- Historique en tableau (maintenance) : filtres par action, recherche, fiche, modifier, supprimer ----
+
+  const photosDe = (r) => Array.from({ length: NB_PHOTOS }, (_, i) => idsDeListe(r[`Photo_${i + 1}`])[0]).filter(Boolean)
+  const badgeFiche = (r) => h('span', { className: `badge ${r.Fiche_passage_complete ? 'badge-resolu' : 'badge-ouvert'}` },
+    r.Fiche_passage_complete ? 'Complète' : 'Incomplète')
+  const dateDe = (r) => [enFrancais(depuisGrist(r.Date)) || '—', r.Horaire_passage].filter(Boolean).join(' · ')
+
+  async function rendreHistorique(zone) {
+    const liste = duChantier(etat.chantierId)
+      .sort((a, b) => (depuisGrist(b.Date) ?? '').localeCompare(depuisGrist(a.Date) ?? '') || b.id - a.id)
+    const lien = await lienPhotos().catch(() => null)
+    const premier = config.choix[0]
+    const titres = ['Photo', 'Date', 'Lieu', ...config.choix.map((c) => c.libelle), 'Fiche de passage', 'Commentaire', '']
+    const corps = h('tbody')
+    const compteur = h('p', { className: 'sous-texte' })
+    const lieu = (r) => lieuRapport(d, etat.chantierId, r)
+
+    // Ne redessine que les lignes : le champ de recherche garde le curseur
+    const dessinerLignes = () => {
+      const texte = (etat.recherche ?? '').trim().toLowerCase()
+      const visibles = liste.filter((r) => !etat.filtreHisto || r[premier.col] === etat.filtreHisto)
+        .filter((r) => !texte || [lieu(r), r.Commentaire, ...config.choix.map((c) => r[c.col])].some((v) => String(v ?? '').toLowerCase().includes(texte)))
+      compteur.textContent = `${visibles.length} enregistrement${visibles.length > 1 ? 's' : ''}`
+      corps.replaceChildren(...(visibles.length === 0
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length },
+          texte ? 'Aucun enregistrement ne correspond à la recherche.' : 'Aucun enregistrement pour ce chantier.'))]
+        : visibles.map((r) => {
+          const photos = photosDe(r)
+          const sansClic = (fn) => (ev) => { ev.stopPropagation(); fn() } // un bouton de la ligne n'ouvre pas aussi la fiche
+          return h('tr', { className: 'tableau-ligne', title: 'Voir la fiche', onClick: () => ouvrirFiche(r, lien) },
+            h('td', null, photos.length && lien
+              ? h('span', { className: 'cellule-photo' }, h('img', { className: 'tableau-photo', src: lien(photos[0]), alt: 'Photo', loading: 'lazy' }),
+                photos.length > 1 && h('span', { className: 'sous-texte' }, `+${photos.length - 1}`))
+              : '—'),
+            h('td', null, dateDe(r)),
+            h('td', { className: 'tableau-nom' }, lieu(r)),
+            config.choix.map((c) => h('td', null, r[c.col] ?? '')),
+            h('td', null, badgeFiche(r)),
+            h('td', null, h('span', { className: 'cellule-description' }, r.Commentaire ?? '')),
+            h('td', { className: 'tableau-actions' },
+              h('button', { className: 'bouton bouton-compact', onClick: sansClic(() => ouvrirFiche(r, lien)) }, 'Fiche'),
+              peutGerer(d) && h('button', { className: 'bouton bouton-compact', onClick: sansClic(() => ouvrirModification(r, lien)) }, 'Modifier'),
+              estAdmin(d) && h('button', { className: 'bouton bouton-compact bouton-danger', onClick: sansClic(() => ouvrirSuppression(r)) }, 'Supprimer')))
+        })))
+      etiqueterLignes(corps, titres)
+    }
+    dessinerLignes()
+
+    zone.replaceChildren(h('section', { className: 'carte-tableau' },
+      h('div', { className: 'barre-outils' },
+        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': `Filtrer par ${premier.libelle.toLowerCase()}` },
+          [['', 'Tous'], ...premier.valeurs.map((v) => [v, v])].map(([v, libelle]) => h('button', { className: 'onglet', role: 'tab',
+            'aria-selected': String((etat.filtreHisto ?? '') === v), onClick: () => { etat.filtreHisto = v; rendre() } },
+          `${libelle} (${v ? liste.filter((r) => r[premier.col] === v).length : liste.length})`))),
+        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (lieu, type, commentaire…)', value: etat.recherche ?? '',
+          'aria-label': 'Rechercher un enregistrement', onInput: (e) => { etat.recherche = e.target.value; dessinerLignes() } })),
+      compteur,
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' },
+          h('thead', null, h('tr', null, titres.map((t) => h('th', null, t)))),
+          corps))))
+  }
+
+  // Fiche d'un enregistrement : informations et ses photos
+  function ouvrirFiche(r, lien) {
+    const photos = photosDe(r)
+    const infos = [
+      ['Lieu', lieuRapport(d, etat.chantierId, r)],
+      ['Date', dateDe(r)],
+      ...config.choix.map((c) => [c.libelle, r[c.col] || '—']),
+      ['Fiche de passage', badgeFiche(r)],
+      ['Commentaire', r.Commentaire || '—'],
+    ]
+    const { fermer, section } = ouvrirPanneau(`${config.titre} du ${enFrancais(depuisGrist(r.Date)) || '—'}`, [
+      h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
+      h('h3', { className: 'titre-section' }, `Photos (${photos.length})`),
+      galeriePhotos(photos, lien),
+      h('div', { className: 'fiche-boutons' },
+        peutGerer(d) && h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirModification(r, lien) } }, 'Modifier'),
+        estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => { fermer(); ouvrirSuppression(r) } }, 'Supprimer')),
+    ])
+    section.classList.add('panneau-large')
+  }
+
+  // Modification : choix (action, type…), date, horaire, fiche de passage, commentaire, photos (4 au plus) ; le lieu ne change pas
+  function ouvrirModification(r, lien) {
+    const champs = { date: depuisGrist(r.Date) ?? '', horaire: r.Horaire_passage ?? '', complete: Boolean(r.Fiche_passage_complete), commentaire: r.Commentaire ?? '' }
+    for (const c of config.choix) champs[c.col] = r[c.col] ?? ''
+    const photos = editeurPhotos({ ids: photosDe(r), lien, max: NB_PHOTOS })
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer')
+
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      const probleme = !config.choix.every((c) => champs[c.col]) ? 'Choisis une valeur pour chaque liste.'
+        : !champs.date || champs.date > aujourdhui() ? 'La date est obligatoire et ne peut pas être dans le futur.' : null
+      if (probleme) {
+        erreur.textContent = probleme
+        erreur.hidden = false
+        return
+      }
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        const ids = await photos.ids(envoyerPhoto)
+        await modifierLigne(config.table, r.id, {
+          ...Object.fromEntries(config.choix.map((c) => [c.col, champs[c.col]])),
+          Date: versGrist(champs.date),
+          ...(config.horaire ? { Horaire_passage: champs.horaire.trim() } : {}),
+          Fiche_passage_complete: champs.complete,
+          Commentaire: champs.commentaire.trim(),
+          ...Object.fromEntries(Array.from({ length: NB_PHOTOS }, (_, i) => [`Photo_${i + 1}`, ids[i] ? ['L', ids[i]] : null])),
+        })
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'La modification a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = 'Enregistrer'
+      }
+    } },
+    h('p', { className: 'lieu-choisi' }, lieuRapport(d, etat.chantierId, r)),
+    h('div', { className: 'grille-2' },
+      config.choix.map((c) => h('label', { className: 'champ-groupe' }, c.libelle,
+        h('select', { className: 'champ', onChange: (e) => { champs[c.col] = e.target.value } },
+          h('option', { value: '', selected: !champs[c.col] }, '—'),
+          c.valeurs.map((v) => h('option', { value: v, selected: champs[c.col] === v }, v))))),
+      h('label', { className: 'champ-groupe' }, 'Date',
+        h('input', { className: 'champ', type: 'date', value: champs.date, max: aujourdhui(), onInput: (e) => { champs.date = e.target.value } })),
+      config.horaire && h('label', { className: 'champ-groupe' }, 'Horaire de passage',
+        h('input', { className: 'champ', autocomplete: 'off', value: champs.horaire, onInput: (e) => { champs.horaire = e.target.value } }))),
+    h('label', { className: 'case' },
+      h('input', { type: 'checkbox', checked: champs.complete, onChange: (e) => { champs.complete = e.target.checked } }),
+      'Fiche de passage complète'),
+    h('label', { className: 'champ-groupe' }, 'Commentaire',
+      h('textarea', { className: 'champ champ-texte', value: champs.commentaire, onInput: (e) => { champs.commentaire = e.target.value } })),
+    photos.element,
+    erreur, valider)
+    const { fermer, section } = ouvrirPanneau(`Modifier · ${config.titre}`, formulaire)
+    section.classList.add('panneau-large')
+  }
+
+  function ouvrirSuppression(r) {
+    fenetreSuppression('Supprimer cet enregistrement ?', [
+      h('p', null, [r[config.choix[0].col], lieuRapport(d, etat.chantierId, r), dateDe(r)].filter(Boolean).join(' · ')),
+    ], [['Supprimer définitivement', 'bouton-danger', () => supprimerFiche(config.table, r.id)]], recharger)
   }
 
   // ---- Formulaire ----
