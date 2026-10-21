@@ -101,6 +101,38 @@ export function fenetreSuppression(titre, texte, boutons, recharger) {
   return elements
 }
 
+/**
+ * Choix multiple en étiquettes : une liste déroulante pour ajouter, les éléments choisis en étiquettes retirables (✕).
+ * - `elements()` : [{ id, libelle }] proposés (relus à chaque dessin) ; `choisis` : identifiants de départ ;
+ * - `textes` : { aucun (rien de choisi), choisir (invite), tous (tout est choisi), vide (rien à proposer) } ;
+ * - `onChange(ids)` : appelé à chaque ajout ou retrait.
+ * Renvoie { element, ids(), ajouter(id), dessiner() } (dessiner() après un changement de la liste proposée).
+ */
+export function choixEtiquettes({ elements, choisis = [], textes, onChange = () => {} }) {
+  let ids = [...choisis]
+  const etiquettes = h('div', { className: 'etiquettes-contacts' })
+  const changer = (nouveaux) => { ids = nouveaux; onChange(ids); dessiner() }
+  const liste = h('select', { className: 'champ', 'aria-label': textes.choisir, onChange: (e) => {
+    const id = Number(e.target.value)
+    if (id && !ids.includes(id)) changer([...ids, id])
+  } })
+  function dessiner() {
+    const tous = elements()
+    const parId = new Map(tous.map((e) => [e.id, e]))
+    etiquettes.replaceChildren(...(ids.length === 0
+      ? [h('span', { className: 'sous-texte' }, textes.aucun)]
+      : ids.map((id) => parId.get(id)).filter(Boolean).map((e) => h('span', { className: 'etiquette-contact' }, e.libelle,
+        h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': `Retirer ${e.libelle}`, onClick: () => changer(ids.filter((x) => x !== e.id)) }, '✕')))))
+    const restants = tous.filter((e) => !ids.includes(e.id)).sort((a, b) => a.libelle.localeCompare(b.libelle))
+    liste.replaceChildren(
+      h('option', { value: '', selected: true }, tous.length === 0 ? textes.vide : restants.length === 0 ? textes.tous : textes.choisir),
+      ...restants.map((e) => h('option', { value: String(e.id) }, e.libelle)))
+    liste.disabled = restants.length === 0
+  }
+  dessiner()
+  return { element: h('div', { className: 'formulaire' }, etiquettes, liste), ids: () => ids, ajouter: (id) => changer([...ids, id]), dessiner }
+}
+
 // Galerie des photos d'une fiche (identifiants de pièces jointes Grist) ; chaque photo s'ouvre en grand dans un nouvel onglet.
 // `lien(id)` : adresse temporaire d'une pièce jointe (null si indisponible)
 export const galeriePhotos = (ids, lien) => (ids.length === 0 || !lien

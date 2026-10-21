@@ -240,6 +240,26 @@ export async function creerContact(champs) {
   return retValues[0]
 }
 
+// ---- Équipe d'un chantier : utilisateurs dont la colonne Chantiers (référence multiple) contient ce chantier ----
+
+export const ROLE_CHEF = 'Chef d’équipe'
+export const ROLE_SALARIE = 'Salarié'
+
+export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
+
+// Affecte au chantier exactement les utilisateurs `ids` : le chantier est ajouté à la liste de chacun d'eux
+// et retiré de celle des autres, en un seul envoi (les autres chantiers de chaque personne ne changent pas)
+export async function affecterEquipe(d, chantierId, ids) {
+  const actions = d.Utilisateurs.flatMap((u) => {
+    const liste = idsDeListe(u.Chantiers)
+    const veut = ids.includes(u.id)
+    if (liste.includes(chantierId) === veut) return []
+    const nouvelle = veut ? [...liste, chantierId] : liste.filter((x) => x !== chantierId)
+    return [['UpdateRecord', 'Utilisateurs', u.id, { Chantiers: nouvelle.length > 0 ? ['L', ...nouvelle] : null }]]
+  })
+  if (actions.length > 0) await action(actions)
+}
+
 // « Prénom Nom » d'un contact (ou d'un utilisateur)
 export const nomContact = (r) => [r?.Prenom, r?.Nom].filter(Boolean).join(' ')
 

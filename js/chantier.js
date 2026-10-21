@@ -1,13 +1,14 @@
 // Fiche détail d'un chantier (page admin), en onglets :
-// Composants (structure), Informations, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
+// Composants (structure), Informations, Salariés sur le chantier, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
 import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes, lienContact } from './outils.js'
-import { idsDeListe, libelleHoraires, nomContact } from './donnees.js'
+import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 import { zonesDuChantier, basesVisibles, libelleLieu, lieuRapport } from './navigation.js'
 import { NETTOYAGE, MAINTENANCE } from './rapports.js'
 
 export const ONGLETS_FICHE = [
   ['composants', 'Composants'],
   ['informations', 'Informations'],
+  ['equipe', 'Salariés sur le chantier'],
   ['casiers', 'Casiers'],
   ['incidents', 'Incidents'],
   ['nettoyage', 'Nettoyage'],
@@ -112,6 +113,23 @@ function informations(d, c) {
     ['Prix du casier', c.Prix_casier != null && c.Prix_casier !== '' ? euros.format(c.Prix_casier) : '—'],
   ]
   return h('dl', { className: 'fiche-infos' }, lignes.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))
+}
+
+// ---- Onglet Salariés sur le chantier : chefs d'équipe, salariés, puis les autres rôles affectés ----
+
+function equipe(d, c) {
+  if (d.absentes.has('Utilisateurs')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Utilisateurs.')
+  const ordre = (u) => [ROLE_CHEF, ROLE_SALARIE].indexOf(u.Profil) + 1 || 3
+  const membres = equipeDuChantier(d, c.id).sort((a, b) => ordre(a) - ordre(b) || nomContact(a).localeCompare(nomContact(b)))
+  const nb = (role) => membres.filter((u) => u.Profil === role).length
+  return [
+    h('p', { className: 'structure-resume' }, `${pluriel(nb(ROLE_CHEF), 'chef')} d’équipe · ${pluriel(nb(ROLE_SALARIE), 'salarié')}`
+      + (membres.length > nb(ROLE_CHEF) + nb(ROLE_SALARIE) ? ` · ${membres.length - nb(ROLE_CHEF) - nb(ROLE_SALARIE)} autre(s)` : '')),
+    tableau(['Nom', 'Rôle', 'Téléphone', 'Email', 'Actif'],
+      membres.map((u) => [h('strong', null, nomContact(u) || u.Email || 'Sans nom'), u.Profil || '—',
+        lienContact('tel', u.Telephone) || '—', lienContact('mailto', u.Email) || '—', u.Actif ? 'Oui' : 'Non']),
+      'Personne n’est encore affecté à ce chantier. Utilise « Gérer les salariés ».'),
+  ]
 }
 
 // ---- Onglet Casiers : occupation globale, graphiques (chantier, bases vie, étages), puis par vestiaire ----
@@ -256,6 +274,7 @@ function postes(d, c) {
 // Contenu de l'onglet `onglet` de la fiche du chantier `c`
 export function contenuFiche(d, c, onglet) {
   if (onglet === 'informations') return informations(d, c)
+  if (onglet === 'equipe') return equipe(d, c)
   if (onglet === 'casiers') return casiers(d, c)
   if (onglet === 'incidents') return incidents(d, c)
   if (onglet === 'nettoyage') return nettoyage(d, c)

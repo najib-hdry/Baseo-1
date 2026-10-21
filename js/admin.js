@@ -1,9 +1,9 @@
 // Écran « Gestion des chantiers » (admin, première page) : tableau des chantiers par onglet de statut, changement de statut,
 // création d'un chantier entier (zones → bases vie → étages → vestiaires avec casiers, pièces),
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
-import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression } from './outils.js'
+import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, choixEtiquettes } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Détail du chantier', '']
 // Ordre des onglets de la page
@@ -73,7 +73,8 @@ export function creerEcranAdmin(racine, recharger) {
 
   // ---- Fiche détail (popup) ----
 
-  function ouvrirFiche(c) {
+  // `ongletInitial` : onglet affiché à l'ouverture (par défaut le premier)
+  function ouvrirFiche(c, ongletInitial = ONGLETS_FICHE[0][0]) {
     const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche du chantier' })
     const contenu = h('div', { className: 'fiche-contenu' })
     // Changer d'onglet ne redessine que le contenu de la popup
@@ -83,15 +84,60 @@ export function creerEcranAdmin(racine, recharger) {
       contenu.replaceChildren(...[
         cle === 'composants' && h('div', { className: 'fiche-actions' },
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirComposants(c) } }, 'Modifier les composants')),
+        cle === 'equipe' && !d.absentes.has('Utilisateurs') && h('div', { className: 'fiche-actions' },
+          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirEquipe(c) } }, 'Gérer les salariés')),
         contenuFiche(d, c, cle),
       ].flat().filter(Boolean))
     }
-    // « Modifier les composants » ferme la fiche, qui se rouvre ensuite avec des données à jour
+    // « Modifier les composants » / « Gérer les salariés » ferment la fiche, qui se rouvre ensuite avec des données à jour
     let fermer = () => {}
-    afficherOnglet(ONGLETS_FICHE[0][0])
+    afficherOnglet(ongletInitial)
     const panneau = ouvrirPanneau(c.Nom || 'Chantier', [onglets, contenu])
     fermer = panneau.fermer
     panneau.section.classList.add('panneau-large', 'panneau-fiche')
+  }
+
+  // ---- Salariés sur le chantier : affectation des chefs d'équipe et des salariés ----
+
+  // Les personnes d'un autre rôle déjà affectées (Admin, RH, CIP, Client) le restent : elles ne sont pas proposées ici
+  async function ouvrirEquipe(c) {
+    await relireTable(d, 'Utilisateurs').catch(() => {}) // utilisateurs ajoutés directement dans Grist
+    const actuels = equipeDuChantier(d, c.id)
+    const libelle = (u) => `${nomContact(u) || u.Email || 'Sans nom'}${u.Actif ? '' : ' (inactif)'}`
+    const role = (r) => () => d.Utilisateurs.filter((u) => u.Profil === r).map((u) => ({ id: u.id, libelle: libelle(u) }))
+    const autres = actuels.filter((u) => u.Profil !== ROLE_CHEF && u.Profil !== ROLE_SALARIE).map((u) => u.id)
+    const choix = (r, un, plusieurs) => choixEtiquettes({ elements: role(r), choisis: actuels.filter((u) => u.Profil === r).map((u) => u.id),
+      textes: { aucun: `Aucun ${un} affecté.`, choisir: `-- Ajouter un ${un} --`, tous: `Tous les ${plusieurs} sont affectés`,
+        vide: `Aucun utilisateur avec le rôle « ${r} » dans la table Utilisateurs` } })
+    const chefs = choix(ROLE_CHEF, 'chef d’équipe', 'chefs d’équipe')
+    const salaries = choix(ROLE_SALARIE, 'salarié', 'salariés')
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer')
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        await affecterEquipe(d, c.id, [...chefs.ids(), ...salaries.ids(), ...autres])
+        fermer()
+        await recharger()
+        const aJour = d.parId.Chantiers.get(c.id)
+        if (aJour) ouvrirFiche(aJour, 'equipe') // rouvre la fiche sur l'onglet de l'équipe
+      } catch (err) {
+        erreur.textContent = err.message || 'L’affectation a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = 'Enregistrer'
+      }
+    } },
+    h('p', { className: 'sous-texte' }, 'Une personne peut être affectée à plusieurs chantiers : ses autres chantiers ne changent pas.'),
+    h('fieldset', { className: 'groupe' }, h('legend', null, 'Chefs d’équipe'), chefs.element),
+    h('fieldset', { className: 'groupe' }, h('legend', null, 'Salariés'), salaries.element),
+    autres.length > 0 && h('p', { className: 'sous-texte' }, `${autres.length} personne(s) d’un autre rôle reste(nt) affectée(s) à ce chantier.`),
+    erreur, valider)
+    const { fermer, section } = ouvrirPanneau(`Salariés sur ${c.Nom || 'le chantier'}`, formulaire)
+    section.classList.add('panneau-large')
   }
 
   // ---- Modification des composants d'un chantier existant ----
@@ -214,28 +260,14 @@ export function creerEcranAdmin(racine, recharger) {
   // retirables, et ajout d'un nouveau contact sans quitter le formulaire
   function blocContacts(infos) {
     const libelle = (k) => [nomContact(k) || 'Sans nom', k.Fonction].filter(Boolean).join(' · ')
-    const choisis = h('div', { className: 'etiquettes-contacts' })
-    const liste = h('select', { className: 'champ', 'aria-label': 'Choisir un contact existant', onChange: (e) => {
-      const id = Number(e.target.value)
-      if (id && !infos.Contacts.includes(id)) infos.Contacts = [...infos.Contacts, id]
-      dessinerCases()
-    } })
-    const dessinerCases = () => {
-      choisis.replaceChildren(...(infos.Contacts.length === 0
-        ? [h('span', { className: 'sous-texte' }, 'Aucun contact choisi.')]
-        : infos.Contacts.map((id) => d.parId.Contacts.get(id)).filter(Boolean).map((k) => h('span', { className: 'etiquette-contact' }, libelle(k),
-          h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': `Retirer ${nomContact(k)}`,
-            onClick: () => { infos.Contacts = infos.Contacts.filter((id) => id !== k.id); dessinerCases() } }, '✕')))))
-      const restants = d.Contacts.filter((k) => !infos.Contacts.includes(k.id)).sort((a, b) => libelle(a).localeCompare(libelle(b)))
-      liste.replaceChildren(
-        h('option', { value: '', selected: true }, d.Contacts.length === 0 ? 'Aucun contact existant' : restants.length === 0 ? 'Tous les contacts sont choisis' : '-- Choisir un contact existant --'),
-        ...restants.map((k) => h('option', { value: String(k.id) }, libelle(k))))
-      liste.disabled = restants.length === 0
-    }
-    const cases = h('div', { className: 'formulaire' }, choisis, liste)
-    dessinerCases()
+    const choix = choixEtiquettes({
+      elements: () => d.Contacts.map((k) => ({ id: k.id, libelle: libelle(k) })),
+      choisis: infos.Contacts,
+      textes: { aucun: 'Aucun contact choisi.', choisir: '-- Choisir un contact existant --', tous: 'Tous les contacts sont choisis', vide: 'Aucun contact existant' },
+      onChange: (ids) => { infos.Contacts = ids },
+    })
     // Contacts ajoutés directement dans Grist depuis le dernier chargement : relus à l'ouverture du formulaire
-    relireTable(d, 'Contacts').then(dessinerCases, () => {})
+    relireTable(d, 'Contacts').then(choix.dessiner, () => {})
 
     // Mini-formulaire (pas de <form> imbriqué) : le contact créé est ajouté à la liste et coché
     const nouveau = { Prenom: '', Nom: '', Fonction: '', Telephone: '', Email: '' }
@@ -257,8 +289,7 @@ export function creerEcranAdmin(racine, recharger) {
         const id = await creerContact(champs)
         d.Contacts.push({ id, ...champs })
         d.parId.Contacts.set(id, d.Contacts.at(-1))
-        infos.Contacts = [...infos.Contacts, id]
-        dessinerCases()
+        choix.ajouter(id)
         zone.hidden = true
         bouton.hidden = false
         zone.querySelectorAll('input').forEach((i) => { i.value = '' })
@@ -270,7 +301,7 @@ export function creerEcranAdmin(racine, recharger) {
       ajouter.disabled = false
     })
     const bouton = h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { zone.hidden = false; bouton.hidden = true } }, '＋ Nouveau contact')
-    return h('fieldset', { className: 'groupe' }, h('legend', null, 'Contacts'), cases, bouton, zone)
+    return h('fieldset', { className: 'groupe' }, h('legend', null, 'Contacts'), choix.element, bouton, zone)
   }
 
   // ---- Éditeur de structure ----
