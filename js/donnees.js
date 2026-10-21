@@ -401,7 +401,6 @@ export async function modifierStructure(d, chantierId, structure, { avant, confi
 
 export const modifierChantier = (chantierId, infos) => action([['UpdateRecord', 'Chantiers', chantierId, infosVersGrist(infos)]])
 
-export const changerStatutChantier = (chantierId, statut) => action([['UpdateRecord', 'Chantiers', chantierId, { Statut: statut }]])
 
 // Tout ce qui appartient à un chantier (pour l'annoncer avant suppression, puis le supprimer)
 export function contenuChantier(d, chantierId) {

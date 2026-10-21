@@ -3,9 +3,9 @@
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, changerStatutChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable } from './donnees.js'
 
-const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Contacts', 'Visible', 'Statut', 'Détail du chantier', '']
+const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Détail du chantier', '']
 // Ordre des onglets de la page
 const ONGLETS_CHANTIERS = ['En cours', 'Terminé', 'À venir', 'Nouveau']
 const LIBELLES_CONTENU = {
@@ -59,21 +59,12 @@ export function creerEcranAdmin(racine, recharger) {
     const structure = [['Bases_vie', 'bases vie'], ['Etages', 'étages'], ['Casiers', 'casiers']]
       .map(([t, libelle]) => `${contenu[t].length} ${libelle}`).join(' · ')
     const periode = [depuisGrist(c.Date_contrat), depuisGrist(c.Date_fin)].map(enFrancais)
-    const statut = h('select', { className: 'champ champ-compact', 'aria-label': `Statut de ${c.Nom}`, onClick: (e) => e.stopPropagation(), onChange: async (e) => {
-      e.target.disabled = true
-      try { await changerStatutChantier(c.id, e.target.value); await recharger() } catch { e.target.disabled = false }
-    } },
-    !c.Statut && h('option', { value: '', selected: true, disabled: true }, 'Statut…'),
-    STATUTS_CHANTIER.map((s) => h('option', { value: s, selected: c.Statut === s }, s)))
     return h('tr', { className: 'tableau-ligne', title: 'Ouvrir la fiche du chantier', onClick: () => ouvrirFiche(c) },
       h('td', null,
         h('div', { className: 'tableau-nom' }, c.Nom || 'Sans nom'),
         h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
       h('td', null, periode.some(Boolean) ? `${periode[0] || '?'} → ${periode[1] || '?'}` : '—'),
       h('td', { className: 'sous-texte' }, structure),
-      h('td', null, idsDeListe(c.Contacts).map((id) => nomContact(d.parId.Contacts.get(id))).filter(Boolean).join(', ') || '—'),
-      h('td', null, h('span', { className: `badge ${c.Actif ? 'badge-resolu' : 'badge-termine'}` }, c.Actif ? 'Oui' : 'Masqué')),
-      h('td', null, statut),
       h('td', null, h('button', { className: 'bouton bouton-compact bouton-detail', onClick: (e) => { e.stopPropagation(); ouvrirFiche(c) } }, 'Voir le détail')),
       h('td', { className: 'tableau-actions' },
         h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirEdition(c) } }, 'Modifier'),
