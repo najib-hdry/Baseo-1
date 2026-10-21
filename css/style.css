@@ -564,3 +564,33 @@ button.tiroir-lien.active { background: var(--signal); }
 .panneau-fiche,
 .panneau-fiche :is(.sous-texte, .niveau-type, .composant-nom, .structure-resume, .fiche-infos dt, .fiche-infos dd,
   .tableau th, .tableau td, .tableau a, .stat, .stat-valeur, .stat-libelle, .piece, .p3-nom-piece, h2, strong, p, label, legend) { color: #000; }
+
+/* Graphiques de l'onglet Casiers (fiche chantier) : anneau du chantier, barres empilées par base vie et par étage */
+.graphiques { display: grid; grid-template-columns: minmax(240px, 1fr) 2fr; gap: 14px; margin: 16px 0; }
+.graph { background: #fff; border: 1px solid var(--trait); border-radius: var(--rayon); padding: 14px; min-width: 0; }
+.graph-large { grid-column: 1 / -1; }
+.graph h3 { margin: 0 0 8px; font-size: 15px; }
+.graph-legende { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 12px; }
+.graph-legende span { display: inline-flex; align-items: center; gap: 6px; }
+.graph-pastille { width: 10px; height: 10px; border-radius: 3px; }
+.graph-ligne { display: grid; grid-template-columns: minmax(90px, 200px) 1fr auto; align-items: center; gap: 10px; margin: 7px 0; }
+.graph-libelle { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.graph-piste { height: 18px; background: var(--fond); border-radius: 6px; }
+.graph-barre { display: flex; height: 100%; min-width: 3px; border-radius: 6px; overflow: hidden; }
+.graph-part { flex: 1 1 0; }
+.graph-valeur { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.graph-occupes { background: var(--occupe); stroke: var(--occupe); }
+.graph-libres { background: var(--libre); stroke: var(--libre); }
+.graph-hs { background: var(--hs); stroke: var(--hs); }
+.graph-arc { fill: none; stroke-width: 18; }
+.graph-vide { stroke: var(--fond); }
+.anneau { display: flex; align-items: center; gap: 16px; }
+.anneau-dessin { flex: none; width: 120px; height: 120px; }
+.anneau-dessin svg { display: block; width: 100%; height: 100%; }
+.anneau-taux { font-size: 26px; }
+.panneau-fiche :is(.graph h3, .graph-legende, .graph-libelle, .graph-valeur) { color: #000; }
+@media (max-width: 720px) {
+  .graphiques { grid-template-columns: 1fr; }
+  .graph-ligne { grid-template-columns: 1fr auto; }
+  .graph-piste { grid-column: 1 / -1; }
+}

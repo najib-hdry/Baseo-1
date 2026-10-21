@@ -110,20 +110,76 @@ function informations(c) {
   return h('dl', { className: 'fiche-infos' }, lignes.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))
 }
 
-// ---- Onglet Casiers : occupation globale puis par vestiaire ----
+// ---- Onglet Casiers : occupation globale, graphiques (chantier, bases vie, étages), puis par vestiaire ----
+
+const PARTS = [['occupes', 'Occupés'], ['libres', 'Libres'], ['hs', 'HS']]
+const taux = (o) => (o.total ? `${Math.round((100 * o.occupes) / o.total)} %` : '—')
+const legende = () => h('div', { className: 'graph-legende' },
+  PARTS.map(([type, libelle]) => h('span', null, h('i', { className: `graph-pastille graph-${type}` }), libelle)))
+
+// Anneau d'occupation du chantier (les valeurs injectées dans le SVG ne sont que des nombres)
+function anneau(o) {
+  const r = 42
+  const tour = 2 * Math.PI * r
+  let deja = 0
+  const arcs = PARTS.map(([type]) => [type, o[type]]).filter(([, n]) => n > 0).map(([type, n]) => {
+    const long = (tour * n) / o.total
+    const arc = `<circle cx="60" cy="60" r="${r}" class="graph-arc graph-${type}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"/>`
+    deja += long
+    return arc
+  }).join('')
+  const dessin = h('span', { className: 'anneau-dessin' })
+  dessin.innerHTML = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="${r}" class="graph-arc graph-vide"/>`
+    + `<g transform="rotate(-90 60 60)">${arcs}</g></svg>`
+  return h('div', { className: 'anneau' }, dessin,
+    h('div', null,
+      h('strong', { className: 'anneau-taux' }, taux(o)), h('span', { className: 'sous-texte' }, ' occupés'),
+      h('p', { className: 'sous-texte' }, `${pluriel(o.total, 'casier')} · ${o.occupes} occupés · ${o.libres} libres · ${o.hs} HS`)))
+}
+
+// Barres empilées ; longueur proportionnelle au nombre de casiers (comparables entre elles)
+function barres(titre, lignes, vide) {
+  const max = Math.max(0, ...lignes.map(([, o]) => o.total))
+  return h('section', { className: 'graph' }, h('h3', null, titre), legende(),
+    lignes.length === 0 ? h('p', { className: 'sous-texte' }, vide) : lignes.map(([libelle, o]) => h('div', { className: 'graph-ligne' },
+      h('span', { className: 'graph-libelle', title: libelle }, libelle),
+      h('div', { className: 'graph-piste' },
+        h('div', { className: 'graph-barre', style: { width: `${max ? (100 * o.total) / max : 0}%` },
+          title: `${o.occupes} occupés · ${o.libres} libres · ${o.hs} HS` },
+        PARTS.filter(([type]) => o[type] > 0).map(([type]) => h('span', { className: `graph-part graph-${type}`, style: { flexGrow: o[type] } })))),
+      h('span', { className: 'graph-valeur' }, `${o.occupes}/${o.total} · ${taux(o)}`))))
+}
 
 function casiers(d, c) {
   const vestiaires = d.Vestiaires.filter((v) => v.Chantier === c.id)
-  const global = occupation(d, d.Casiers.filter((k) => k.Chantier === c.id))
+  const casiersDuChantier = d.Casiers.filter((k) => k.Chantier === c.id)
+  const global = occupation(d, casiersDuChantier)
   const lieu = (v) => {
     const e = d.parId.Etages.get(v.Etage)
     return [d.parId.Bases_vie.get(e?.Base_vie)?.Nom, e?.Nom].filter(Boolean).join(' · ')
   }
+
+  // Casiers regroupés par étage, puis par base vie
+  const etageDe = (k) => d.parId.Vestiaires.get(k.Vestiaire)?.Etage
+  const parEtage = new Map()
+  for (const k of casiersDuChantier) parEtage.set(etageDe(k), [...(parEtage.get(etageDe(k)) ?? []), k])
+  const plusieursZones = zonesDuChantier(d, c.id).length > 1
+  const nomBase = (b) => [plusieursZones && d.parId.Zones.get(b.Zone)?.Nom, b.Nom].filter(Boolean).join(' · ')
+  const bases = d.Bases_vie.filter((b) => b.Chantier === c.id).sort((a, b) => nomBase(a).localeCompare(nomBase(b)))
+  const etagesDe = (b) => d.Etages.filter((e) => e.Base_vie === b.id).sort((x, y) => (y.Niveau ?? 0) - (x.Niveau ?? 0))
+  const lignesBases = bases.map((b) => [nomBase(b), occupation(d, etagesDe(b).flatMap((e) => parEtage.get(e.id) ?? []))])
+  const lignesEtages = bases.flatMap((b) => etagesDe(b).filter((e) => parEtage.has(e.id))
+    .map((e) => [`${nomBase(b)} · ${e.Nom}`, occupation(d, parEtage.get(e.id))]))
+
   return [
     h('div', { className: 'stats' },
       [['total', global.total, 'Total'], ['libres', global.libres, 'Libres'], ['occupes', global.occupes, 'Occupés'], ['hs', global.hs, 'HS']]
         .map(([type, valeur, libelle]) => h('div', { className: `stat stat-${type}${valeur === 0 ? ' stat-nul' : ''}` },
           h('span', { className: 'stat-valeur' }, valeur), h('span', { className: 'stat-libelle' }, libelle)))),
+    h('div', { className: 'graphiques' },
+      h('section', { className: 'graph' }, h('h3', null, 'Chantier'), legende(), anneau(global)),
+      barres('Par base vie', lignesBases, 'Aucune base vie.'),
+      h('div', { className: 'graph-large' }, barres('Par étage', lignesEtages, 'Aucun étage avec des casiers.'))),
     tableau(['Vestiaire', 'Emplacement', 'Casiers', 'Occupés', 'Libres', 'HS', 'Taux'],
       vestiaires.map((v) => {
         const o = occupation(d, d.Casiers.filter((k) => k.Vestiaire === v.id))
