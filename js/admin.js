@@ -58,7 +58,7 @@ export function creerEcranAdmin(racine, recharger) {
     const contenu = contenuChantier(d, c.id)
     const structure = [['Bases_vie', 'bases vie'], ['Etages', 'étages'], ['Casiers', 'casiers']]
       .map(([t, libelle]) => `${contenu[t].length} ${libelle}`).join(' · ')
-    const periode = [depuisGrist(c.Date_debut), depuisGrist(c.Date_fin)].map(enFrancais)
+    const periode = [depuisGrist(c.Date_contrat), depuisGrist(c.Date_fin)].map(enFrancais)
     const statut = h('select', { className: 'champ champ-compact', 'aria-label': `Statut de ${c.Nom}`, onClick: (e) => e.stopPropagation(), onChange: async (e) => {
       e.target.disabled = true
       try { await changerStatutChantier(c.id, e.target.value); await recharger() } catch { e.target.disabled = false }
@@ -151,7 +151,7 @@ export function creerEcranAdmin(racine, recharger) {
   function ouvrirEdition(c) {
     const infos = {
       Nom: c?.Nom ?? '', Adresse: c?.Adresse ?? '', Statut: c?.Statut || 'Nouveau', Actif: c ? Boolean(c.Actif) : true,
-      Date_debut: depuisGrist(c?.Date_debut) ?? '', Date_fin: depuisGrist(c?.Date_fin) ?? '', Date_contrat: depuisGrist(c?.Date_contrat) ?? '',
+      Date_contrat: depuisGrist(c?.Date_contrat) ?? '', Date_fin: depuisGrist(c?.Date_fin) ?? '',
       Samedi_travaille: Boolean(c?.Samedi_travaille), Dimanche_travaille: Boolean(c?.Dimanche_travaille), Prix_casier: c?.Prix_casier ?? null,
       ...(d.absentes.has('Contacts') ? {} : { Contacts: idsDeListe(c?.Contacts) }),
     }
@@ -172,9 +172,8 @@ export function creerEcranAdmin(racine, recharger) {
         h('select', { className: 'champ', onChange: (e) => { infos.Statut = e.target.value } },
           STATUTS_CHANTIER.map((s) => h('option', { value: s, selected: infos.Statut === s }, s)))),
       h('div', { className: 'grille-2' },
-        champ('Date de début', 'Date_debut', { type: 'date' }),
-        champ('Date de fin', 'Date_fin', { type: 'date' }),
         champ('Date de contrat', 'Date_contrat', { type: 'date' }),
+        champ('Date de fin', 'Date_fin', { type: 'date' }),
         champ('Prix du casier (€)', 'Prix_casier', { type: 'number', min: 0, step: 0.01 })),
       coche('Samedi jour travaillé', 'Samedi_travaille'),
       coche('Dimanche jour travaillé', 'Dimanche_travaille'),
