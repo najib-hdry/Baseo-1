@@ -40,11 +40,11 @@ h2 { font-size: 1.3rem; }
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 16px;
-  background: #D4F0DD; color: var(--encre);
-  border-bottom: 1px solid #A9DDBA;
+  background: #04bacc; color: var(--encre);
+  border-bottom: 1px solid #0396a4;
 }
 .entete-titre { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 1.2rem; }
-.entete-info { font-size: .85rem; color: #2E6B45; }
+.entete-info { font-size: .85rem; color: #06363b; }
 
 /* Formulaires et boutons */
 .formulaire { display: grid; gap: 12px; margin-top: 20px; }
