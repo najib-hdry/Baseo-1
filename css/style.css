@@ -611,8 +611,7 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Ordinateur (≥ 1000 px) : cartes des chantiers sur plusieurs colonnes ; vue d'un chantier en deux colonnes,
    le plan (bases vie, plan 3D, étages, pièces) à gauche, toujours visible, les vestiaires et les casiers à droite */
 @media (min-width: 1000px) {
-  .widget:has(.cartes, .vue-chantier) { max-width: none; }
-  .cartes { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .widget:has(.vue-chantier) { max-width: none; }
   .vue-chantier { display: grid; grid-template-columns: minmax(380px, 2fr) 3fr; gap: 28px; align-items: start; }
   .vue-plan { position: sticky; top: 12px; display: flex; flex-direction: column; }
   /* Étages et pièces au-dessus du plan 3D : visibles sans défiler */
@@ -624,4 +623,12 @@ button.tiroir-lien.active { background: var(--signal); }
   .vue-contenu > .onglets { margin: 16px 0 0; padding: 0 0 4px; }
   .grille { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
   .casier { min-height: 86px; }
+}
+
+/* Cartes des chantiers : une par ligne sur téléphone, deux par ligne à partir d'une tablette ;
+   sur très grand écran, la page s'arrête à 1600 px pour que les cartes ne s'étirent pas trop */
+@media (min-width: 700px) {
+  .widget:has(.cartes) { max-width: 1600px; }
+  .cartes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .carte-chantier { padding: 20px; }
 }
