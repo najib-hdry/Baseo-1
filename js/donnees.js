@@ -11,7 +11,8 @@ function enLignes(table) {
   return table.id.map((_, i) => Object.fromEntries(Object.keys(table).map((col) => [col, table[col][i]])))
 }
 
-// Profil de la personne connectée : { profil: 'Admin' | 'Chef d’équipe' | 'Salarié', nom } ou null si aucun accès.
+// Profil de la personne connectée : { profil: 'Admin' | 'Chef d’équipe' | 'Salarié' | 'RH' | 'CIP' | 'Client', nom }
+// (colonne Utilisateurs.Profil, libellé « Rôle ») ou null si aucun accès.
 // - Acces_complet n'est lisible que par les admins (règles d'accès).
 // - Utilisateurs ne montre à chacun que sa propre ligne.
 // - Document sans table Utilisateurs (plus ancien) : tout le monde garde l'accès complet.
@@ -25,11 +26,11 @@ async function lireProfil() {
     return { profil: 'Admin', nom: null }
   }
   const moi = lignes.length === 1 && lignes[0].Actif ? lignes[0] : null
-  return moi?.Profil ? { profil: moi.Profil, nom: moi.Nom || null } : null
+  return moi?.Profil ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null } : null
 }
 
-// Chef d'équipe et admin : hors service, suivi des incidents ; le salarié déclare seulement
-export const peutGerer = (d) => d.moi?.profil !== 'Salarié'
+// Chef d'équipe et admin : hors service, suivi des incidents ; les autres rôles déclarent seulement
+export const peutGerer = (d) => ['Admin', 'Chef d’équipe'].includes(d.moi?.profil)
 // Pages et actions réservées au profil Admin (`d` peut être null avant le premier chargement)
 export const estAdmin = (d) => d?.moi?.profil === 'Admin'
 

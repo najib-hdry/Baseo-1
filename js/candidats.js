@@ -129,7 +129,7 @@ export function creerEcranCandidats(racine, recharger) {
   const nom = (c) => [c.Prenom, c.Nom].filter(Boolean).join(' ') || 'Sans nom'
   const nationalite = (c) => d.parId.Nationalites.get(c.Nationalite)?.Nationalite ?? ''
   const poste = (c) => d.parId.Postes.get(c.Poste)?.Titre ?? ''
-  const cip = (c) => d.parId.Utilisateurs.get(c.CIP_responsable)?.Nom ?? ''
+  const cip = (c) => { const u = d.parId.Utilisateurs.get(c.CIP_responsable); return u ? [u.Prenom, u.Nom].filter(Boolean).join(' ') : '' }
   const passIae = (c) => {
     const [debut, fin] = [depuisGrist(c.Pass_IAE_debut), depuisGrist(c.Pass_IAE_fin)].map(enFrancais)
     return debut || fin ? `${debut || '?'} → ${fin || '?'}` : ''
