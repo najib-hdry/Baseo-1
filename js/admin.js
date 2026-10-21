@@ -94,18 +94,10 @@ export function creerEcranAdmin(racine, recharger) {
         contenuFiche(d, c, cle),
       ].flat().filter(Boolean))
     }
-    // Modifier / Supprimer ferment la fiche, qui se rouvre au besoin avec des données à jour
+    // « Modifier les composants » ferme la fiche, qui se rouvre ensuite avec des données à jour
     let fermer = () => {}
     afficherOnglet(ONGLETS_FICHE[0][0])
-    const panneau = ouvrirPanneau(c.Nom || 'Chantier', [
-      h('div', { className: 'fiche-entete' },
-        h('div', { className: 'carte-titre sous-texte' }, c.Adresse || 'Adresse non renseignée'),
-        h('span', { className: 'badge badge-termine' }, c.Statut || 'Sans statut'),
-        h('button', { className: 'bouton bouton-compact', onClick: () => { fermer(); ouvrirEdition(c) } }, 'Modifier'),
-        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { fermer(); ouvrirSuppression(c) } }, 'Supprimer')),
-      onglets,
-      contenu,
-    ])
+    const panneau = ouvrirPanneau(c.Nom || 'Chantier', [onglets, contenu])
     fermer = panneau.fermer
     panneau.section.classList.add('panneau-large', 'panneau-fiche')
   }
