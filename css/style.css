@@ -607,3 +607,21 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Formulaire chantier (création / modification) : plus large sur ordinateur, cases sur une ligne */
 .panneau.panneau-chantier { max-width: min(1200px, calc(100vw - 32px)); }
 .cases-ligne { display: flex; flex-wrap: wrap; gap: 4px 28px; }
+
+/* Ordinateur (≥ 1000 px) : cartes des chantiers sur plusieurs colonnes ; vue d'un chantier en deux colonnes,
+   le plan (bases vie, plan 3D, étages, pièces) à gauche, toujours visible, les vestiaires et les casiers à droite */
+@media (min-width: 1000px) {
+  .widget:has(.cartes, .vue-chantier) { max-width: none; }
+  .cartes { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .vue-chantier { display: grid; grid-template-columns: minmax(380px, 2fr) 3fr; gap: 28px; align-items: start; }
+  .vue-plan { position: sticky; top: 12px; display: flex; flex-direction: column; }
+  /* Étages et pièces au-dessus du plan 3D : visibles sans défiler */
+  .vue-plan > [aria-label="Étages"], .vue-plan > .pieces { order: -1; }
+  .vue-plan > .onglets:not([aria-label="Étages"]), .vue-plan > p.sous-texte { order: -2; }
+  .vue-plan .onglets, .vue-plan .plan3d { margin-left: 0; margin-right: 0; }
+  .vue-plan .onglets { padding-left: 0; padding-right: 0; }
+  .vue-plan .plan3d { min-height: 280px; border-radius: 14px; }
+  .vue-contenu > .onglets { margin: 16px 0 0; padding: 0 0 4px; }
+  .grille { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .casier { min-height: 86px; }
+}

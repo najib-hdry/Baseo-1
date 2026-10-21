@@ -96,10 +96,13 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
   }
   const vestiairesPlan = d.Vestiaires.map((v) => ({ ...v, ...(occupation.get(v.id) ?? { total: 0, occupes: 0 }) }))
 
-  const noeuds = [onglets('Zones', zones, etat.zoneId, choisirZone), onglets('Bases vie', bases, etat.baseId, choisirBase)]
+  // Deux blocs : le plan (zones, bases vie, plan 3D, étages, pièces) et le contenu de l'étage (vestiaires, casiers…),
+  // empilés sur téléphone, côte à côte sur ordinateur (voir .vue-chantier dans le CSS)
+  const plan = [onglets('Zones', zones, etat.zoneId, choisirZone), onglets('Bases vie', bases, etat.baseId, choisirBase)]
+  const noeuds = []
 
   if (etagesBase.length > 0) {
-    noeuds.push(
+    plan.push(
       plan3d({ etages: etagesBase, vestiaires: vestiairesPlan, pieces: d.Pieces, etageId: etat.etageId,
         vestiaireId: etat.vestiaireId, onEtage: choisirEtage, onVestiaire: choisirVestiaire, vue: etat.vue3d }),
       h('p', { className: 'plan3d-aide' }, 'Glisse pour tourner · touche un étage ou un vestiaire'),
@@ -141,7 +144,10 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
             h('span', { className: 'casier-detail' }, detail(c)),
             mode === 'incidents' && marques?.casiers.has(c.id) && h('span', { className: 'pastille', 'aria-label': 'incident en cours' }, '!')))))
   }
-  return noeuds.filter(Boolean) // sans les onglets absents (null) ni les blocs conditionnels (false)
+  // sans les onglets absents (null) ni les blocs conditionnels (false)
+  return [h('div', { className: 'vue-chantier' },
+    h('div', { className: 'vue-plan' }, plan.filter(Boolean)),
+    h('div', { className: 'vue-contenu' }, noeuds.filter(Boolean)))]
 }
 
 // Nom de la zone d'une base vie, seulement si son chantier a plusieurs zones
