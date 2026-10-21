@@ -38,8 +38,10 @@ export function creerEcranCasiers(racine, recharger) {
     }
     const chantier = d.parId.Chantiers.get(etat.chantierId)
     racine.replaceChildren(
-      h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
-      h('h1', null, chantier?.Nom ?? ''),
+      // Retour et nom du chantier sur une même ligne
+      h('div', { className: 'entete-chantier' },
+        h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
+        h('h1', null, chantier?.Nom ?? '')),
       ...vueChantier(d, etat, { mode: 'casiers', onCasier: ouvrirCasier, rafraichir: rendre }))
   }
 

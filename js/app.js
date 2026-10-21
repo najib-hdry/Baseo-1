@@ -86,6 +86,7 @@ function allerA(cle) {
   choix = cle
   afficherPage()
   if (donnees?.moi) ecrans[cle].accueil()
+  window.scrollTo(0, 0) // la nouvelle page s'ouvre en haut, pas au défilement de la précédente
 }
 
 function afficherPage() {
@@ -96,7 +97,8 @@ function afficherPage() {
       h('p', { className: 'message' }, 'Ton compte n’a pas encore de profil actif dans l’application. Demande à l’administrateur de t’ajouter dans la table Utilisateurs.'))
     return
   }
-  principal.replaceChildren(zones[page])
+  // Avant le premier chargement : un message plutôt qu'une page vide
+  principal.replaceChildren(donnees ? zones[page] : h('p', { className: 'attente' }, 'Chargement des données…'))
   if (donnees) ecrans[page].afficher(donnees)
 }
 
@@ -112,6 +114,7 @@ function recharger() {
     return enCours
   }
   enCours = (async () => {
+    document.body.classList.add('synchro') // barre animée sous l'en-tête pendant la mise à jour
     try {
       do {
         aRefaire = false
@@ -122,6 +125,7 @@ function recharger() {
       afficherErreur(e)
     } finally {
       enCours = null
+      document.body.classList.remove('synchro')
     }
   })()
   return enCours

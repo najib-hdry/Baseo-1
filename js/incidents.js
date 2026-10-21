@@ -50,8 +50,9 @@ export function creerEcranIncidents(racine, recharger) {
         h('button', { className: 'filtre', 'aria-pressed': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle)))
 
     const entete = [
-      h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Incidents'),
-      h('h1', null, chantier?.Nom ?? ''),
+      h('div', { className: 'entete-chantier' },
+        h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Incidents'),
+        h('h1', null, chantier?.Nom ?? '')),
       bascule,
     ]
 

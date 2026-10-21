@@ -41,7 +41,7 @@ export function cartesChantiers(d, { titre, stats, jauge, onOuvrir }) {
     h('ul', { className: 'cartes' }, chantiers.map((c) => {
       const compteurs = stats(c)
       const taux = jauge?.(c)
-      return h('li', null, h('button', { className: 'carte-chantier', onClick: () => onOuvrir(c) },
+      return h('li', null, h('button', { className: 'carte-chantier', onClick: () => { onOuvrir(c); window.scrollTo(0, 0) } },
         h('div', { className: 'carte-haut' },
           h('span', { className: 'carte-icone' }, icone('grue', 30)),
           h('div', { className: 'carte-titre' },
@@ -55,6 +55,16 @@ export function cartesChantiers(d, { titre, stats, jauge, onOuvrir }) {
           h('span', { style: { width: `${taux * 100}%` } }))))
     })),
   ]
+}
+
+// Plan 3D replié ou non : préférence de l'appareil (le stockage peut être indisponible : on garde alors la valeur en mémoire)
+let planMasqueMemoire = false
+const planMasque = () => {
+  try { return localStorage.getItem('casiers.planMasque') === '1' } catch { return planMasqueMemoire }
+}
+function memoriserPlanMasque(valeur) {
+  planMasqueMemoire = valeur
+  try { localStorage.setItem('casiers.planMasque', valeur ? '1' : '0') } catch { /* stockage indisponible */ }
 }
 
 const FILTRES = [
@@ -102,10 +112,15 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
   const noeuds = []
 
   if (etagesBase.length > 0) {
+    // Plan 3D repliable (choix mémorisé sur cet appareil) : replié, les étages et les casiers arrivent tout de suite
+    const masque = planMasque()
+    const bascule = h('button', { className: 'plan3d-bascule', onClick: () => { memoriserPlanMasque(!masque); rafraichir() } },
+      masque ? '▸ Afficher le plan 3D' : '▾ Masquer le plan 3D')
     plan.push(
-      plan3d({ etages: etagesBase, vestiaires: vestiairesPlan, pieces: d.Pieces, etageId: etat.etageId,
+      h('div', { className: 'plan3d-barre' }, bascule),
+      !masque && plan3d({ etages: etagesBase, vestiaires: vestiairesPlan, pieces: d.Pieces, etageId: etat.etageId,
         vestiaireId: etat.vestiaireId, onEtage: choisirEtage, onVestiaire: choisirVestiaire, vue: etat.vue3d }),
-      h('p', { className: 'plan3d-aide' }, 'Glisse pour tourner · touche un étage ou un vestiaire'),
+      !masque && h('p', { className: 'plan3d-aide' }, 'Glisse pour tourner · touche un étage ou un vestiaire'),
       onglets('Étages', [...etagesBase].reverse(), etat.etageId, choisirEtage),
       mode !== 'lieux' && piecesEtage.length > 0 && h('ul', { className: 'pieces', 'aria-label': 'Autres pièces de l’étage' },
         piecesEtage.map((p) => h('li', { className: `piece piece-${p.Type}` },

@@ -610,10 +610,10 @@ button.tiroir-lien.active { background: var(--signal); }
 
 /* Ordinateur (≥ 1000 px) : cartes des chantiers sur plusieurs colonnes ; vue d'un chantier en deux colonnes,
    le plan (bases vie, plan 3D, étages, pièces) à gauche, toujours visible, les vestiaires et les casiers à droite */
-@media (min-width: 1000px) {
+@media (min-width: 800px) {
   .widget:has(.vue-chantier) { max-width: none; }
-  .vue-chantier { display: grid; grid-template-columns: minmax(380px, 2fr) 3fr; gap: 28px; align-items: start; }
-  .vue-plan { position: sticky; top: 12px; display: flex; flex-direction: column; }
+  .vue-chantier { display: grid; grid-template-columns: minmax(320px, 2fr) 3fr; gap: 24px; align-items: start; }
+  .vue-plan { display: flex; flex-direction: column; }
   /* Étages et pièces au-dessus du plan 3D : visibles sans défiler */
   .vue-plan > [aria-label="Étages"], .vue-plan > .pieces { order: -1; }
   .vue-plan > .onglets:not([aria-label="Étages"]), .vue-plan > p.sous-texte { order: -2; }
@@ -632,3 +632,19 @@ button.tiroir-lien.active { background: var(--signal); }
   .cartes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .carte-chantier { padding: 20px; }
 }
+
+/* En-tête d'un chantier : « ‹ Chantiers » et le nom sur une ligne */
+.entete-chantier { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; }
+.entete-chantier h1 { margin: 0; }
+/* Plan 3D repliable */
+.plan3d-bascule { padding: 2px 4px; font: inherit; font-weight: 600; color: var(--encre); background: none; border: none; cursor: pointer; text-decoration: underline; }
+/* Mise à jour en cours : fine barre animée sous l'en-tête */
+body.synchro .entete::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--libre), transparent); background-size: 40% 100%; background-repeat: no-repeat;
+  animation: synchro 1s linear infinite;
+}
+@keyframes synchro { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+@media (prefers-reduced-motion: reduce) { body.synchro .entete::after { animation: none; background: var(--libre); opacity: .5; } }
+.plan3d-barre { margin-top: 12px; text-align: right; font-size: .85rem; }
+.vue-plan .plan3d-barre + .plan3d { margin-top: 4px; }

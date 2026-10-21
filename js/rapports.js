@@ -57,10 +57,9 @@ export function creerEcranRapport(racine, recharger, config) {
       return
     }
     const chantier = d.parId.Chantiers.get(etat.chantierId)
-    const entete = [
+    const entete = [h('div', { className: 'entete-chantier' },
       h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
-      h('h1', null, chantier?.Nom ?? ''),
-    ]
+      h('h1', null, chantier?.Nom ?? ''))]
     const confirmation = banniere ? [banniere] : []
 
     if (!config.parPlan) {
