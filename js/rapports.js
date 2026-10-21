@@ -1,8 +1,7 @@
-// Écrans « Contrôle nettoyage » et « Maintenance » : choisir un chantier, puis remplir le formulaire
-// (lieu, date, fiche, commentaire, 4 photos).
-// - Nettoyage : bouton « Nouveau contrôle », lieu choisi dans des listes, derniers enregistrements dessous.
-// - Maintenance (`parPlan`) : comme la déclaration d'incident, sans casiers — plan 3D, étage, puis on touche
-//   le vestiaire ou la pièce ; l'onglet Historique présente les enregistrements en tableau (fiche, modifier, supprimer).
+// Écrans « Contrôle nettoyage » et « Maintenance », même fonctionnement :
+// - onglet Déclarer : comme la déclaration d'incident, sans casiers — plan 3D, étage, puis on touche le vestiaire
+//   ou la pièce ; le formulaire (lieu modifiable, date, fiche de passage, commentaire, 4 photos) s'ouvre sur ce lieu ;
+// - onglet Historique : les enregistrements du chantier en tableau (filtres, recherche, fiche, modifier, supprimer).
 import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos } from './outils.js'
 import { envoyerPhoto, enregistrer, lienPhotos, modifierLigne, supprimerFiche, peutGerer, estAdmin, idsDeListe } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, zonesDuChantier, basesVisibles, lieuRapport } from './navigation.js'
@@ -12,7 +11,7 @@ export const NETTOYAGE = {
   choix: [{ col: 'Type_action', libelle: 'Type d’action', valeurs: ['Contrôle nettoyage', 'Déclarer écart de nettoyage'] }],
 }
 export const MAINTENANCE = {
-  titre: 'Maintenance', table: 'Maintenance', nouveau: 'Nouvelle intervention', horaire: false, parPlan: true,
+  titre: 'Maintenance', table: 'Maintenance', nouveau: 'Nouvelle intervention', horaire: false,
   choix: [
     { col: 'Action', libelle: 'Action', valeurs: ['Maintenance', 'Aménagement et nouvelle installation'] },
     { col: 'Type', libelle: 'Type', valeurs: ['Plomberie', 'Électricité', 'Manutention', 'Équipement'] },
@@ -72,13 +71,6 @@ export function creerEcranRapport(racine, recharger, config) {
       h('h1', null, chantier?.Nom ?? ''))]
     const confirmation = banniere ? [banniere] : []
 
-    if (!config.parPlan) {
-      racine.replaceChildren(...entete, ...confirmation,
-        h('button', { className: 'bouton bouton-principal bouton-nouveau', onClick: () => ouvrirFormulaire() }, `＋ ${config.nouveau}`),
-        ...[derniers()].flat())
-      return
-    }
-
     const bascule = h('div', { className: 'choix choix-2 bascule-vue' },
       [['declarer', 'Déclarer'], ['historique', 'Historique']].map(([cle, libelle]) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle)))
@@ -108,30 +100,7 @@ export function creerEcranRapport(racine, recharger, config) {
     }
   }
 
-  // ---- Derniers enregistrements du chantier ----
-
-  function derniers() {
-    const liste = duChantier(etat.chantierId).sort(parDateDecroissante).slice(0, 10)
-    if (liste.length === 0) return h('p', { className: 'message' }, 'Aucun enregistrement pour ce chantier.')
-    return [
-      h('h2', { className: 'titre-section' }, 'Derniers enregistrements'),
-      h('ul', { className: 'incidents' }, liste.map((r) => {
-        const photos = photosDe(r).length
-        return h('li', { className: 'rapport' },
-          h('span', { className: 'incident-haut' },
-            config.choix.map((c) => r[c.col] && h('span', { className: 'incident-categorie' }, r[c.col])),
-            h('span', { className: 'incident-date' }, [enFrancais(depuisGrist(r.Date)), r.Horaire_passage].filter(Boolean).join(' · '))),
-          h('span', { className: 'incident-lieu' }, lieuRapport(d, etat.chantierId, r)),
-          r.Commentaire && h('span', { className: 'incident-description' }, r.Commentaire),
-          h('span', { className: 'rapport-pied' },
-            h('span', { className: `badge ${r.Fiche_passage_complete ? 'badge-resolu' : 'badge-ouvert'}` },
-              r.Fiche_passage_complete ? 'Fiche complète' : 'Fiche incomplète'),
-            photos > 0 && h('span', { className: 'incident-lieu' }, `📷 ${photos}`)))
-      })),
-    ]
-  }
-
-  // ---- Historique en tableau (maintenance) : filtres par action, recherche, fiche, modifier, supprimer ----
+  // ---- Historique en tableau : filtres par action, recherche, fiche, modifier, supprimer ----
 
   const badgeFiche = (r) => h('span', { className: `badge ${r.Fiche_passage_complete ? 'badge-resolu' : 'badge-ouvert'}` },
     r.Fiche_passage_complete ? 'Complète' : 'Incomplète')
