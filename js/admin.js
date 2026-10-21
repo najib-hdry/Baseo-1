@@ -217,16 +217,29 @@ export function creerEcranAdmin(racine, recharger) {
     section.classList.add('panneau-large')
   }
 
-  // Contacts du chantier : cases à cocher (référence multiple) et ajout d'un nouveau contact sans quitter le formulaire
+  // Contacts du chantier (référence multiple) : choix d'un contact existant dans une liste, contacts choisis en étiquettes
+  // retirables, et ajout d'un nouveau contact sans quitter le formulaire
   function blocContacts(infos) {
-    const cases = h('div', { className: 'cases-chantiers' })
-    const dessinerCases = () => cases.replaceChildren(...(d.Contacts.length === 0
-      ? [h('p', { className: 'sous-texte' }, 'Aucun contact pour l’instant.')]
-      : [...d.Contacts].sort((a, b) => nomContact(a).localeCompare(nomContact(b))).map((k) => h('label', { className: 'case' },
-        h('input', { type: 'checkbox', checked: infos.Contacts.includes(k.id), onChange: (e) => {
-          infos.Contacts = e.target.checked ? [...infos.Contacts, k.id] : infos.Contacts.filter((id) => id !== k.id)
-        } }),
-        [nomContact(k) || 'Sans nom', k.Fonction].filter(Boolean).join(' · ')))))
+    const libelle = (k) => [nomContact(k) || 'Sans nom', k.Fonction].filter(Boolean).join(' · ')
+    const choisis = h('div', { className: 'etiquettes-contacts' })
+    const liste = h('select', { className: 'champ', 'aria-label': 'Choisir un contact existant', onChange: (e) => {
+      const id = Number(e.target.value)
+      if (id && !infos.Contacts.includes(id)) infos.Contacts = [...infos.Contacts, id]
+      dessinerCases()
+    } })
+    const dessinerCases = () => {
+      choisis.replaceChildren(...(infos.Contacts.length === 0
+        ? [h('span', { className: 'sous-texte' }, 'Aucun contact choisi.')]
+        : infos.Contacts.map((id) => d.parId.Contacts.get(id)).filter(Boolean).map((k) => h('span', { className: 'etiquette-contact' }, libelle(k),
+          h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': `Retirer ${nomContact(k)}`,
+            onClick: () => { infos.Contacts = infos.Contacts.filter((id) => id !== k.id); dessinerCases() } }, '✕')))))
+      const restants = d.Contacts.filter((k) => !infos.Contacts.includes(k.id)).sort((a, b) => libelle(a).localeCompare(libelle(b)))
+      liste.replaceChildren(
+        h('option', { value: '', selected: true }, d.Contacts.length === 0 ? 'Aucun contact existant' : restants.length === 0 ? 'Tous les contacts sont choisis' : '-- Choisir un contact existant --'),
+        restants.map((k) => h('option', { value: String(k.id) }, libelle(k))))
+      liste.disabled = restants.length === 0
+    }
+    const cases = h('div', { className: 'formulaire' }, choisis, liste)
     dessinerCases()
 
     // Mini-formulaire (pas de <form> imbriqué) : le contact créé est ajouté à la liste et coché

@@ -600,3 +600,6 @@ button.tiroir-lien.active { background: var(--signal); }
 .contacts-chantier li { margin: 2px 0; }
 .nouveau-contact { display: grid; gap: 10px; margin-top: 10px; padding: 12px; border: 1px dashed var(--trait); border-radius: var(--rayon); }
 .nouveau-contact .fiche-actions { justify-content: flex-start; gap: 8px; }
+.etiquettes-contacts { display: flex; flex-wrap: wrap; gap: 6px; }
+.etiquette-contact { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border: 1px solid var(--trait); border-radius: 999px; background: #fff; font-size: 13px; }
+.etiquette-retirer { border: 0; background: none; cursor: pointer; padding: 0 4px; font-size: 12px; color: var(--hs); }
