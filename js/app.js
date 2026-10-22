@@ -1,7 +1,7 @@
 // Application « Casiers chantier » dans Grist : en-tête, menu « Mes pages »
 // et les deux écrans (casiers, incidents), comme l'application Supabase.
 /* global grist */
-import { h, icone, afficherErreur } from './outils.js'
+import { h, icone, afficherErreur, logoBaseo } from './outils.js'
 import { chargerTout, estAdmin } from './donnees.js'
 import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
@@ -45,11 +45,14 @@ let donnees = null
 
 // ---- En-tête et menu ----
 
-const sousTitre = h('div', { className: 'entete-info' })
+// Barre du haut : icône et nom de la page ouverte
+const iconeTitre = h('span', { className: 'entete-icone', 'aria-hidden': 'true' })
+const titrePage = h('div', { className: 'entete-titre' })
 
-// Profil connecté et liens des pages (communs au tiroir du téléphone et au menu latéral de l'ordinateur)
-const liensMenu = (avant = () => {}) => [
-  donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
+// Liens des pages (communs au tiroir du téléphone et au menu latéral de l'ordinateur) ;
+// `profil` : le tiroir affiche la personne connectée en tête, le menu latéral dans sa carte du bas
+const liensMenu = (avant = () => {}, profil = true) => [
+  profil && donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
   pagesVisibles().map((p) => h('button', {
     className: `tiroir-lien${p.cle === pageCourante() ? ' active' : ''}`,
     'aria-current': p.cle === pageCourante() ? 'page' : null,
@@ -74,9 +77,16 @@ function ouvrirMenu() {
   window.addEventListener('keydown', touche)
 }
 
-// Ordinateur : menu latéral toujours ouvert (le CSS l'affiche à partir de 900 px et masque alors le bouton ☰)
+// Ordinateur : menu latéral toujours ouvert (le CSS l'affiche à partir de 900 px et masque alors le bouton ☰) :
+// logo, pages, puis la carte de la personne connectée
 const menuLateral = h('nav', { className: 'menu-lateral', 'aria-label': 'Mes pages' })
-const dessinerMenuLateral = () => menuLateral.replaceChildren(h('span', { className: 'tiroir-titre' }, 'Mes pages'), ...liensMenu().flat().filter(Boolean))
+const dessinerMenuLateral = () => menuLateral.replaceChildren(
+  h('div', { className: 'menu-logo' }, logoBaseo()),
+  h('div', { className: 'menu-liens' }, liensMenu(undefined, false)),
+  ...(donnees?.moi ? [h('div', { className: 'menu-utilisateur' },
+    h('span', { className: 'menu-avatar' }, icone('occupes', 22)),
+    h('span', { className: 'menu-utilisateur-texte' }, h('strong', null, donnees.moi.nom || donnees.moi.profil),
+      donnees.moi.nom && h('span', null, donnees.moi.profil)))] : []))
 
 const entete = h('header', { className: 'entete' },
   h('button', { className: 'burger', 'aria-label': 'Menu', onClick: ouvrirMenu },
@@ -85,10 +95,9 @@ const entete = h('header', { className: 'entete' },
       span.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
       return span.firstChild
     })()),
-  h('div', { className: 'entete-centre' },
-    sousTitre,
-    h('div', { className: 'entete-titre' }, 'Casiers chantier')),
-  h('span', { className: 'profil-bouton', 'aria-hidden': 'true' }, icone('grue', 24)))
+  iconeTitre,
+  h('div', { className: 'entete-centre' }, titrePage),
+  h('span', { className: 'entete-logo' }, logoBaseo()))
 
 // ---- Navigation entre les écrans ----
 
@@ -102,7 +111,9 @@ function allerA(cle) {
 
 function afficherPage() {
   const page = pageCourante()
-  sousTitre.textContent = PAGES.find((p) => p.cle === page).libelle
+  const infos = PAGES.find((p) => p.cle === page)
+  titrePage.textContent = infos.libelle
+  iconeTitre.replaceChildren(icone(infos.icone, 24))
   dessinerMenuLateral() // page active et pages visibles (admin) à jour
   if (donnees && !donnees.moi) {
     principal.replaceChildren(h('h1', null, 'Accès non configuré'),
@@ -144,11 +155,10 @@ function recharger() {
 }
 
 try {
-  document.body.prepend(entete)
-  // Menu latéral et page côte à côte (le menu n'apparaît que sur grand écran)
+  // Menu latéral sur toute la hauteur à gauche ; à droite, la barre du haut puis la page (le menu n'apparaît que sur grand écran)
   const disposition = h('div', { className: 'disposition' })
   principal.replaceWith(disposition)
-  disposition.append(menuLateral, principal)
+  disposition.append(menuLateral, h('div', { className: 'colonne-principale' }, entete, principal))
   afficherPage()
   grist.ready({ requiredAccess: 'full' })
   grist.onRecords(() => recharger()) // toute modification de la table liée relance l'affichage
