@@ -133,18 +133,9 @@ export function choixEtiquettes({ elements, choisis = [], textes, onChange = () 
   return { element: h('div', { className: 'formulaire' }, etiquettes, liste), ids: () => ids, ajouter: (id) => changer([...ids, id]), dessiner }
 }
 
-// Logo « baseo » : « base » dans la couleur du texte (currentColor), « o » cyan et ses flèches turquoise
-const LOGO_BASEO = '<svg viewBox="0 0 112 64" role="img" aria-label="baseo">'
-  + '<text x="0" y="38" font-family="Barlow, sans-serif" font-weight="700" font-size="42" letter-spacing="-1" fill="currentColor">base</text>'
-  + '<circle cx="95" cy="26" r="9" fill="none" stroke="#0bbcd4" stroke-width="6"/>'
-  // flèches en éventail sous le « o » : trois traits et leurs pointes
-  + '<g fill="none" stroke="#16a3b0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">'
-  + '<path d="M95 44v16M90 49l5-5 5 5"/><path d="M86 44l-8 13M78 50v7h7"/><path d="M104 44l8 13M112 50v7h-7"/></g></svg>'
-export function logoBaseo() {
-  const span = h('span', { className: 'logo-baseo' })
-  span.innerHTML = LOGO_BASEO
-  return span
-}
+// Logo « baseo » (image du projet, fond transparent) ; l'assemblage remplace ce chemin par l'image intégrée
+const LOGO_BASEO = 'img/logo-baseo.png'
+export const logoBaseo = () => h('img', { className: 'logo-baseo', src: LOGO_BASEO, alt: 'baseo' })
 
 // Galerie des photos d'une fiche (identifiants de pièces jointes Grist) ; chaque photo s'ouvre en grand dans un nouvel onglet.
 // `lien(id)` : adresse temporaire d'une pièce jointe (null si indisponible)

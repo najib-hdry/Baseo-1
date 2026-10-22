@@ -55,7 +55,7 @@ h2 { font-size: 1.3rem; }
 }
 .entete-titre { font-size: 1.45rem; font-weight: 400; color: #1c2b33; }
 .entete-logo { flex: none; width: 88px; color: var(--baseo-fonce); }
-.logo-baseo svg { display: block; width: 100%; height: auto; }
+.logo-baseo { display: block; width: 100%; height: auto; }
 
 /* Formulaires et boutons */
 .formulaire { display: grid; gap: 12px; margin-top: 20px; }

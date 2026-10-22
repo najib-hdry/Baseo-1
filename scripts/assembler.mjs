@@ -22,7 +22,10 @@ const css = minifier(lire('css/style.css'), 'css')
 for (const widget of WIDGETS) {
   const html = `<style>${css}</style>\n<main id="app" class="widget"><p class="attente">Chargement des données Grist…</p></main>\n`
   const parties = [...MODULES_COMMUNS, widget].map((m) => sansModules(lire(`js/${m}.js`)))
-  const js = minifier(`(() => {\n${parties.join('\n')}\n})()\n`, 'js')
+  // Images du projet ('img/xxx.png' dans le code) intégrées en data URL : le widget reste autonome dans Grist
+  const avecImages = parties.join('\n').replace(/'img\/([\w-]+\.png)'/g, (_, nom) =>
+    `'data:image/png;base64,${readFileSync(new URL(`../img/${nom}`, import.meta.url)).toString('base64')}'`)
+  const js = minifier(`(() => {\n${avecImages}\n})()\n`, 'js')
   writeFileSync(new URL(`../builder/${widget}.html`, import.meta.url), html)
   writeFileSync(new URL(`../builder/${widget}.js`, import.meta.url), js)
   console.log(`${widget} : html ${html.length} car., js ${js.length} car.`)
