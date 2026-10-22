@@ -56,17 +56,18 @@ function zoneFichier(onChoix, { deja = false, lien = null, accept = '.pdf,.doc,.
 }
 
 /**
- * Blocs du formulaire, deux par ligne, dans l'ordre des colonnes Grist.
+ * Blocs du formulaire et de la fiche, deux par ligne (gauche, droite) ; `{ sous: true }` place le bloc
+ * sous le précédent, dans la même colonne.
  * Champ : [colonne, libellé, type, options] ; types : texte, long, date, tel, email, nombre, choix (options = valeurs),
  * ref (options = [table, colonne affichée]), photo, fichier.
  */
 const BLOCS_CANDIDAT = [
-  ['Suivi de la candidature', [
-    ['Statut', 'Statut', 'choix', STATUTS_CANDIDAT], ['Valide_par_CIP', 'Validé par le CIP', 'choix', OUI_NON], ['Date_entretien', 'Date d’entretien', 'date'],
-  ]],
   ['Informations personnelles', [
     ['Prenom', 'Prénom', 'texte'], ['Nom', 'Nom', 'texte'], ['Date_naissance', 'Date de naissance', 'date'],
     ['Nationalite', 'Nationalité', 'ref', ['Nationalites', 'Nationalite']], ['Telephone', 'Téléphone', 'tel'], ['Email', 'Email', 'email'],
+  ]],
+  ['Suivi de la candidature', [
+    ['Statut', 'Statut', 'choix', STATUTS_CANDIDAT], ['Valide_par_CIP', 'Validé par le CIP', 'choix', OUI_NON], ['Date_entretien', 'Date d’entretien', 'date'],
   ]],
   ['Situation administrative', [
     ['Numero_securite_sociale', 'Numéro de sécurité sociale', 'texte'], ['Date_validite_piece_identite', 'Date de validité de la pièce d’identité', 'date'],
@@ -107,10 +108,18 @@ const BLOCS_CANDIDAT = [
     ['Composition_famille', 'Composition de famille', 'texte'], ['Autres', 'Autres', 'long'],
   ]],
   ['CIP responsable', [['CIP_responsable', 'CIP responsable', 'ref', ['Utilisateurs', 'Nom']]]],
-  ['Poste', [['Poste', 'Poste', 'ref', ['Postes', 'Titre']]]],
+  ['Poste', [['Poste', 'Poste', 'ref', ['Postes', 'Titre']]], { sous: true }],
   ['Photo', [['Photo', 'Photo', 'photo']]],
   ['CV', [['CV', 'CV', 'fichier']]],
 ]
+
+// Cellules de la grille des blocs : `rendre(titre, champs)` dessine un bloc ; un bloc `sous` rejoint la cellule précédente
+const disposerBlocs = (rendre) => BLOCS_CANDIDAT.reduce((cellules, [titre, champs, options]) => {
+  const bloc = rendre(titre, champs)
+  if (options?.sous) cellules.at(-1).append(bloc)
+  else cellules.push(h('div', { className: 'cellule-candidat' }, bloc))
+  return cellules
+}, [])
 
 // Âge en années à partir d'une date ISO (AAAA-MM-JJ)
 function age(iso) {
@@ -284,7 +293,7 @@ export function creerEcranCandidats(racine, recharger) {
       }
     } },
     h('div', { className: 'blocs-candidat' },
-      BLOCS_CANDIDAT.map(([titre, champs]) => h('section', { className: 'bloc-candidat' }, h('h3', null, titre),
+      disposerBlocs((titre, champs) => h('section', { className: 'bloc-candidat' }, h('h3', null, titre),
         champs.map((f) => champ(f, champs.length === 1 && f[1] === titre))))),
     erreur,
     h('div', { className: 'fiche-actions' }, valider))
@@ -319,7 +328,7 @@ export function creerEcranCandidats(racine, recharger) {
   async function ouvrirFiche(c) {
     const lien = await lienPhotos().catch(() => null) // adresse temporaire des pièces jointes (photo, CV)
     const contenu = h('div', { className: 'blocs-candidat' },
-      BLOCS_CANDIDAT.map(([titre, champs]) => h('section', { className: 'bloc-candidat' }, h('h3', null, titre),
+      disposerBlocs((titre, champs) => h('section', { className: 'bloc-candidat' }, h('h3', null, titre),
         h('dl', { className: 'fiche-infos' }, champs.map((f) => [
           champs.length === 1 && f[1] === titre ? null : h('dt', null, f[1]),
           h('dd', { className: champs.length === 1 && f[1] === titre ? 'fiche-seule' : '' }, valeurLisible(c, f, lien)),

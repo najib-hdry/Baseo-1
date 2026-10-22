@@ -460,6 +460,7 @@ button.tiroir-lien.active { background: var(--signal); }
 /* ---- Écrans étroits (téléphone, petite fenêtre) ---- */
 /* Formulaire « Ajouter un candidat » : blocs sur deux colonnes (une sur écran étroit) */
 .blocs-candidat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 56px; }
+.cellule-candidat { display: grid; gap: 28px; align-content: start; }
 .bloc-candidat { display: grid; gap: 12px; align-content: start; }
 .bloc-candidat h3 { margin: 0 0 2px; font-size: 1.1rem; }
 .zone-fichier { display: grid; justify-items: center; gap: 8px; padding: 20px 12px; text-align: center; cursor: pointer;
