@@ -1,7 +1,7 @@
 // Écran « Gestion des utilisateurs » (admin) : onglets par rôle (Salarié en premier, Tous en dernier), tableau avec recherche,
 // fiche de création / modification (identité, rôle, chantiers, actif), suppression,
 // fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié ;
-// détail du salarié : le candidat en lecture ; compte).
+// détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ; compte).
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
 import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion } from './donnees.js'
@@ -185,7 +185,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirFiche(u) } }, 'Modifier le compte')))
 
     // Changer d'onglet ne redessine que le contenu
-    const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail], ['compte', 'Compte', ongletCompte]]
+    const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail],
+      ['planning', 'Emploi du temps', () => blocEmploiDuTemps(u)], ['compte', 'Compte', ongletCompte]]
     const contenu = h('div', { className: 'fiche-contenu' })
     const barre = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche salarié' })
     const afficherOnglet = (cle) => {
@@ -332,6 +333,74 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     fenetreSuppression(`Supprimer le contrat ${k.Numero || ''} ?`.replace('  ', ' '), [
       h('p', null, 'Le contrat et ses fichiers (contrat, DPAE) seront retirés de la fiche du salarié.'),
     ], [['Supprimer définitivement', 'bouton-danger', () => supprimerFiche('Contrats', k.id)]], async () => { await recharger(); rouvrir() })
+  }
+
+  // ---- Emploi du temps du salarié (onglet de la fiche) : calendrier du mois, puis tableau des tâches de ce mois ----
+
+  const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+  const TITRES_TACHES = ['Date début', 'Date fin', 'Emplacement', 'Titre de tâche', 'Action', 'Détail']
+  const enDate = (v) => (v ? new Date(v * 1000) : null) // colonnes Date et heure : secondes depuis 1970
+  const cleJour = (dt) => `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`
+  const heure = (dt) => dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  // Emplacement lisible : niveaux remplis, du chantier au vestiaire
+  const emplacement = (t) => [['Chantiers', t.Chantier], ['Zones', t.Zone], ['Bases_vie', t.Base_vie], ['Etages', t.Etage], ['Pieces', t.Piece], ['Vestiaires', t.Vestiaire]]
+    .map(([table, id]) => id && d.parId[table]?.get(id)?.Nom).filter(Boolean).join(' › ')
+
+  function blocEmploiDuTemps(u) {
+    if (d.absentes.has('Emploi_du_temps')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Emploi du temps.')
+    const taches = d.Emploi_du_temps.filter((t) => t.Salarie === u.id && t.Date_debut).sort((a, b) => a.Date_debut - b.Date_debut)
+    // Mois affiché : le mois en cours
+    const auj = new Date()
+    let mois = new Date(auj.getFullYear(), auj.getMonth(), 1)
+    const zone = h('div', { className: 'planning' })
+
+    const dessiner = () => {
+      const annee = mois.getFullYear()
+      const m = mois.getMonth()
+      const duMois = taches.filter((t) => { const dt = enDate(t.Date_debut); return dt.getFullYear() === annee && dt.getMonth() === m })
+      const parJour = new Map()
+      for (const t of duMois) {
+        const cle = cleJour(enDate(t.Date_debut))
+        parJour.set(cle, [...(parJour.get(cle) ?? []), t])
+      }
+      // Grille du lundi précédant le 1er au dimanche suivant le dernier jour du mois
+      const debut = new Date(annee, m, 1 - ((new Date(annee, m, 1).getDay() + 6) % 7))
+      const nbJours = Math.ceil(((new Date(annee, m + 1, 0) - debut) / 86400000 + 1) / 7) * 7
+      const cases = Array.from({ length: nbJours }, (_, i) => new Date(debut.getFullYear(), debut.getMonth(), debut.getDate() + i))
+      const changer = (n) => { mois = new Date(annee, m + n, 1); dessiner() }
+
+      zone.replaceChildren(
+        h('div', { className: 'planning-haut' },
+          h('button', { className: 'bouton bouton-compact', type: 'button', 'aria-label': 'Mois précédent', onClick: () => changer(-1) }, '‹'),
+          h('h3', null, mois.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })),
+          h('button', { className: 'bouton bouton-compact', type: 'button', 'aria-label': 'Mois suivant', onClick: () => changer(1) }, '›'),
+          h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { mois = new Date(auj.getFullYear(), auj.getMonth(), 1); dessiner() } }, 'Aujourd’hui')),
+        h('div', { className: 'calendrier' },
+          JOURS.map((j) => h('div', { className: 'calendrier-jour-nom' }, j)),
+          cases.map((jour) => h('div', { className: `calendrier-case${jour.getMonth() !== m ? ' hors-mois' : ''}${cleJour(jour) === cleJour(auj) ? ' aujourdhui' : ''}` },
+            h('span', { className: 'calendrier-numero' }, jour.getDate()),
+            (parJour.get(cleJour(jour)) ?? []).map((t) => h('div', { className: 'calendrier-tache', title: [t.Titre, emplacement(t), t.Action].filter(Boolean).join(' · ') },
+              h('strong', null, heure(enDate(t.Date_debut))), ' ', t.Titre || 'Tâche'))))),
+        h('h3', null, `Tâches du mois (${duMois.length})`),
+        h('div', { className: 'tableau-defilant' },
+          h('table', { className: 'tableau' },
+            h('thead', null, h('tr', null, TITRES_TACHES.map((t) => h('th', null, t)))),
+            (() => {
+              const corps = h('tbody', null, duMois.length === 0
+                ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_TACHES.length }, 'Aucune tâche ce mois-ci.'))
+                : duMois.map((t) => h('tr', null,
+                  h('td', { className: 'tableau-nom' }, dateHeure(t.Date_debut)),
+                  h('td', null, dateHeure(t.Date_fin)),
+                  h('td', null, emplacement(t) || '—'),
+                  h('td', null, t.Titre || '—'),
+                  h('td', null, t.Action || '—'),
+                  h('td', { className: 'cellule-detail' }, t.Detail || '—'))))
+              etiqueterLignes(corps, TITRES_TACHES)
+              return corps
+            })())))
+    }
+    dessiner()
+    return zone
   }
 
   // ---- Suivi d'insertion du salarié (dans la fiche salarié) : nouveau commentaire, puis historique du plus récent au plus ancien ----
