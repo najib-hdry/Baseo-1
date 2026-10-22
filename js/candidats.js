@@ -141,8 +141,10 @@ export function creerEcranCandidats(racine, recharger) {
   let onglet = '' // statut affiché ; '' = tous
 
   const nom = (c) => [c.Prenom, c.Nom].filter(Boolean).join(' ') || 'Sans nom'
-  // Comptes qu'on peut lier au candidat `c` : ceux qui ne sont pas déjà liés à un autre candidat
-  const utilisateursLibres = (c) => (d.Utilisateurs ?? []).filter((u) => !d.Candidats.some((x) => x.id !== c?.id && x.Utilisateur === u.id))
+  // Comptes qu'on peut lier au candidat `c` : les Salariés (comme la condition de la colonne dans Grist) qui ne sont pas
+  // déjà liés à un autre candidat ; le compte déjà lié reste proposé même si son rôle a changé
+  const utilisateursLibres = (c) => (d.Utilisateurs ?? []).filter((u) => u.id === c?.Utilisateur
+    || (u.Profil === ROLE_SALARIE && !d.Candidats.some((x) => x.id !== c?.id && x.Utilisateur === u.id)))
   const nationalite = (c) => d.parId.Nationalites.get(c.Nationalite)?.Nationalite ?? ''
   const poste = (c) => d.parId.Postes.get(c.Poste)?.Titre ?? ''
   const cip = (c) => { const u = d.parId.Utilisateurs.get(c.CIP_responsable); return u ? [u.Prenom, u.Nom].filter(Boolean).join(' ') : '' }
