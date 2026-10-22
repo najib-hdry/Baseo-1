@@ -1,11 +1,14 @@
 // Écran « Gestion des utilisateurs » (admin) : onglets par rôle (Salarié en premier, Tous en dernier), tableau avec recherche,
 // fiche de création / modification (identité, rôle, chantiers, actif), suppression,
-// fiche salarié en onglets (infos du candidat lié à l'embauche, compte).
-import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, icone } from './outils.js'
-import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos } from './donnees.js'
+// fiche salarié en onglets (infos du candidat lié à l'embauche et contrats du salarié, compte).
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
+import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
+const TITRES_CONTRATS = ['N° de contrat', 'Sites', 'Intitulé de poste', 'Date début', 'Date fin', 'Contrat', 'DPAE', '']
+// Fichiers d'un contrat : [colonne, libellé]
+const FICHIERS_CONTRAT = [['Fichier_contrat', 'Contrat'], ['Fichier_DPAE', 'DPAE']]
 
 // `modifierCandidat(id)` : ouvre le formulaire du candidat (page Gestion des candidats)
 export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
@@ -140,11 +143,16 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const passIae = c && (c.Pass_IAE_debut || c.Pass_IAE_fin)
       ? [enFrancais(depuisGrist(c.Pass_IAE_debut)) || '—', ' → ', dateAvecAlerte(c.Pass_IAE_fin)] : '—'
 
-    const ongletSalarie = () => {
+    // Après un enregistrement dans un formulaire ouvert par-dessus : la fiche est redessinée avec les données à jour
+    const rouvrir = () => { fermer(); ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u) }
+
+    const ongletSalarie = () => [infosSalarie(), blocContrats(u, lien, rouvrir)]
+    const infosSalarie = () => {
       if (!c) return h('section', { className: 'bloc-candidat' },
         infos([['Nom', u.Nom || '—'], ['Prénom', u.Prenom || '—'], ['Téléphone', lienContact('tel', u.Telephone) || '—']]),
         h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Gestion des candidats).'))
       const photo = idsDeListe(c.Photo)[0]
+      // Photo à gauche, informations au centre, bouton à droite
       return h('section', { className: 'bloc-candidat' },
         h('div', { className: 'fiche-salarie' },
           h('div', { className: 'fiche-salarie-photo' }, photo && lien
@@ -157,9 +165,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
             ['Date titre de séjour', dateAvecAlerte(c.Date_validite_titre_sejour)],
             ['Pass IAE', passIae],
             ['RQTH', c.RQTH || '—'],
-          ])),
-        h('div', { className: 'fiche-actions' },
-          h('button', { className: 'bouton bouton-principal', onClick: () => { fermer(); modifierCandidat(c.id) } }, 'Modifier le candidat')))
+          ]),
+          h('button', { className: 'bouton bouton-principal bouton-compact fiche-salarie-modifier', onClick: () => { fermer(); modifierCandidat(c.id) } }, 'Modifier les infos')))
     }
 
     const ongletCompte = () => h('section', { className: 'bloc-candidat' },
@@ -177,13 +184,145 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const afficherOnglet = (cle) => {
       barre.replaceChildren(...ONGLETS_FICHE.map(([k, libelle]) =>
         h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle), onClick: () => afficherOnglet(k) }, libelle)))
-      contenu.replaceChildren(ONGLETS_FICHE.find(([k]) => k === cle)[2]())
+      contenu.replaceChildren(...[ONGLETS_FICHE.find(([k]) => k === cle)[2]()].flat())
     }
     afficherOnglet('salarie')
 
     const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), nom(u))
     const { fermer, section } = ouvrirPanneau(titre, [barre, contenu])
     section.classList.add('panneau-large', 'panneau-fiche')
+  }
+
+  // ---- Contrats du salarié (dans la fiche salarié) : contrat actuel / contrats précédents, ajout, modification, suppression ----
+
+  // Contrat en cours (ou à venir) : sans date de fin ou date de fin pas encore passée
+  const estActuel = (k) => { const fin = depuisGrist(k.Date_fin); return !fin || fin >= aujourdhui() }
+
+  function blocContrats(u, lien, rouvrir) {
+    if (d.absentes.has('Contrats')) return h('section', { className: 'bloc-candidat' }, h('h3', null, 'Contrats'),
+      h('p', { className: 'message' }, 'Ce document n’a pas de table Contrats.'))
+    const tous = d.Contrats.filter((k) => k.Salarie === u.id)
+      .sort((a, b) => (b.Date_debut ?? 0) - (a.Date_debut ?? 0))
+    let vue = 'actuel'
+    let recherche = ''
+    const sites = (k) => idsDeListe(k.Chantiers).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
+    const poste = (k) => d.parId.Postes?.get(k.Poste)?.Titre ?? ''
+    const fichier = (k, col) => {
+      const id = idsDeListe(k[col])[0]
+      if (!id) return '—'
+      return lien ? h('a', { href: lien(id), target: '_blank', rel: 'noreferrer', onClick: (e) => e.stopPropagation() }, 'Voir') : 'Enregistré'
+    }
+
+    const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Contrats' })
+    const compteur = h('p', { className: 'sous-texte' })
+    const corps = h('tbody')
+    const dessiner = () => {
+      onglets.replaceChildren(...[['actuel', 'Contrat actuel', tous.filter(estActuel)], ['precedents', 'Contrats précédents', tous.filter((k) => !estActuel(k))]]
+        .map(([cle, libelle, liste]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(cle === vue),
+          onClick: () => { vue = cle; dessiner() } }, `${libelle} (${liste.length})`)))
+      const filtre = recherche.trim().toLowerCase()
+      const liste = tous.filter((k) => (vue === 'actuel') === estActuel(k))
+        .filter((k) => !filtre || [k.Numero, sites(k), poste(k)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
+      compteur.textContent = `${liste.length} résultat${liste.length > 1 ? 's' : ''}`
+      corps.replaceChildren(...(liste.length === 0
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CONTRATS.length }, 'Aucun contrat à afficher.'))]
+        : liste.map((k) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirContrat(u, k, lien, rouvrir) },
+          h('td', { className: 'tableau-nom' }, k.Numero || '—'),
+          h('td', null, sites(k) || '—'),
+          h('td', null, poste(k) || '—'),
+          h('td', null, enFrancais(depuisGrist(k.Date_debut)) || '—'),
+          h('td', null, enFrancais(depuisGrist(k.Date_fin)) || '—'),
+          FICHIERS_CONTRAT.map(([col]) => h('td', null, fichier(k, col))),
+          h('td', { className: 'tableau-actions' },
+            h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirContrat(u, k, lien, rouvrir) } }, 'Modifier'),
+            h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); supprimerContrat(k, rouvrir) } }, 'Supprimer'))))))
+      etiqueterLignes(corps, TITRES_CONTRATS)
+    }
+    dessiner()
+
+    return h('section', { className: 'bloc-candidat bloc-contrats' },
+      h('div', { className: 'contrats-haut' }, h('h3', null, 'Contrats'),
+        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirContrat(u, null, lien, rouvrir) }, '＋ Ajouter un contrat')),
+      onglets,
+      h('div', { className: 'barre-outils' }, compteur,
+        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (n°, site, poste…)', 'aria-label': 'Rechercher un contrat',
+          onInput: (e) => { recherche = e.target.value; dessiner() } })),
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_CONTRATS.map((t) => h('th', null, t)))), corps)))
+  }
+
+  // Formulaire d'un contrat (`k` null : nouveau contrat du salarié `u`), ouvert par-dessus la fiche salarié
+  function ouvrirContrat(u, k, lien, rouvrir) {
+    const champs = {
+      Numero: k?.Numero ?? '', Poste: Number(k?.Poste) || 0,
+      Date_debut: depuisGrist(k?.Date_debut) ?? '', Date_fin: depuisGrist(k?.Date_fin) ?? '', Date_signature: depuisGrist(k?.Date_signature) ?? '',
+    }
+    const nouveaux = {} // fichiers choisis, par colonne
+    const choixSites = choixEtiquettes({
+      elements: () => d.Chantiers.map((x) => ({ id: x.id, libelle: x.Nom || 'Sans nom' })),
+      choisis: k ? idsDeListe(k.Chantiers) : idsDeListe(u.Chantiers), // nouveau contrat : chantiers du salarié
+      textes: { aucun: 'Aucun site.', choisir: 'Ajouter un site…', tous: 'Tous les sites sont ajoutés', vide: 'Aucun chantier dans l’application' },
+    })
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, k ? 'Enregistrer' : 'Ajouter le contrat')
+    const date = (libelle, col) => h('label', { className: 'champ-groupe' }, libelle,
+      h('input', { className: 'champ', type: 'date', value: champs[col], onInput: (e) => { champs[col] = e.target.value } }))
+
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      if (champs.Date_debut && champs.Date_fin && champs.Date_fin < champs.Date_debut) {
+        erreur.textContent = 'La date de fin est avant la date de début.'
+        erreur.hidden = false
+        return
+      }
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        const valeurs = {
+          Numero: champs.Numero.trim(), Poste: champs.Poste || 0, Salarie: u.id,
+          Chantiers: choixSites.ids().length > 0 ? ['L', ...choixSites.ids()] : null,
+          Date_debut: versGrist(champs.Date_debut), Date_fin: versGrist(champs.Date_fin), Date_signature: versGrist(champs.Date_signature),
+        }
+        // Un nouveau fichier remplace l'ancien ; sans nouveau fichier, l'ancien reste
+        for (const [col, f] of Object.entries(nouveaux)) valeurs[col] = ['L', await envoyerPhoto(f, f.name)]
+        await enregistrerContrat(k?.id ?? null, valeurs)
+        fermerContrat()
+        await recharger()
+        rouvrir()
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = k ? 'Enregistrer' : 'Ajouter le contrat'
+      }
+    } },
+    h('div', { className: 'grille-2' },
+      h('label', { className: 'champ-groupe' }, 'N° de contrat',
+        h('input', { className: 'champ', autocomplete: 'off', value: champs.Numero, onInput: (e) => { champs.Numero = e.target.value } })),
+      h('label', { className: 'champ-groupe' }, 'Intitulé de poste',
+        h('select', { className: 'champ', onChange: (e) => { champs.Poste = Number(e.target.value) || 0 } },
+          h('option', { value: '0', selected: !champs.Poste }, '-- Choisissez --'),
+          [...(d.Postes ?? [])].sort((a, b) => String(a.Titre).localeCompare(String(b.Titre)))
+            .map((p) => h('option', { value: String(p.id), selected: p.id === champs.Poste }, p.Titre || 'Sans titre')))),
+      date('Date début', 'Date_debut'), date('Date fin', 'Date_fin'), date('Date signature', 'Date_signature')),
+    h('div', { className: 'champ-groupe' }, 'Sites (chantiers)', choixSites.element),
+    h('div', { className: 'grille-2' }, FICHIERS_CONTRAT.map(([col, libelle]) => {
+      const id = idsDeListe(k?.[col])[0]
+      return h('div', { className: 'champ-groupe' }, `Fichier ${libelle}`,
+        zoneFichier((f) => { nouveaux[col] = f }, { deja: Boolean(id), lien: id && lien ? lien(id) : null }))
+    })),
+    erreur, valider)
+
+    const titre = k ? `Contrat ${k.Numero || ''}`.trim() : `Nouveau contrat · ${nom(u)}`
+    const { fermer: fermerContrat, section } = ouvrirPanneau(titre, formulaire)
+    section.classList.add('panneau-large')
+  }
+
+  function supprimerContrat(k, rouvrir) {
+    fenetreSuppression(`Supprimer le contrat ${k.Numero || ''} ?`.replace('  ', ' '), [
+      h('p', null, 'Le contrat et ses fichiers (contrat, DPAE) seront retirés de la fiche du salarié.'),
+    ], [['Supprimer définitivement', 'bouton-danger', () => supprimerFiche('Contrats', k.id)]], async () => { await recharger(); rouvrir() })
   }
 
   // ---- Suppression ----

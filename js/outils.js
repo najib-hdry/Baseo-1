@@ -143,6 +143,20 @@ export function dateAvecAlerte(v) {
   return [enFrancais(iso), alerte && h('span', { className: `badge ${alerte[0]}` }, alerte[1])]
 }
 
+// Zone d'import d'un fichier (clic ou glisser-déposer) ; `onChoix(fichier)` reçoit le fichier choisi.
+// `deja` : un fichier est déjà enregistré ; `lien` : adresse pour l'ouvrir
+export function zoneFichier(onChoix, { deja = false, lien = null, accept = '.pdf,.doc,.docx,.odt,image/*' } = {}) {
+  const nom = h('span', { className: 'sous-texte' }, deja ? 'Un fichier est déjà enregistré ; en choisir un autre le remplace.' : 'Ou glissez et déposez votre fichier ici')
+  const choisir = (f) => { if (f) { onChoix(f); nom.textContent = f.name } }
+  const entree = h('input', { type: 'file', hidden: true, accept, onChange: (e) => choisir(e.target.files?.[0]) })
+  const zone = h('label', { className: 'zone-fichier',
+    onDragover: (e) => { e.preventDefault(); zone.classList.add('survol') },
+    onDragleave: () => zone.classList.remove('survol'),
+    onDrop: (e) => { e.preventDefault(); zone.classList.remove('survol'); choisir(e.dataTransfer.files?.[0]) } },
+  h('span', { className: 'bouton bouton-compact' }, 'Importer un fichier'), nom, entree)
+  return lien ? h('div', { className: 'zone-avec-lien' }, zone, h('a', { href: lien, target: '_blank', rel: 'noreferrer' }, 'Voir le fichier enregistré')) : zone
+}
+
 // Logo « baseo » (image du projet, fond transparent) ; l'assemblage remplace ce chemin par l'image intégrée
 const LOGO_BASEO = 'img/logo-baseo.png'
 export const logoBaseo = () => h('img', { className: 'logo-baseo', src: LOGO_BASEO, alt: 'baseo' })

@@ -3,7 +3,7 @@
 // fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié),
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
-import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte } from './outils.js'
+import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte, zoneFichier } from './outils.js'
 import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
@@ -40,20 +40,6 @@ const DOCUMENTS_EMBAUCHE = [
   ['RIB', 'RIB', '', ['Recto']],
   ['Attestation CAF', 'Attestation CAF', 'Nécessaire pour savoir si le salarié bénéficie d’aides sociales', ['Recto']],
 ]
-
-// Zone d'import d'un fichier (clic ou glisser-déposer) ; `onChoix(fichier)` reçoit le fichier choisi.
-// `deja` : un fichier est déjà enregistré ; `lien` : adresse pour l'ouvrir
-function zoneFichier(onChoix, { deja = false, lien = null, accept = '.pdf,.doc,.docx,.odt,image/*' } = {}) {
-  const nom = h('span', { className: 'sous-texte' }, deja ? 'Un fichier est déjà enregistré ; en choisir un autre le remplace.' : 'Ou glissez et déposez votre fichier ici')
-  const choisir = (f) => { if (f) { onChoix(f); nom.textContent = f.name } }
-  const entree = h('input', { type: 'file', hidden: true, accept, onChange: (e) => choisir(e.target.files?.[0]) })
-  const zone = h('label', { className: 'zone-fichier',
-    onDragover: (e) => { e.preventDefault(); zone.classList.add('survol') },
-    onDragleave: () => zone.classList.remove('survol'),
-    onDrop: (e) => { e.preventDefault(); zone.classList.remove('survol'); choisir(e.dataTransfer.files?.[0]) } },
-  h('span', { className: 'bouton bouton-compact' }, 'Importer un fichier'), nom, entree)
-  return lien ? h('div', { className: 'zone-avec-lien' }, zone, h('a', { href: lien, target: '_blank', rel: 'noreferrer' }, 'Voir le fichier enregistré')) : zone
-}
 
 /**
  * Blocs du formulaire et de la fiche, deux par ligne (gauche, droite) ; `{ sous: true }` place le bloc

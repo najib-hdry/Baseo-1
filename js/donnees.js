@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -260,7 +260,10 @@ export async function enregistrerUtilisateur(d, id, { Chantiers, ...champs }) {
   return id ?? retValues[0]
 }
 
-export const equipeDuChantier =(d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
+// Contrat d'un salarié : nouveau (`id` null) ou modification ; `champs` déjà au format Grist
+export const enregistrerContrat = (id, champs) => action([id == null ? ['AddRecord', 'Contrats', null, champs] : ['UpdateRecord', 'Contrats', id, champs]])
+
+export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
 
 // Affecte au chantier exactement les utilisateurs `ids` : le chantier est ajouté à la liste de chacun d'eux
 // et retiré de celle des autres, en un seul envoi (les autres chantiers de chaque personne ne changent pas)
