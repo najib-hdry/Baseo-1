@@ -4,6 +4,7 @@
 // détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ; compte).
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
+import { ouvrirImportTaches, telechargerModeleTaches } from './taches.js'
 import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
@@ -138,7 +139,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
 
   // ---- Fiche salarié (lecture) : onglets « Fiche salarié » (candidat lié à l'embauche) et « Compte » ----
 
-  async function ouvrirFicheSalarie(u) {
+  async function ouvrirFicheSalarie(u, ongletInitial = 'salarie') {
     const lien = await lienPhotos().catch(() => null) // adresse temporaire de la photo
     const c = (d.Candidats ?? []).find((x) => x.Utilisateur === u.id) // candidat lié à ce compte (fiche d'embauche)
     const infos = (lignes) => h('dl', { className: 'fiche-infos' }, lignes.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))
@@ -194,7 +195,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle), onClick: () => afficherOnglet(k) }, libelle)))
       contenu.replaceChildren(...[ONGLETS_FICHE.find(([k]) => k === cle)[2]()].flat())
     }
-    afficherOnglet('salarie')
+    afficherOnglet(ongletInitial)
 
     // Compte sans prénom ni nom : nom du candidat lié, sinon email
     const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)),
@@ -374,7 +375,15 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('button', { className: 'bouton bouton-compact', type: 'button', 'aria-label': 'Mois précédent', onClick: () => changer(-1) }, '‹'),
           h('h3', null, mois.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })),
           h('button', { className: 'bouton bouton-compact', type: 'button', 'aria-label': 'Mois suivant', onClick: () => changer(1) }, '›'),
-          h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { mois = new Date(auj.getFullYear(), auj.getMonth(), 1); dessiner() } }, 'Aujourd’hui')),
+          h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { mois = new Date(auj.getFullYear(), auj.getMonth(), 1); dessiner() } }, 'Aujourd’hui'),
+          h('span', { className: 'planning-actions' },
+            h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => alert(err.message)) }, 'Modèle Excel'),
+            // Après l'import : la fiche est rouverte sur cet onglet, avec les nouvelles tâches
+            h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => ouvrirImportTaches(d, u, async () => {
+              await recharger()
+              document.querySelector('.panneau-fiche')?.closest('.voile')?.remove()
+              ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'planning')
+            }) }, 'Importer des tâches'))),
         h('div', { className: 'calendrier' },
           JOURS.map((j) => h('div', { className: 'calendrier-jour-nom' }, j)),
           cases.map((jour) => h('div', { className: `calendrier-case${jour.getMonth() !== m ? ' hors-mois' : ''}${cleJour(jour) === cleJour(auj) ? ' aujourdhui' : ''}` },

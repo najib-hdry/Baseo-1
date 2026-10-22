@@ -267,6 +267,12 @@ export const enregistrerContrat = (id, champs) => action([id == null ? ['AddReco
 export const ajouterSuiviInsertion = (salarieId, commentaire, prive) =>
   action([['AddRecord', 'Suivi_d_insertion', null, { Salarie: salarieId, Commentaire: commentaire, Pas_visible_pour_tous: prive }]])
 
+// Tâches de l'emploi du temps importées d'un fichier, en un seul envoi ; `taches` : objets au format Grist (mêmes colonnes)
+export function importerTaches(taches) {
+  const colonnes = Object.keys(taches[0])
+  return action([['BulkAddRecord', 'Emploi_du_temps', taches.map(() => null), Object.fromEntries(colonnes.map((c) => [c, taches.map((t) => t[c])]))]])
+}
+
 export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
 
 // Affecte au chantier exactement les utilisateurs `ids` : le chantier est ajouté à la liste de chacun d'eux
