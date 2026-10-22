@@ -1,7 +1,9 @@
 // Écran « Gestion des utilisateurs » (admin) : onglets par rôle (Salarié en premier, Tous en dernier), tableau avec recherche,
 // fiche de création / modification (identité, rôle, chantiers, actif), suppression,
-// fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié, compte).
+// fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié ;
+// détail du salarié : le candidat en lecture ; compte).
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
+import { blocsCandidatLecture } from './candidats.js'
 import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
@@ -169,6 +171,11 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('button', { className: 'bouton bouton-principal bouton-compact fiche-salarie-modifier', onClick: () => { fermer(); modifierCandidat(c.id) } }, 'Modifier les infos')))
     }
 
+    // Toutes les informations du candidat lié, en lecture, sans le suivi de la candidature
+    const ongletDetail = () => (c
+      ? blocsCandidatLecture(d, c, lien, ['Suivi de la candidature'])
+      : h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Gestion des candidats).'))
+
     const ongletCompte = () => h('section', { className: 'bloc-candidat' },
       infos([
         ['Email (compte Grist)', lienContact('mailto', u.Email) || '—'], ['Rôle', u.Profil || 'Sans rôle'],
@@ -178,7 +185,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirFiche(u) } }, 'Modifier le compte')))
 
     // Changer d'onglet ne redessine que le contenu
-    const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['compte', 'Compte', ongletCompte]]
+    const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail], ['compte', 'Compte', ongletCompte]]
     const contenu = h('div', { className: 'fiche-contenu' })
     const barre = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche salarié' })
     const afficherOnglet = (cle) => {
@@ -188,7 +195,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     }
     afficherOnglet('salarie')
 
-    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), nom(u))
+    // Compte sans prénom ni nom : nom du candidat lié, sinon email
+    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)),
+      nomContact(u) || (c && nomContact(c)) || u.Email || 'Sans nom')
     const { fermer, section } = ouvrirPanneau(titre, [barre, contenu])
     section.classList.add('panneau-large', 'panneau-fiche')
   }

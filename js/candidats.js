@@ -104,13 +104,41 @@ const BLOCS_CANDIDAT = [
 const libelleUtilisateur = (u) => [nomContact(u), u.Email].filter(Boolean).join(' · ') || 'Sans nom'
 const libelleRef = (ligne, affichage) => (typeof affichage === 'function' ? affichage(ligne) : ligne?.[affichage])
 
-// Cellules de la grille des blocs : `rendre(titre, champs)` dessine un bloc ; un bloc `sous` rejoint la cellule précédente
-const disposerBlocs = (rendre) => BLOCS_CANDIDAT.reduce((cellules, [titre, champs, options]) => {
+// Cellules de la grille des blocs : `rendre(titre, champs)` dessine un bloc ; un bloc `sous` rejoint la cellule précédente ;
+// `sauf` : titres des blocs à ne pas afficher
+const disposerBlocs = (rendre, sauf = []) => BLOCS_CANDIDAT.filter(([titre]) => !sauf.includes(titre)).reduce((cellules, [titre, champs, options]) => {
   const bloc = rendre(titre, champs)
   if (options?.sous) cellules.at(-1).append(bloc)
   else cellules.push(h('div', { className: 'cellule-candidat' }, bloc))
   return cellules
 }, [])
+
+// Valeur lisible d'un champ selon son type ; vide → tiret
+function valeurLisible(d, c, [col, , type, options], lien) {
+  const v = c[col]
+  if (type === 'date') return enFrancais(depuisGrist(v)) || '—'
+  if (type === 'ref') return d[options[0]] ? libelleRef(d.parId[options[0]].get(v), options[1]) || '—' : '—'
+  if (type === 'nombre') return v != null && v !== '' ? euros.format(v) : '—'
+  if (type === 'tel') return lienContact('tel', v) || '—'
+  if (type === 'email') return lienContact('mailto', v) || '—'
+  if (type === 'photo' || type === 'fichier') {
+    const id = idsDeListe(v)[0]
+    if (!id) return '—'
+    if (!lien) return 'Fichier enregistré'
+    return type === 'photo'
+      ? h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, h('img', { className: 'photo-candidat', src: lien(id), alt: 'Photo du candidat' }))
+      : h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, 'Ouvrir le CV')
+  }
+  return v === '' || v == null ? '—' : String(v)
+}
+
+// Informations du candidat en lecture, en blocs (fiche détail, onglet « Détail du salarié ») ; `sauf` : titres des blocs écartés
+export const blocsCandidatLecture = (d, c, lien, sauf = []) => h('div', { className: 'blocs-candidat' },
+  disposerBlocs((titre, champs) => h('section', { className: 'bloc-candidat' }, h('h3', null, titre),
+    h('dl', { className: 'fiche-infos' }, champs.map((f) => [
+      champs.length === 1 && f[1] === titre ? null : h('dt', null, f[1]),
+      h('dd', { className: champs.length === 1 && f[1] === titre ? 'fiche-seule' : '' }, valeurLisible(d, c, f, lien)),
+    ].filter(Boolean)))), sauf))
 
 // Âge en années à partir d'une date ISO (AAAA-MM-JJ)
 function age(iso) {
@@ -302,33 +330,9 @@ export function creerEcranCandidats(racine, recharger) {
 
   // ---- Fiche détail (lecture) ----
 
-  // Valeur lisible d'un champ selon son type ; vide → tiret
-  function valeurLisible(c, [col, , type, options], lien) {
-    const v = c[col]
-    if (type === 'date') return enFrancais(depuisGrist(v)) || '—'
-    if (type === 'ref') return d[options[0]] ? libelleRef(d.parId[options[0]].get(v), options[1]) || '—' : '—'
-    if (type === 'nombre') return v != null && v !== '' ? euros.format(v) : '—'
-    if (type === 'tel') return lienContact('tel', v) || '—'
-    if (type === 'email') return lienContact('mailto', v) || '—'
-    if (type === 'photo' || type === 'fichier') {
-      const id = idsDeListe(v)[0]
-      if (!id) return '—'
-      if (!lien) return 'Fichier enregistré'
-      return type === 'photo'
-        ? h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, h('img', { className: 'photo-candidat', src: lien(id), alt: 'Photo du candidat' }))
-        : h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, 'Ouvrir le CV')
-    }
-    return v === '' || v == null ? '—' : String(v)
-  }
-
   async function ouvrirFiche(c) {
     const lien = await lienPhotos().catch(() => null) // adresse temporaire des pièces jointes (photo, CV)
-    const contenu = h('div', { className: 'blocs-candidat' },
-      disposerBlocs((titre, champs) => h('section', { className: 'bloc-candidat' }, h('h3', null, titre),
-        h('dl', { className: 'fiche-infos' }, champs.map((f) => [
-          champs.length === 1 && f[1] === titre ? null : h('dt', null, f[1]),
-          h('dd', { className: champs.length === 1 && f[1] === titre ? 'fiche-seule' : '' }, valeurLisible(c, f, lien)),
-        ].filter(Boolean))))))
+    const contenu = blocsCandidatLecture(d, c, lien)
     const naissance = depuisGrist(c.Date_naissance)
     const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), nom(c))
     const { fermer, section } = ouvrirPanneau(titre, [
