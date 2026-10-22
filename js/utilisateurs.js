@@ -139,7 +139,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
 
   // ---- Fiche salarié (lecture) : onglets « Fiche salarié » (candidat lié à l'embauche) et « Compte » ----
 
-  async function ouvrirFicheSalarie(u, ongletInitial = 'salarie') {
+  // `ongletInitial` : onglet ouvert ; `moisPlanning` : premier jour du mois affiché par l'emploi du temps (par défaut le mois en cours)
+  async function ouvrirFicheSalarie(u, ongletInitial = 'salarie', moisPlanning = null) {
     const lien = await lienPhotos().catch(() => null) // adresse temporaire de la photo
     const c = (d.Candidats ?? []).find((x) => x.Utilisateur === u.id) // candidat lié à ce compte (fiche d'embauche)
     const infos = (lignes) => h('dl', { className: 'fiche-infos' }, lignes.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))
@@ -187,7 +188,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
 
     // Changer d'onglet ne redessine que le contenu
     const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail],
-      ['planning', 'Emploi du temps', () => blocEmploiDuTemps(u)], ['compte', 'Compte', ongletCompte]]
+      // Après un import : fiche rouverte sur l'emploi du temps, au mois de la première tâche importée
+      ['planning', 'Emploi du temps', () => blocEmploiDuTemps(u, moisPlanning, (mois) => { fermer(); ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'planning', mois) })],
+      ['compte', 'Compte', ongletCompte]]
     const contenu = h('div', { className: 'fiche-contenu' })
     const barre = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche salarié' })
     const afficherOnglet = (cle) => {
@@ -347,12 +350,13 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
   const emplacement = (t) => [['Chantiers', t.Chantier], ['Zones', t.Zone], ['Bases_vie', t.Base_vie], ['Etages', t.Etage], ['Pieces', t.Piece], ['Vestiaires', t.Vestiaire]]
     .map(([table, id]) => id && d.parId[table]?.get(id)?.Nom).filter(Boolean).join(' › ')
 
-  function blocEmploiDuTemps(u) {
+  // `moisInitial` : premier jour du mois affiché (null : mois en cours) ; `rouvrir(mois)` : redessine la fiche à ce mois
+  function blocEmploiDuTemps(u, moisInitial, rouvrir) {
     if (d.absentes.has('Emploi_du_temps')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Emploi du temps.')
     const taches = d.Emploi_du_temps.filter((t) => t.Salarie === u.id && t.Date_debut).sort((a, b) => a.Date_debut - b.Date_debut)
-    // Mois affiché : le mois en cours
     const auj = new Date()
-    let mois = new Date(auj.getFullYear(), auj.getMonth(), 1)
+    let mois = moisInitial ?? new Date(auj.getFullYear(), auj.getMonth(), 1)
+    const moisDe = (t) => { const dt = enDate(t.Date_debut); return new Date(dt.getFullYear(), dt.getMonth(), 1) }
     const zone = h('div', { className: 'planning' })
 
     const dessiner = () => {
@@ -379,10 +383,10 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('span', { className: 'planning-actions' },
             h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => alert(err.message)) }, 'Modèle Excel'),
             // Après l'import : la fiche est rouverte sur cet onglet, avec les nouvelles tâches
-            h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => ouvrirImportTaches(d, u, async () => {
+            h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => ouvrirImportTaches(d, u, async (importees) => {
               await recharger()
-              document.querySelector('.panneau-fiche')?.closest('.voile')?.remove()
-              ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'planning')
+              const premiere = [...importees].sort((a, b) => a.Date_debut - b.Date_debut)[0]
+              rouvrir(premiere ? moisDe(premiere) : mois)
             }) }, 'Importer des tâches'))),
         h('div', { className: 'calendrier' },
           JOURS.map((j) => h('div', { className: 'calendrier-jour-nom' }, j)),
@@ -391,6 +395,16 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
             (parJour.get(cleJour(jour)) ?? []).map((t) => h('div', { className: 'calendrier-tache', title: [t.Titre, emplacement(t), t.Action].filter(Boolean).join(' · ') },
               h('strong', null, heure(enDate(t.Date_debut))), ' ', t.Titre || 'Tâche'))))),
         h('h3', null, `Tâches du mois (${duMois.length})`),
+        // Mois sans tâche : raccourcis vers la tâche précédente et la suivante
+        duMois.length === 0 && taches.length > 0 && (() => {
+          const precedente = [...taches].reverse().find((t) => enDate(t.Date_debut) < mois)
+          const suivante = taches.find((t) => enDate(t.Date_debut) >= new Date(annee, m + 1, 1))
+          const aller = (t) => { mois = moisDe(t); dessiner() }
+          const date = (t) => enDate(t.Date_debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+          return h('div', { className: 'planning-saut' },
+            precedente && h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => aller(precedente) }, `‹ Tâche précédente : ${date(precedente)}`),
+            suivante && h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => aller(suivante) }, `Tâche suivante : ${date(suivante)} ›`))
+        })(),
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
             h('thead', null, h('tr', null, TITRES_TACHES.map((t) => h('th', null, t)))),

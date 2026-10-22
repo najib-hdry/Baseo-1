@@ -525,6 +525,7 @@ button.tiroir-lien.active { background: var(--signal); }
   color: #0d3d3a; background: #d5f0ec; border-left: 3px solid var(--baseo-turquoise); border-radius: 4px; }
 .cellule-detail { white-space: pre-wrap; }
 .planning-actions { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.planning-saut { display: flex; gap: 8px; flex-wrap: wrap; }
 /* Aperçu de l'import : lignes en erreur en rouge pâle */
 .ligne-erreur td { background: #fdecea; }
 .erreur-import { color: var(--hs); font-weight: 600; }

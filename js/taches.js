@@ -55,7 +55,8 @@ function lireDate(v) {
 }
 // 31/02 devient le 3 mars en JavaScript : on refuse
 const valide = (dt, jour, mois) => (dt.getDate() === jour && dt.getMonth() === mois - 1 ? dt : undefined)
-const texteDate = (dt) => dt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+// Mois en toutes lettres : une date inversée par Excel (05/11 compris comme le 11 mai) se voit tout de suite dans l'aperçu
+const texteDate = (dt) => dt.toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 // Lignes du premier onglet (« Tâches » s'il existe) : la ligne de titres est la première qui contient « Date début »
 async function lireFichier(fichier) {
@@ -146,7 +147,7 @@ function analyserLigne(d, l, salarieParDefaut) {
 
 /**
  * Fenêtre d'import pour le salarié `salarie` (une colonne « Salarié (email) » remplie affecte la ligne à un autre salarié) :
- * choix du fichier, aperçu (ligne par ligne : prête ou erreurs), puis import des lignes prêtes. `apres()` : après l'import.
+ * choix du fichier, aperçu (ligne par ligne : prête ou erreurs), puis import des lignes prêtes. `apres(taches)` : après l'import.
  */
 export function ouvrirImportTaches(d, salarie, apres) {
   const zone = h('div', { className: 'formulaire' })
@@ -189,18 +190,21 @@ export function ouvrirImportTaches(d, salarie, apres) {
     const importer = h('button', { className: 'bouton bouton-principal', type: 'button', disabled: pretes.length === 0, onClick: async () => {
       importer.disabled = true
       importer.textContent = 'Import en cours…'
+      const taches = pretes.map((r) => r.tache)
       try {
-        await importerTaches(pretes.map((r) => r.tache))
-        fermer()
-        await apres()
+        await importerTaches(taches)
       } catch (err) {
         erreur.textContent = err.message || 'L’import a échoué.'
         erreur.hidden = false
         importer.disabled = false
         importer.textContent = `Importer ${pretes.length} tâche${pretes.length > 1 ? 's' : ''}`
+        return
       }
+      fermer()
+      await apres(taches).catch((err) => alert(`Les tâches sont importées, mais l’affichage n’a pas pu être mis à jour : ${err.message}`))
     } }, pretes.length ? `Importer ${pretes.length} tâche${pretes.length > 1 ? 's' : ''}` : 'Aucune tâche à importer')
     zone.replaceChildren(
+      h('p', { className: 'sous-texte' }, 'Vérifie les dates (mois en toutes lettres) : Excel inverse parfois le jour et le mois.'),
       h('p', null, h('strong', null, `${resultats.length} ligne${resultats.length > 1 ? 's' : ''} : `),
         `${pretes.length} prête${pretes.length > 1 ? 's' : ''}`,
         resultats.length > pretes.length ? `, ${resultats.length - pretes.length} en erreur (elles ne seront pas importées ; corrige le fichier et recommence pour les ajouter)` : ''),
@@ -215,8 +219,8 @@ export function ouvrirImportTaches(d, salarie, apres) {
 }
 
 /**
- * Modèle Excel : onglet « Tâches » (titres + deux exemples), « Emplacements » (noms exacts à recopier, par chantier),
- * « Salariés » (emails) et « Aide ».
+ * Modèle Excel : onglet « Tâches » (titres seuls, dates au format Texte), « Exemple » (jamais importé),
+ * « Emplacements » (noms exacts à recopier, par chantier), « Salariés » (emails) et « Aide ».
  */
 export async function telechargerModeleTaches(d) {
   const XLSX = await chargerXlsx()
@@ -229,18 +233,27 @@ export async function telechargerModeleTaches(d) {
   const salaries = d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE)
   const email = salaries[0]?.Email ?? ''
   const titres = COLONNES_IMPORT.map(([, titre]) => titre)
-  const taches = XLSX.utils.aoa_to_sheet([titres,
+  const largeurs = [18, 18, 28, 18, 16, 14, 12, 16, 14, 30, 16, 40].map((wch) => ({ wch }))
+  // Colonnes Date début et Date fin au format Texte (@) sur 300 lignes : Excel garde « 05/11/2026 08:00 » tel quel
+  // au lieu d'en faire une date, qu'il lirait 11 mai sur un ordinateur réglé en mois/jour
+  const taches = XLSX.utils.aoa_to_sheet([titres])
+  for (let r = 1; r < 300; r++) for (const c of [0, 1]) taches[XLSX.utils.encode_cell({ r, c })] = { t: 's', v: '', z: '@' }
+  taches['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 299, c: titres.length - 1 } })
+  taches['!cols'] = largeurs
+  const feuilleExemple = XLSX.utils.aoa_to_sheet([titres,
     ['03/11/2026 08:00', '03/11/2026 12:00', '', ...exemple, 'Nettoyage vestiaire', 'Nettoyage', 'Sols et bancs'],
-    ['04/11/2026 13:30', '04/11/2026 17:00', email, exemple[0], '', '', '', '', '', 'Contrôle des casiers', 'Contrôle', 'Exemple pour un autre salarié (email)']])
-  taches['!cols'] = [18, 18, 28, 18, 16, 14, 12, 16, 14, 30, 16, 40].map((wch) => ({ wch }))
+    ['04/11/2026 13:30', '04/11/2026 17:00', email, exemple[0], '', '', '', '', '', 'Contrôle des casiers', 'Contrôle', 'Tâche d’un autre salarié (email)'],
+    [], ['Exemple seulement : cet onglet n’est jamais importé. Recopie tes tâches dans l’onglet « Tâches ».']])
+  feuilleExemple['!cols'] = largeurs
   const feuilleEmplacements = XLSX.utils.aoa_to_sheet([['Chantier', 'Zone', 'Base vie', 'Étage', 'Pièce', 'Vestiaire'], ...emplacements])
   feuilleEmplacements['!cols'] = [20, 18, 16, 14, 18, 16].map((wch) => ({ wch }))
   const feuilleSalaries = XLSX.utils.aoa_to_sheet([['Salarié', 'Email (à recopier dans « Salarié (email) »)'], ...salaries.map((u) => [nomContact(u), u.Email])])
   feuilleSalaries['!cols'] = [{ wch: 26 }, { wch: 40 }]
   const aide = XLSX.utils.aoa_to_sheet([
     ['Import des tâches de l’emploi du temps'], [''],
-    ['Une ligne = une tâche, dans l’onglet « Tâches ». Les lignes vides sont ignorées.'],
-    ['Date début (obligatoire) et Date fin : JJ/MM/AAAA HH:MM, par exemple 03/11/2026 08:00.'],
+    ['Une ligne = une tâche, dans l’onglet « Tâches ». Les lignes vides sont ignorées. L’onglet « Exemple » n’est jamais importé.'],
+    ['Date début (obligatoire) et Date fin : JJ/MM/AAAA HH:MM, par exemple 03/11/2026 08:00 (colonnes au format Texte : Excel ne les transforme pas).'],
+    ['Si tu colles des dates venant d’ailleurs, vérifie l’aperçu : il écrit le mois en toutes lettres (Excel inverse parfois jour et mois).'],
     ['Titre de tâche : obligatoire.'],
     ['Salarié (email) : laisser vide pour le salarié dont la fiche est ouverte ; sinon l’email de son compte (onglet « Salariés »).'],
     ['Emplacement : le chantier est obligatoire si un niveau est rempli. Recopier les noms exacts de l’onglet « Emplacements ».'],
@@ -251,6 +264,7 @@ export async function telechargerModeleTaches(d) {
   aide['!cols'] = [{ wch: 120 }]
   const classeur = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(classeur, taches, 'Tâches')
+  XLSX.utils.book_append_sheet(classeur, feuilleExemple, 'Exemple')
   XLSX.utils.book_append_sheet(classeur, feuilleEmplacements, 'Emplacements')
   XLSX.utils.book_append_sheet(classeur, feuilleSalaries, 'Salariés')
   XLSX.utils.book_append_sheet(classeur, aide, 'Aide')
