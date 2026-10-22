@@ -134,6 +134,15 @@ export function choixEtiquettes({ elements, choisis = [], textes, onChange = () 
   return { element: h('div', { className: 'formulaire' }, etiquettes, liste), ids: () => ids, ajouter: (id) => changer([...ids, id]), dessiner }
 }
 
+// Date Grist avec une pastille si elle est échue (« Expirée ») ou arrive à échéance dans les 30 jours (« Bientôt »)
+export function dateAvecAlerte(v) {
+  const iso = depuisGrist(v)
+  if (!iso) return '—'
+  const jours = (new Date(iso) - new Date(new Date().toDateString())) / 86400000
+  const alerte = jours < 0 ? ['badge-ouvert', 'Expirée'] : jours <= 30 ? ['badge-en_cours', 'Bientôt'] : null
+  return [enFrancais(iso), alerte && h('span', { className: `badge ${alerte[0]}` }, alerte[1])]
+}
+
 // Logo « baseo » (image du projet, fond transparent) ; l'assemblage remplace ce chemin par l'image intégrée
 const LOGO_BASEO = 'img/logo-baseo.png'
 export const logoBaseo = () => h('img', { className: 'logo-baseo', src: LOGO_BASEO, alt: 'baseo' })

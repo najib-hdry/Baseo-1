@@ -39,7 +39,7 @@ const ecrans = {
   sous_traitants: creerEcranAnnuaire(zones.sous_traitants, () => recharger(), SOUS_TRAITANTS),
   postes: creerEcranPostes(zones.postes, () => recharger()),
   candidats: creerEcranCandidats(zones.candidats, () => recharger()),
-  utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger()),
+  utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
 let choix = null

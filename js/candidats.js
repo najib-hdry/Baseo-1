@@ -3,7 +3,7 @@
 // fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié),
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
-import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression } from './outils.js'
+import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte } from './outils.js'
 import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
@@ -359,17 +359,6 @@ export function creerEcranCandidats(racine, recharger) {
 
   // ---- Fiche d'entretien : infos de base, nouvel entretien, entretiens réalisés ----
 
-  // Date ISO échue (avant aujourd'hui) ou qui arrive à échéance dans les 30 jours
-  const echeance = (iso) => {
-    const jours = (new Date(iso) - new Date(new Date().toDateString())) / 86400000
-    return jours < 0 ? ['badge-ouvert', 'Expirée'] : jours <= 30 ? ['badge-en_cours', 'Bientôt'] : null
-  }
-  const dateAvecAlerte = (v) => {
-    const iso = depuisGrist(v)
-    if (!iso) return '—'
-    const alerte = echeance(iso)
-    return [enFrancais(iso), alerte && h('span', { className: `badge ${alerte[0]}` }, alerte[1])]
-  }
   const dateHeureComplete = (v) => (v ? new Date(v * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
 
   function ouvrirFicheEntretien(c) {
@@ -605,6 +594,12 @@ export function creerEcranCandidats(racine, recharger) {
     accueil() {
       recherche = ''
       rendre()
+    },
+    // Formulaire de modification ouvert depuis une autre page (fiche salarié) : `donnees` à jour, même si cette page n'a pas encore été affichée
+    modifier(donnees, candidatId) {
+      d = donnees
+      const c = d.parId.Candidats.get(candidatId)
+      if (c) ouvrirFormulaire(c)
     },
   }
 }

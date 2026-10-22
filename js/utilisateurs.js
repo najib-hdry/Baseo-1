@@ -1,19 +1,24 @@
-// Écran « Gestion des utilisateurs » (admin) : onglets par rôle, tableau avec recherche,
-// fiche de création / modification (identité, rôle, chantiers, actif), suppression.
-import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes } from './outils.js'
-import { estAdmin, ROLES, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact } from './donnees.js'
+// Écran « Gestion des utilisateurs » (admin) : onglets par rôle (Salarié en premier, Tous en dernier), tableau avec recherche,
+// fiche de création / modification (identité, rôle, chantiers, actif), suppression,
+// fiche salarié en onglets (infos du candidat lié à l'embauche, compte).
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, icone } from './outils.js'
+import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
 
-export function creerEcranUtilisateurs(racine, recharger) {
+// `modifierCandidat(id)` : ouvre le formulaire du candidat (page Gestion des candidats)
+export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
   let d = null
   let recherche = ''
-  let onglet = '' // rôle affiché ; '' = tous
+  let onglet = ROLE_SALARIE // rôle affiché ; '' = tous
 
   const nom = (u) => nomContact(u) || 'Sans nom'
   const chantiers = (u) => idsDeListe(u.Chantiers).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
   const dansOnglet = (u, role) => !role || (role === SANS_ROLE ? !u.Profil : u.Profil === role)
+  const estSalarie = (u) => u.Profil === ROLE_SALARIE
+  // Clic sur une ligne : fiche salarié pour un salarié, sinon modification du compte
+  const ouvrir = (u) => (estSalarie(u) ? ouvrirFicheSalarie(u) : ouvrirFiche(u))
 
   function rendre() {
     if (!d) return
@@ -25,9 +30,10 @@ export function creerEcranUtilisateurs(racine, recharger) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Utilisateurs.'))
       return
     }
-    // L'onglet « Sans rôle » n'apparaît que s'il en reste
-    const onglets = [['', 'Tous'], ...ROLES.map((r) => [r, r]), ...(d.Utilisateurs.some((u) => !u.Profil) ? [[SANS_ROLE, 'Sans rôle']] : [])]
-    if (!onglets.some(([r]) => r === onglet)) onglet = ''
+    // Salarié en premier, Tous en dernier ; l'onglet « Sans rôle » n'apparaît que s'il en reste
+    const onglets = [[ROLE_SALARIE, ROLE_SALARIE], ...ROLES.filter((r) => r !== ROLE_SALARIE).map((r) => [r, r]),
+      ...(d.Utilisateurs.some((u) => !u.Profil) ? [[SANS_ROLE, 'Sans rôle']] : []), ['', 'Tous']]
+    if (!onglets.some(([r]) => r === onglet)) onglet = ROLE_SALARIE
 
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
@@ -41,7 +47,7 @@ export function creerEcranUtilisateurs(racine, recharger) {
       compteur.textContent = `${liste.length} utilisateur${liste.length > 1 ? 's' : ''}`
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_UTILISATEURS.length }, filtre ? 'Aucun résultat.' : 'Aucun utilisateur dans cet onglet.'))]
-        : liste.map((u) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(u) },
+        : liste.map((u) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrir(u) },
           h('td', { className: 'tableau-nom' }, nom(u)),
           h('td', null, u.Profil || 'Sans rôle'),
           h('td', null, lienContact('tel', u.Telephone)),
@@ -49,6 +55,7 @@ export function creerEcranUtilisateurs(racine, recharger) {
           h('td', null, chantiers(u)),
           h('td', null, u.Actif ? 'Oui' : 'Non'),
           h('td', { className: 'tableau-actions' },
+            estSalarie(u) && h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheSalarie(u) } }, 'Fiche'),
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(u) } }, 'Modifier'),
             h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(u) } }, 'Supprimer'))))))
       etiqueterLignes(corps, TITRES_UTILISATEURS)
@@ -124,6 +131,61 @@ export function creerEcranUtilisateurs(racine, recharger) {
     const { fermer } = ouvrirPanneau(u ? nom(u) : 'Nouvel utilisateur', formulaire)
   }
 
+  // ---- Fiche salarié (lecture) : onglets « Fiche salarié » (candidat lié à l'embauche) et « Compte » ----
+
+  async function ouvrirFicheSalarie(u) {
+    const lien = await lienPhotos().catch(() => null) // adresse temporaire de la photo
+    const c = (d.Candidats ?? []).find((x) => x.Utilisateur === u.id) // candidat lié à ce compte (fiche d'embauche)
+    const infos = (lignes) => h('dl', { className: 'fiche-infos' }, lignes.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))
+    const passIae = c && (c.Pass_IAE_debut || c.Pass_IAE_fin)
+      ? [enFrancais(depuisGrist(c.Pass_IAE_debut)) || '—', ' → ', dateAvecAlerte(c.Pass_IAE_fin)] : '—'
+
+    const ongletSalarie = () => {
+      if (!c) return h('section', { className: 'bloc-candidat' },
+        infos([['Nom', u.Nom || '—'], ['Prénom', u.Prenom || '—'], ['Téléphone', lienContact('tel', u.Telephone) || '—']]),
+        h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Gestion des candidats).'))
+      const photo = idsDeListe(c.Photo)[0]
+      return h('section', { className: 'bloc-candidat' },
+        h('div', { className: 'fiche-salarie' },
+          h('div', { className: 'fiche-salarie-photo' }, photo && lien
+            ? h('a', { href: lien(photo), target: '_blank', rel: 'noreferrer', title: 'Ouvrir la photo en grand' },
+              h('img', { className: 'photo-candidat', src: lien(photo), alt: `Photo de ${nom(u)}` }))
+            : h('span', { className: 'photo-vide', 'aria-label': 'Pas de photo' }, icone('occupes', 48))),
+          infos([
+            ['Nom', c.Nom || '—'], ['Prénom', c.Prenom || '—'],
+            ['Téléphone', lienContact('tel', c.Telephone) || '—'],
+            ['Date titre de séjour', dateAvecAlerte(c.Date_validite_titre_sejour)],
+            ['Pass IAE', passIae],
+            ['RQTH', c.RQTH || '—'],
+          ])),
+        h('div', { className: 'fiche-actions' },
+          h('button', { className: 'bouton bouton-principal', onClick: () => { fermer(); modifierCandidat(c.id) } }, 'Modifier le candidat')))
+    }
+
+    const ongletCompte = () => h('section', { className: 'bloc-candidat' },
+      infos([
+        ['Email (compte Grist)', lienContact('mailto', u.Email) || '—'], ['Rôle', u.Profil || 'Sans rôle'],
+        ['Chantiers', chantiers(u) || '—'], ['Actif', u.Actif ? 'Oui' : 'Non'],
+      ]),
+      h('div', { className: 'fiche-actions' },
+        h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirFiche(u) } }, 'Modifier le compte')))
+
+    // Changer d'onglet ne redessine que le contenu
+    const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['compte', 'Compte', ongletCompte]]
+    const contenu = h('div', { className: 'fiche-contenu' })
+    const barre = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche salarié' })
+    const afficherOnglet = (cle) => {
+      barre.replaceChildren(...ONGLETS_FICHE.map(([k, libelle]) =>
+        h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle), onClick: () => afficherOnglet(k) }, libelle)))
+      contenu.replaceChildren(ONGLETS_FICHE.find(([k]) => k === cle)[2]())
+    }
+    afficherOnglet('salarie')
+
+    const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), nom(u))
+    const { fermer, section } = ouvrirPanneau(titre, [barre, contenu])
+    section.classList.add('panneau-large', 'panneau-fiche')
+  }
+
   // ---- Suppression ----
 
   function ouvrirSuppression(u) {
@@ -141,7 +203,7 @@ export function creerEcranUtilisateurs(racine, recharger) {
     },
     accueil() {
       recherche = ''
-      onglet = ''
+      onglet = ROLE_SALARIE
       rendre()
     },
   }
