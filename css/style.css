@@ -501,6 +501,16 @@ button.tiroir-lien.active { background: var(--signal); }
 .contrats-haut { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .bloc-contrats .barre-outils { justify-content: space-between; }
 .bloc-contrats .barre-outils .champ { max-width: 320px; }
+/* Suivi insertion : zone de saisie à gauche, bouton et case à droite ; historique en cartes */
+.suivi-saisie { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; }
+.suivi-texte { min-height: 160px; }
+.suivi-options { display: grid; gap: 14px; }
+.suivi-historique { display: grid; gap: 14px; }
+.suivi-commentaire { display: grid; gap: 8px; }
+.suivi-entete { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; background: #eff1f4; border-radius: 6px; }
+.suivi-date { margin-left: auto; font-size: .9rem; }
+.suivi-texte-lu { margin: 0; padding: 14px 18px; white-space: pre-wrap; background: #dff1fb; border-radius: 10px; }
+@media (max-width: 700px) { .suivi-saisie { grid-template-columns: 1fr; } }
 .fiche-salarie-photo .photo-candidat { max-width: 180px; max-height: 230px; }
 .photo-vide { display: grid; place-items: center; width: 160px; height: 200px; color: #8a979f; background: #e3e8ea; border-radius: 10px; }
 @media (max-width: 600px) { .fiche-salarie { grid-template-columns: 1fr; } .fiche-salarie-modifier { justify-self: start; } }

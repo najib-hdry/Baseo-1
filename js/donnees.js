@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -262,6 +262,10 @@ export async function enregistrerUtilisateur(d, id, { Chantiers, ...champs }) {
 
 // Contrat d'un salarié : nouveau (`id` null) ou modification ; `champs` déjà au format Grist
 export const enregistrerContrat = (id, champs) => action([id == null ? ['AddRecord', 'Contrats', null, champs] : ['UpdateRecord', 'Contrats', id, champs]])
+
+// Commentaire de suivi d'insertion d'un salarié ; « Fait par » (personne connectée) et « Créé le » sont remplis par Grist
+export const ajouterSuiviInsertion = (salarieId, commentaire, prive) =>
+  action([['AddRecord', 'Suivi_d_insertion', null, { Salarie: salarieId, Commentaire: commentaire, Pas_visible_pour_tous: prive }]])
 
 export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
 

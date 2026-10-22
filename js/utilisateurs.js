@@ -1,8 +1,8 @@
 // Écran « Gestion des utilisateurs » (admin) : onglets par rôle (Salarié en premier, Tous en dernier), tableau avec recherche,
 // fiche de création / modification (identité, rôle, chantiers, actif), suppression,
-// fiche salarié en onglets (infos du candidat lié à l'embauche et contrats du salarié, compte).
+// fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié, compte).
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
-import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat } from './donnees.js'
+import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -146,7 +146,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     // Après un enregistrement dans un formulaire ouvert par-dessus : la fiche est redessinée avec les données à jour
     const rouvrir = () => { fermer(); ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u) }
 
-    const ongletSalarie = () => [infosSalarie(), blocContrats(u, lien, rouvrir)]
+    const ongletSalarie = () => [infosSalarie(), blocContrats(u, lien, rouvrir), blocSuivi(u)]
     const infosSalarie = () => {
       if (!c) return h('section', { className: 'bloc-candidat' },
         infos([['Nom', u.Nom || '—'], ['Prénom', u.Prenom || '—'], ['Téléphone', lienContact('tel', u.Telephone) || '—']]),
@@ -323,6 +323,54 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     fenetreSuppression(`Supprimer le contrat ${k.Numero || ''} ?`.replace('  ', ' '), [
       h('p', null, 'Le contrat et ses fichiers (contrat, DPAE) seront retirés de la fiche du salarié.'),
     ], [['Supprimer définitivement', 'bouton-danger', () => supprimerFiche('Contrats', k.id)]], async () => { await recharger(); rouvrir() })
+  }
+
+  // ---- Suivi d'insertion du salarié (dans la fiche salarié) : nouveau commentaire, puis historique du plus récent au plus ancien ----
+
+  const dateHeure = (v) => (v ? new Date(v * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
+
+  function blocSuivi(u) {
+    if (d.absentes.has('Suivi_d_insertion')) return h('section', { className: 'bloc-candidat bloc-contrats' }, h('h3', null, 'Suivi insertion'),
+      h('p', { className: 'message' }, 'Ce document n’a pas de table Suivi d’insertion.'))
+    const commentaires = d.Suivi_d_insertion.filter((s) => s.Salarie === u.id).sort((a, b) => (b.Cree_le ?? 0) - (a.Cree_le ?? 0))
+    const texte = h('textarea', { className: 'champ champ-texte suivi-texte', placeholder: 'Écrire un commentaire de suivi…', 'aria-label': 'Nouveau commentaire de suivi' })
+    const prive = h('input', { type: 'checkbox' })
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const ajouter = h('button', { className: 'bouton bouton-principal', type: 'button', onClick: async () => {
+      erreur.hidden = true
+      if (!texte.value.trim()) {
+        erreur.textContent = 'Le commentaire est vide.'
+        erreur.hidden = false
+        return
+      }
+      ajouter.disabled = true
+      try {
+        await ajouterSuiviInsertion(u.id, texte.value.trim(), prive.checked)
+        await recharger()
+        section.replaceWith(blocSuivi(u)) // seule cette partie est redessinée : la fiche garde sa position
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        ajouter.disabled = false
+      }
+    } }, 'Ajouter commentaire')
+
+    const section = h('section', { className: 'bloc-candidat bloc-contrats' },
+      h('h3', null, 'Suivi insertion'),
+      h('div', { className: 'suivi-saisie' },
+        texte,
+        h('div', { className: 'suivi-options' }, ajouter,
+          h('label', { className: 'case' }, prive, 'Cochez cette case pour que le commentaire ne soit visible que par l’équipe Admin'))),
+      erreur,
+      h('div', { className: 'suivi-historique' }, commentaires.length === 0
+        ? h('p', { className: 'sous-texte' }, 'Aucun commentaire pour l’instant.')
+        : commentaires.map((s) => h('article', { className: 'suivi-commentaire' },
+          h('div', { className: 'suivi-entete' },
+            h('span', null, h('strong', null, 'De '), d.parId.Utilisateurs.get(s.Fait_par) ? nomContact(d.parId.Utilisateurs.get(s.Fait_par)) || d.parId.Utilisateurs.get(s.Fait_par).Email : 'Inconnu'),
+            s.Pas_visible_pour_tous && h('span', { className: 'badge badge-termine' }, 'Équipe Admin uniquement'),
+            h('span', { className: 'suivi-date' }, `Le ${dateHeure(s.Cree_le)}`)),
+          h('p', { className: 'suivi-texte-lu' }, s.Commentaire || '')))))
+    return section
   }
 
   // ---- Suppression ----
