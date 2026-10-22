@@ -45,13 +45,12 @@ export function creerEcranRapport(racine, recharger, config) {
   function rendre() {
     if (!d) return
     if (d.absentes.has(config.table)) {
-      racine.replaceChildren(h('h1', null, config.titre),
+      racine.replaceChildren(
         h('p', { className: 'message' }, `Ce document n’a pas de table ${config.table}.`))
       return
     }
     if (!etat.chantierId) {
       racine.replaceChildren(...cartesChantiers(d, {
-        titre: config.titre,
         stats: (c) => {
           const liste = duChantier(c.id)
           const mois = aujourdhui().slice(0, 7)

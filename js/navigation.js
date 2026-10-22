@@ -33,11 +33,10 @@ export const selectionPourChantier = (d, chantierId) =>
   selectionPourZone(d, chantierId, zonesDuChantier(d, chantierId)[0]?.id ?? null)
 
 // Accueil : une carte par chantier actif ; `stats(chantier)` donne les compteurs à afficher
-export function cartesChantiers(d, { titre, stats, jauge, onOuvrir }) {
+export function cartesChantiers(d, { stats, jauge, onOuvrir }) {
   const chantiers = d.Chantiers.filter((c) => c.Actif).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
-  if (chantiers.length === 0) return [h('h1', null, titre), h('p', { className: 'message' }, 'Aucun chantier actif.')]
+  if (chantiers.length === 0) return [h('p', { className: 'message' }, 'Aucun chantier actif.')]
   return [
-    h('h1', null, titre),
     h('ul', { className: 'cartes' }, chantiers.map((c) => {
       const compteurs = stats(c)
       const taux = jauge?.(c)

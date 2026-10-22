@@ -66,11 +66,11 @@ export function creerEcranAnnuaire(racine, recharger, config) {
   function rendre() {
     if (!d) return
     if (!estAdmin(d)) {
-      racine.replaceChildren(h('h1', null, config.titre), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
     if (d.absentes.has(config.table)) {
-      racine.replaceChildren(h('h1', null, config.titre), h('p', { className: 'message' }, `Ce document n’a pas de table ${config.table}.`))
+      racine.replaceChildren(h('p', { className: 'message' }, `Ce document n’a pas de table ${config.table}.`))
       return
     }
     const corps = h('tbody')
@@ -95,7 +95,6 @@ export function creerEcranAnnuaire(racine, recharger, config) {
     }
     dessinerLignes()
     racine.replaceChildren(
-      h('h1', null, config.titre),
       // Recherche et tableau dans une carte blanche à bordure noire
       h('section', { className: 'carte-tableau' },
         h('div', { className: 'barre-outils' },

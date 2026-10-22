@@ -26,7 +26,6 @@ export function creerEcranIncidents(racine, recharger) {
     if (!d) return
     if (!etat.chantierId) {
       racine.replaceChildren(...cartesChantiers(d, {
-        titre: 'Gestion des incidents',
         stats: (c) => {
           const liste = d.Incidents.filter((i) => chantierIncident(i) === c.id)
           const n = (s) => liste.filter((i) => i.Statut === s).length

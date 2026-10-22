@@ -138,11 +138,11 @@ export function creerEcranCandidats(racine, recharger) {
   function rendre() {
     if (!d) return
     if (!estAdmin(d)) {
-      racine.replaceChildren(h('h1', null, 'Gestion des candidats'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
     if (d.absentes.has('Candidats')) {
-      racine.replaceChildren(h('h1', null, 'Gestion des candidats'), h('p', { className: 'message' }, 'Ce document n’a pas de table Candidats.'))
+      racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Candidats.'))
       return
     }
     const corps = h('tbody')
@@ -181,7 +181,6 @@ export function creerEcranCandidats(racine, recharger) {
     }
     dessinerLignes()
     racine.replaceChildren(
-      h('h1', null, 'Gestion des candidats'),
       // Onglets, recherche et tableau dans une même carte blanche à bordure noire
       h('section', { className: 'carte-tableau' },
         h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Statut des candidatures' },

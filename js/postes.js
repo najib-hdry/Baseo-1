@@ -17,11 +17,11 @@ export function creerEcranPostes(racine, recharger) {
   function rendre() {
     if (!d) return
     if (!estAdmin(d)) {
-      racine.replaceChildren(h('h1', null, 'Gestion des postes'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
     if (d.absentes.has('Postes')) {
-      racine.replaceChildren(h('h1', null, 'Gestion des postes'), h('p', { className: 'message' }, 'Ce document n’a pas de table Postes.'))
+      racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Postes.'))
       return
     }
     const corps = h('tbody')
@@ -56,7 +56,6 @@ export function creerEcranPostes(racine, recharger) {
 
     const filtres = [['tous', 'Tous les statuts'], ...STATUTS_POSTE.map((s) => [s, s])]
     racine.replaceChildren(
-      h('h1', null, 'Gestion des postes'),
       // Recherche, filtre et tableau dans une carte blanche à bordure noire
       h('section', { className: 'carte-tableau' },
         h('div', { className: 'barre-outils' },

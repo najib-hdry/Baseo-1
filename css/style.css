@@ -46,14 +46,14 @@ h2 { font-size: 1.3rem; }
   display: flex; align-items: center; gap: 14px;
   margin: 12px 16px 0; padding: 10px 18px;
   background: linear-gradient(90deg, #fff, #f1f7f6); color: var(--encre);
-  border-left: 3px solid var(--baseo-turquoise); border-radius: 12px;
+  border-radius: 12px;
   box-shadow: 0 2px 10px rgba(13, 61, 58, .08);
 }
 .entete-icone {
   flex: none; display: grid; place-items: center; width: 46px; height: 46px;
   color: #fff; background: linear-gradient(135deg, #1d8a7e, var(--baseo-fonce)); border-radius: 10px;
 }
-.entete-titre { font-size: 1.45rem; font-weight: 400; color: #1c2b33; }
+.entete-titre { font-size: 1.45rem; font-weight: 700; color: #000; }
 .entete-logo { flex: none; width: 88px; color: var(--baseo-fonce); }
 .logo-baseo { display: block; width: 100%; height: auto; }
 

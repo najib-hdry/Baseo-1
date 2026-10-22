@@ -13,7 +13,6 @@ export function creerEcranCasiers(racine, recharger) {
     if (!d) return
     if (!etat.chantierId) {
       racine.replaceChildren(...cartesChantiers(d, {
-        titre: 'Gestion des casiers',
         stats: (c) => {
           const casiers = d.Casiers.filter((k) => k.Chantier === c.id)
           const hs = casiers.filter((k) => k.Hors_service).length

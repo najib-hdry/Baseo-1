@@ -28,7 +28,7 @@ export function creerEcranAdmin(racine, recharger) {
   function rendre() {
     if (!d) return
     if (!estAdmin(d)) {
-      racine.replaceChildren(h('h1', null, 'Gestion des chantiers'), h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
     // Onglets dans l'ordre demandé ; « Sans statut » n'apparaît que s'il en reste
@@ -38,7 +38,6 @@ export function creerEcranAdmin(racine, recharger) {
     const chantiers = parStatut(onglet)
 
     racine.replaceChildren(
-      h('h1', null, 'Gestion des chantiers'),
       // Onglets, bouton et tableau dans une même carte bordée
       h('section', { className: 'carte-tableau' },
         h('div', { className: 'barre-outils' },
