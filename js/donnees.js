@@ -248,15 +248,16 @@ export const ROLE_SALARIE = 'Salarié'
 // Rôles de la colonne Utilisateurs.Profil (libellé « Rôle »), dans l'ordre des onglets
 export const ROLES = ['Admin', ROLE_CHEF, ROLE_SALARIE, 'RH', 'CIP', 'Client']
 
-// Création (`id` null) ou modification d'un utilisateur. L'email sert à reconnaître la personne connectée
-// (règles d'accès et profil) : il est obligatoire et unique.
+// Création (`id` null) ou modification d'un utilisateur ; renvoie son identifiant. L'email sert à reconnaître
+// la personne connectée (règles d'accès et profil) : il est obligatoire et unique.
 export async function enregistrerUtilisateur(d, id, { Chantiers, ...champs }) {
   const email = champs.Email.toLowerCase()
   if (!email) throw new Error('L’email du compte Grist est obligatoire.')
   if (d.Utilisateurs.some((u) => u.id !== id && String(u.Email ?? '').trim().toLowerCase() === email))
     throw new Error(`L’email « ${champs.Email} » est déjà utilisé par un autre utilisateur.`)
   const valeurs = { ...champs, Email: email, Chantiers: Chantiers.length > 0 ? ['L', ...Chantiers] : null }
-  await action([id == null ? ['AddRecord', 'Utilisateurs', null, valeurs] : ['UpdateRecord', 'Utilisateurs', id, valeurs]])
+  const { retValues } = await action([id == null ? ['AddRecord', 'Utilisateurs', null, valeurs] : ['UpdateRecord', 'Utilisateurs', id, valeurs]])
+  return id ?? retValues[0]
 }
 
 export const equipeDuChantier =(d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))

@@ -4,7 +4,7 @@
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
 import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires } from './donnees.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
 
@@ -59,7 +59,7 @@ function zoneFichier(onChoix, { deja = false, lien = null, accept = '.pdf,.doc,.
  * Blocs du formulaire et de la fiche, deux par ligne (gauche, droite) ; `{ sous: true }` place le bloc
  * sous le précédent, dans la même colonne.
  * Champ : [colonne, libellé, type, options] ; types : texte, long, date, tel, email, nombre, choix (options = valeurs),
- * ref (options = [table, colonne affichée]), photo, fichier.
+ * ref (options = [table, colonne affichée ou fonction (ligne) => libellé]), photo, fichier.
  */
 const BLOCS_CANDIDAT = [
   ['Informations personnelles', [
@@ -109,9 +109,14 @@ const BLOCS_CANDIDAT = [
   ]],
   ['CIP responsable', [['CIP_responsable', 'CIP responsable', 'ref', ['Utilisateurs', 'Nom']]]],
   ['Poste', [['Poste', 'Poste', 'ref', ['Postes', 'Titre']]], { sous: true }],
+  ['Utilisateur lié', [['Utilisateur', 'Utilisateur lié', 'ref', ['Utilisateurs', (u) => libelleUtilisateur(u)]]], { sous: true }],
   ['Photo', [['Photo', 'Photo', 'photo']]],
   ['CV', [['CV', 'CV', 'fichier']]],
 ]
+
+// Compte utilisateur lié à un candidat (embauche) : « Prénom Nom · email »
+const libelleUtilisateur = (u) => [nomContact(u), u.Email].filter(Boolean).join(' · ') || 'Sans nom'
+const libelleRef = (ligne, affichage) => (typeof affichage === 'function' ? affichage(ligne) : ligne?.[affichage])
 
 // Cellules de la grille des blocs : `rendre(titre, champs)` dessine un bloc ; un bloc `sous` rejoint la cellule précédente
 const disposerBlocs = (rendre) => BLOCS_CANDIDAT.reduce((cellules, [titre, champs, options]) => {
@@ -136,6 +141,8 @@ export function creerEcranCandidats(racine, recharger) {
   let onglet = '' // statut affiché ; '' = tous
 
   const nom = (c) => [c.Prenom, c.Nom].filter(Boolean).join(' ') || 'Sans nom'
+  // Comptes qu'on peut lier au candidat `c` : ceux qui ne sont pas déjà liés à un autre candidat
+  const utilisateursLibres = (c) => (d.Utilisateurs ?? []).filter((u) => !d.Candidats.some((x) => x.id !== c?.id && x.Utilisateur === u.id))
   const nationalite = (c) => d.parId.Nationalites.get(c.Nationalite)?.Nationalite ?? ''
   const poste = (c) => d.parId.Postes.get(c.Poste)?.Titre ?? ''
   const cip = (c) => { const u = d.parId.Utilisateurs.get(c.CIP_responsable); return u ? [u.Prenom, u.Nom].filter(Boolean).join(' ') : '' }
@@ -231,10 +238,11 @@ export function creerEcranCandidats(racine, recharger) {
       } else if (type === 'ref') {
         const [table, affichage] = options
         valeurs[col] = Number(brut) || 0
-        const lignes = [...(d[table] ?? [])].sort((a, b) => String(a[affichage]).localeCompare(String(b[affichage])))
+        const lignes = [...(col === 'Utilisateur' ? utilisateursLibres(c) : d[table] ?? [])]
+          .sort((a, b) => String(libelleRef(a, affichage)).localeCompare(String(libelleRef(b, affichage))))
         saisie = h('select', { className: 'champ', onChange: (e) => maj(Number(e.target.value) || 0) },
           h('option', { value: '0', selected: !valeurs[col] }, '-- Choisissez --'),
-          lignes.map((r) => h('option', { value: String(r.id), selected: r.id === valeurs[col] }, r[affichage] || 'Sans nom')))
+          lignes.map((r) => h('option', { value: String(r.id), selected: r.id === valeurs[col] }, libelleRef(r, affichage) || 'Sans nom')))
       } else if (type === 'nombre') {
         valeurs[col] = brut ?? ''
         saisie = h('input', { className: 'champ', type: 'number', min: 0, step: 0.01, value: valeurs[col], onInput: (e) => maj(e.target.value) })
@@ -310,7 +318,7 @@ export function creerEcranCandidats(racine, recharger) {
   function valeurLisible(c, [col, , type, options], lien) {
     const v = c[col]
     if (type === 'date') return enFrancais(depuisGrist(v)) || '—'
-    if (type === 'ref') return d[options[0]] ? d.parId[options[0]].get(v)?.[options[1]] || '—' : '—'
+    if (type === 'ref') return d[options[0]] ? libelleRef(d.parId[options[0]].get(v), options[1]) || '—' : '—'
     if (type === 'nombre') return v != null && v !== '' ? euros.format(v) : '—'
     if (type === 'tel') return lienContact('tel', v) || '—'
     if (type === 'email') return lienContact('mailto', v) || '—'
@@ -459,6 +467,19 @@ export function creerEcranCandidats(racine, recharger) {
     // Recto déjà enregistré ou choisi dans cette fiche
     const aUnRecto = (type) => Boolean(pieceJointe(documentsDuCandidat.find((r) => r.Type_document === type)?.Recto) || nouveaux[type]?.Recto)
 
+    // Compte utilisateur : celui déjà lié, sinon celui qui a le même email que le candidat ; 'nouveau' = le créer à l'enregistrement
+    const libres = utilisateursLibres(c)
+    const memeEmail = c.Email && libres.find((u) => String(u.Email ?? '').toLowerCase() === c.Email.trim().toLowerCase())
+    let compte = c.Utilisateur || memeEmail?.id || ''
+    const blocCompte = d.absentes.has('Utilisateurs') ? null : h('section', { className: 'bloc-candidat' }, h('h3', null, 'Compte utilisateur'),
+      h('p', { className: 'sous-texte' }, 'Lie le salarié embauché à son compte de l’application (rôle, chantiers, accès).'),
+      h('label', { className: 'champ-groupe' }, 'Utilisateur lié',
+        h('select', { className: 'champ', onChange: (e) => { compte = e.target.value === 'nouveau' ? 'nouveau' : Number(e.target.value) || '' } },
+          h('option', { value: '', selected: !compte }, '— Aucun pour l’instant —'),
+          h('option', { value: 'nouveau', disabled: !c.Email }, c.Email ? `＋ Créer le compte Salarié (${c.Email})` : '＋ Créer le compte : email du candidat manquant'),
+          [...libres].sort((a, b) => libelleUtilisateur(a).localeCompare(libelleUtilisateur(b)))
+            .map((u) => h('option', { value: String(u.id), selected: u.id === compte }, libelleUtilisateur(u))))))
+
     // Informations de base (lecture)
     const infos = [
       ['Prénom', c.Prenom || '—'], ['Nom', c.Nom || '—'],
@@ -521,8 +542,14 @@ export function creerEcranCandidats(racine, recharger) {
           }
         }
         const liste = (ensemble, ordre) => { const v = ordre.filter((x) => ensemble.has(x)); return v.length ? ['L', ...v] : null }
+        // Nouveau compte : Salarié actif, sur les chantiers du poste du candidat
+        if (compte === 'nouveau') {
+          compte = await enregistrerUtilisateur(d, null, { Prenom: c.Prenom || '', Nom: c.Nom || '', Email: c.Email.trim(), Telephone: c.Telephone || '',
+            Profil: ROLE_SALARIE, Actif: true, Chantiers: idsDeListe(d.parId.Postes?.get(c.Poste)?.Chantiers) })
+        }
         await enregistrerEmbauche(d, c.id, {
           Embauche: true, // la fiche d'embauche enregistrée vaut embauche
+          ...(blocCompte ? { Utilisateur: compte || 0 } : {}),
           Criteres_niveau_1: liste(coches.Criteres_niveau_1, CRITERES_NIVEAU_1),
           Criteres_niveau_2: liste(coches.Criteres_niveau_2, CRITERES_NIVEAU_2),
           ...Object.fromEntries(Object.entries(tailles).map(([col, v]) => [col, String(v).trim()])),
@@ -549,6 +576,7 @@ export function creerEcranCandidats(racine, recharger) {
       h('div', { className: 'grille-2' }, [['Taille_pantalon', 'Taille de pantalon'], ['Taille_veste', 'Taille de veste'], ['Pointure', 'Pointure']]
         .map(([col, libelle]) => h('label', { className: 'champ-groupe' }, libelle,
           h('input', { className: 'champ', autocomplete: 'off', value: tailles[col], onInput: (e) => { tailles[col] = e.target.value } }))))),
+    blocCompte,
     erreur,
     h('div', { className: 'fiche-actions' }, valider))
 
