@@ -2,16 +2,8 @@
 // import en masse et modèle Excel à remplir.
 // Le fichier (Excel ou CSV) est lu dans le navigateur ; chaque niveau d'emplacement est cherché dans son chantier
 // (les noms « Base vie 1 », « RDC »… se répètent d'un chantier à l'autre), puis un aperçu signale les erreurs ligne par ligne.
-import { h, ouvrirPanneau, etiqueterLignes, choixEtiquettes } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, choixEtiquettes, versSaisie } from './outils.js'
 import { importerTaches, modifierTache, nomContact, ROLE_SALARIE } from './donnees.js'
-
-// Secondes Grist → valeur d'un champ « datetime-local » (AAAA-MM-JJTHH:MM, heure locale)
-const versSaisie = (v) => {
-  if (!v) return ''
-  const dt = new Date(v * 1000)
-  const z = (n) => String(n).padStart(2, '0')
-  return `${dt.getFullYear()}-${z(dt.getMonth() + 1)}-${z(dt.getDate())}T${z(dt.getHours())}:${z(dt.getMinutes())}`
-}
 
 /**
  * Fiche d'une tâche : ajout (`tache` absente) ou modification. À l'ajout, la même tâche est créée pour chaque salarié choisi

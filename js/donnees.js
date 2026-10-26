@@ -584,6 +584,7 @@ export const enregistrer = (table, champs) => action([['AddRecord', table, null,
 
 // Modifie une ligne d'un contrôle nettoyage ou d'une maintenance (`champs` au format Grist)
 export const modifierLigne = (table, ligneId, champs) => action([['UpdateRecord', table, ligneId, champs]])
+export const supprimerLignes = (table, ids) => action([['BulkRemoveRecord', table, ids]])
 
 export const changerStatut = (incidentId, statut, aujourdhuiIso) =>
   action([['UpdateRecord', 'Incidents', incidentId, {

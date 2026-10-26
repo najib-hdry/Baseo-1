@@ -36,6 +36,7 @@ const TRACES = {
   maintenance: '<path d="M14.5 6.5a4 4 0 0 0-5 5L3 18l3 3 6.5-6.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5Z"/>',
   entreprise: '<path d="M4 21V5l8-3v19"/><path d="M12 9h8v12"/><path d="M3 21h18"/><path d="M8 7v.01M8 11v.01M8 15v.01M16 13v.01M16 17v.01"/>',
   sous_traitant: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
+  emargements: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/>',
   utilisateurs: '<circle cx="10" cy="8" r="4"/><path d="M3 21a7 7 0 0 1 11-5.7"/><circle cx="18" cy="17" r="2.5"/><path d="M18 12.5v2M18 19.5v2M13.5 17h2M20.5 17h2"/>',
   poste: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',
 }
@@ -155,6 +156,14 @@ export function zoneFichier(onChoix, { deja = false, lien = null, accept = '.pdf
     onDrop: (e) => { e.preventDefault(); zone.classList.remove('survol'); choisir(e.dataTransfer.files?.[0]) } },
   h('span', { className: 'bouton bouton-compact' }, 'Importer un fichier'), nom, entree)
   return lien ? h('div', { className: 'zone-avec-lien' }, zone, h('a', { href: lien, target: '_blank', rel: 'noreferrer' }, 'Voir le fichier enregistré')) : zone
+}
+
+// Secondes Grist → valeur d'un champ « datetime-local » (AAAA-MM-JJTHH:MM, heure locale)
+export const versSaisie = (v) => {
+  if (!v) return ''
+  const dt = new Date(v * 1000)
+  const z = (n) => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${z(dt.getMonth() + 1)}-${z(dt.getDate())}T${z(dt.getHours())}:${z(dt.getMinutes())}`
 }
 
 // Logo « baseo » (image du projet, fond transparent) ; l'assemblage remplace ce chemin par l'image intégrée
