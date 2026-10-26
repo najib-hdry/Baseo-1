@@ -4,7 +4,7 @@
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie } from './outils.js'
 import { estAdmin, ROLE_SALARIE, modifierLigne, supprimerLignes, validerEmargements, nomContact } from './donnees.js'
 
-const TABLE = 'Emargement_Salarie'
+const TABLE_EMARGEMENTS = 'Emargement_Salarie'
 const TITRES_EMARGEMENTS = ['', 'Salarié', 'Arrivée/Départ', 'Heure début', 'Heure fin', 'État', 'Absence autorisée', 'Retard', 'Parti tôt', 'Heures sup', 'Validé', '']
 const ETATS = ['Présent', 'En retard', 'Absent']
 const ONGLETS_EMARGEMENTS = [['Présent', 'Présent'], ['En retard', 'En retard'], ['Absent', 'Absent'], ['', 'Tous']]
@@ -38,11 +38,11 @@ export function creerEcranEmargements(racine, recharger) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
-    if (d.absentes.has(TABLE)) {
+    if (d.absentes.has(TABLE_EMARGEMENTS)) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Emargement Salarié.'))
       return
     }
-    const tous = d[TABLE]
+    const tous = d[TABLE_EMARGEMENTS]
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     const supprimerSelection = h('button', { className: 'bouton bouton-compact bouton-danger', type: 'button',
@@ -201,7 +201,7 @@ export function creerEcranEmargements(racine, recharger) {
       }
       valider.disabled = true
       try {
-        await modifierLigne(TABLE, e.id, valeurs)
+        await modifierLigne(TABLE_EMARGEMENTS, e.id, valeurs)
         fermer()
         await recharger()
       } catch (err) {
@@ -239,7 +239,7 @@ export function creerEcranEmargements(racine, recharger) {
       h('p', null, un ? `${liste[0].Arrivee_Depart || 'Émargement'} du ${heureEmargement(heureDe(liste[0]))}.` : 'Les émargements cochés seront supprimés.'),
       liste.some((e) => e.Emargement_valide) && h('p', null, h('strong', null, 'Attention : '), 'au moins un émargement est déjà validé.'),
     ].filter(Boolean), [['Supprimer définitivement', 'bouton-danger', async () => {
-      await supprimerLignes(TABLE, liste.map((e) => e.id))
+      await supprimerLignes(TABLE_EMARGEMENTS, liste.map((e) => e.id))
       for (const e of liste) choisis.delete(e.id)
     }]], recharger)
   }

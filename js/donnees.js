@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -585,6 +585,8 @@ export const enregistrer = (table, champs) => action([['AddRecord', table, null,
 // Modifie une ligne d'un contrôle nettoyage ou d'une maintenance (`champs` au format Grist)
 export const modifierLigne = (table, ligneId, champs) => action([['UpdateRecord', table, ligneId, champs]])
 export const supprimerLignes = (table, ids) => action([['BulkRemoveRecord', table, ids]])
+// Nouvelle ligne (`id` null) ou modification
+export const enregistrerLigne = (table, id, champs) => action([id == null ? ['AddRecord', table, null, champs] : ['UpdateRecord', table, id, champs]])
 // Validation en masse des émargements `ids`
 export const validerEmargements = (ids) => action([['BulkUpdateRecord', 'Emargement_Salarie', ids, { Emargement_valide: ids.map(() => true) }]])
 
