@@ -3,7 +3,7 @@
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, choixEtiquettes } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerEntreprises, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerEntreprises, entreprisesDuChantier, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Détail du chantier', '']
 // Ordre des onglets de la page
@@ -85,7 +85,7 @@ export function creerEcranAdmin(racine, recharger) {
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirComposants(c) } }, 'Modifier les composants')),
         cle === 'equipe' && !d.absentes.has('Utilisateurs') && h('div', { className: 'fiche-actions' },
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirEquipe(c) } }, 'Gérer les salariés')),
-        cle === 'entreprises' && !d.absentes.has('Entreprises') && h('div', { className: 'fiche-actions' },
+        cle === 'entreprises' && !d.absentes.has('Chantier_Entreprise') && h('div', { className: 'fiche-actions' },
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirEntreprises(c) } }, 'Gérer les entreprises')),
         contenuFiche(d, c, cle),
       ].flat().filter(Boolean))
@@ -101,10 +101,11 @@ export function creerEcranAdmin(racine, recharger) {
   // ---- Entreprises du chantier : attribution (une entreprise peut l'être à plusieurs chantiers) ----
 
   async function ouvrirEntreprises(c) {
-    await relireTable(d, 'Entreprises').catch(() => {}) // entreprises ajoutées directement dans Grist
+    // Entreprises et attributions ajoutées directement dans Grist
+    await Promise.all(['Entreprises', 'Chantier_Entreprise'].map((t) => relireTable(d, t).catch(() => {})))
     const choix = choixEtiquettes({
       elements: () => d.Entreprises.map((e) => ({ id: e.id, libelle: e.Nom || 'Sans nom' })),
-      choisis: idsDeListe(c.Entreprises),
+      choisis: [...new Set(entreprisesDuChantier(d, c.id).map((l) => l.Entreprise))],
       textes: { aucun: 'Aucune entreprise attribuée.', choisir: '-- Ajouter une entreprise --', tous: 'Toutes les entreprises sont attribuées',
         vide: 'Aucune entreprise : ajoute-en dans « Gestion des entreprises »' },
     })
@@ -116,7 +117,7 @@ export function creerEcranAdmin(racine, recharger) {
       valider.disabled = true
       valider.textContent = 'Enregistrement…'
       try {
-        await attribuerEntreprises(c.id, choix.ids())
+        await attribuerEntreprises(d, c.id, choix.ids())
         fermer()
         await recharger()
         const aJour = d.parId.Chantiers.get(c.id)

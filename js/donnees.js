@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -316,9 +316,29 @@ export const modifierTache = (d, id, champs, copies = []) => action([['UpdateRec
 
 export const supprimerTaches = (ids) => action([['BulkRemoveRecord', 'Emploi_du_temps', ids]])
 
-// Entreprises attribuées au chantier (colonne Chantiers.Entreprises, référence multiple)
-export const attribuerEntreprises = (chantierId, ids) =>
-  action([['UpdateRecord', 'Chantiers', chantierId, { Entreprises: ids.length > 0 ? ['L', ...ids] : null }]])
+// Lignes de la table Chantier+Entreprise d'un chantier (une par entreprise attribuée)
+export const entreprisesDuChantier = (d, chantierId) => (d.Chantier_Entreprise ?? []).filter((l) => l.Chantier === chantierId)
+
+/**
+ * Attribue au chantier exactement les entreprises `ids` dans la table Chantier+Entreprise, en un seul envoi :
+ * une ligne est créée pour chaque nouvelle entreprise (jamais en double), celles des entreprises retirées sont supprimées,
+ * ainsi que les doublons éventuels déjà présents.
+ */
+export async function attribuerEntreprises(d, chantierId, ids) {
+  const lignes = entreprisesDuChantier(d, chantierId)
+  const gardees = new Set()
+  const aSupprimer = []
+  for (const l of lignes) {
+    if (ids.includes(l.Entreprise) && !gardees.has(l.Entreprise)) gardees.add(l.Entreprise)
+    else aSupprimer.push(l.id) // entreprise retirée, ou doublon
+  }
+  const aAjouter = [...new Set(ids)].filter((id) => !gardees.has(id))
+  const actions = [
+    ...(aSupprimer.length ? [['BulkRemoveRecord', 'Chantier_Entreprise', aSupprimer]] : []),
+    ...(aAjouter.length ? [['BulkAddRecord', 'Chantier_Entreprise', aAjouter.map(() => null), { Chantier: aAjouter.map(() => chantierId), Entreprise: aAjouter }]] : []),
+  ]
+  if (actions.length > 0) await action(actions)
+}
 
 export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
 

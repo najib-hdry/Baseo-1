@@ -1,7 +1,7 @@
 // Fiche détail d'un chantier (page admin), en onglets :
 // Composants (structure), Informations, Salariés sur le chantier, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
 import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes, lienContact } from './outils.js'
-import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
+import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, entreprisesDuChantier, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 import { zonesDuChantier, basesVisibles, libelleLieu, lieuRapport } from './navigation.js'
 import { NETTOYAGE, MAINTENANCE } from './rapports.js'
 
@@ -133,24 +133,23 @@ function equipe(d, c) {
   ]
 }
 
-// ---- Onglet Entreprises : entreprises attribuées au chantier, avec leurs casiers occupés ----
+// ---- Onglet Entreprises : lignes de la table Chantier+Entreprise (occupants et casiers occupés calculés par Grist) ----
 
 function entreprises(d, c) {
-  if (d.absentes.has('Entreprises')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Entreprises.')
-  // Entreprise de l'occupant de chaque casier occupé du chantier
+  if (d.absentes.has('Chantier_Entreprise')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Chantier+Entreprise.')
+  const lignes = entreprisesDuChantier(d, c.id).map((l) => ({ ...l, e: d.parId.Entreprises?.get(l.Entreprise) }))
+    .filter((l) => l.e).sort((a, b) => String(a.e.Nom).localeCompare(String(b.e.Nom)))
+  // Entreprises qui occupent des casiers du chantier sans y être attribuées
   const occupees = d.Casiers.filter((k) => k.Chantier === c.id).map((k) => d.activeParCasier.get(k.id))
     .filter(Boolean).map((a) => d.parId.Intervenants.get(a.Intervenant)?.Entreprise).filter(Boolean)
-  const casiersDe = (id) => occupees.filter((e) => e === id).length
-  const attribuees = idsDeListe(c.Entreprises).map((id) => d.parId.Entreprises.get(id)).filter(Boolean)
-    .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
-  // Entreprises qui occupent des casiers sans être attribuées au chantier
-  const nonAttribuees = [...new Set(occupees)].filter((id) => !attribuees.some((e) => e.id === id))
-    .map((id) => d.parId.Entreprises.get(id)?.Nom).filter(Boolean).sort()
+  const nonAttribuees = [...new Set(occupees)].filter((id) => !lignes.some((l) => l.Entreprise === id))
+    .map((id) => d.parId.Entreprises?.get(id)?.Nom).filter(Boolean).sort()
   return [
-    h('p', { className: 'structure-resume' }, `${pluriel(attribuees.length, 'entreprise')} attribuée${attribuees.length > 1 ? 's' : ''}`),
-    tableau(['Entreprise', 'Responsable', 'Téléphone', 'Email', 'Casiers occupés'],
-      attribuees.map((e) => [h('strong', null, e.Nom || 'Sans nom'), [e.Responsable_prenom, e.Responsable_nom].filter(Boolean).join(' ') || '—',
-        lienContact('tel', e.Telephone) || '—', lienContact('mailto', e.Email) || '—', casiersDe(e.id)]),
+    h('p', { className: 'structure-resume' }, `${pluriel(lignes.length, 'entreprise')} attribuée${lignes.length > 1 ? 's' : ''}`),
+    tableau(['Entreprise', 'Responsable', 'Téléphone', 'Email', 'Occupants', 'Casiers occupés'],
+      lignes.map(({ e, Nb_occupants, Nb_casiers_occupes }) => [h('strong', null, e.Nom || 'Sans nom'),
+        [e.Responsable_prenom, e.Responsable_nom].filter(Boolean).join(' ') || '—',
+        lienContact('tel', e.Telephone) || '—', lienContact('mailto', e.Email) || '—', Nb_occupants ?? 0, Nb_casiers_occupes ?? 0]),
       'Aucune entreprise n’est encore attribuée à ce chantier. Utilise « Gérer les entreprises ».'),
     nonAttribuees.length > 0 && h('p', { className: 'sous-texte' },
       `Occupent aussi des casiers sans être attribuées : ${nonAttribuees.join(', ')}.`),
