@@ -46,7 +46,7 @@ export function ouvrirAjoutTache(d, salarie, apres) {
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr', { numeric: true }))
       if (lieu[col] && !lignes.some((r) => r.id === lieu[col])) lieu[col] = 0 // n'est plus dans le niveau au-dessus
       listes[col].replaceChildren(h('option', { value: '0', selected: !lieu[col] }, col === 'Chantier' ? '— Aucun —' : '— Tous / aucun —'),
-        lignes.map((r) => h('option', { value: String(r.id), selected: r.id === lieu[col] }, libelleLieu(r, lignes))))
+        ...lignes.map((r) => h('option', { value: String(r.id), selected: r.id === lieu[col] }, libelleLieu(r, lignes))))
       listes[col].disabled = col !== 'Chantier' && !lieu.Chantier
     }
   }
