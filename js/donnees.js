@@ -316,6 +316,10 @@ export const modifierTache = (d, id, champs, copies = []) => action([['UpdateRec
 
 export const supprimerTaches = (ids) => action([['BulkRemoveRecord', 'Emploi_du_temps', ids]])
 
+// Entreprises attribuées au chantier (colonne Chantiers.Entreprises, référence multiple)
+export const attribuerEntreprises = (chantierId, ids) =>
+  action([['UpdateRecord', 'Chantiers', chantierId, { Entreprises: ids.length > 0 ? ['L', ...ids] : null }]])
+
 export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
 
 // Affecte au chantier exactement les utilisateurs `ids` : le chantier est ajouté à la liste de chacun d'eux

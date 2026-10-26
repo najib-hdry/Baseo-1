@@ -9,6 +9,7 @@ export const ONGLETS_FICHE = [
   ['composants', 'Composants'],
   ['informations', 'Informations'],
   ['equipe', 'Salariés sur le chantier'],
+  ['entreprises', 'Entreprises'],
   ['casiers', 'Casiers'],
   ['incidents', 'Incidents'],
   ['nettoyage', 'Nettoyage'],
@@ -130,6 +131,30 @@ function equipe(d, c) {
         lienContact('tel', u.Telephone) || '—', lienContact('mailto', u.Email) || '—', u.Actif ? 'Oui' : 'Non']),
       'Personne n’est encore affecté à ce chantier. Utilise « Gérer les salariés ».'),
   ]
+}
+
+// ---- Onglet Entreprises : entreprises attribuées au chantier, avec leurs casiers occupés ----
+
+function entreprises(d, c) {
+  if (d.absentes.has('Entreprises')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Entreprises.')
+  // Entreprise de l'occupant de chaque casier occupé du chantier
+  const occupees = d.Casiers.filter((k) => k.Chantier === c.id).map((k) => d.activeParCasier.get(k.id))
+    .filter(Boolean).map((a) => d.parId.Intervenants.get(a.Intervenant)?.Entreprise).filter(Boolean)
+  const casiersDe = (id) => occupees.filter((e) => e === id).length
+  const attribuees = idsDeListe(c.Entreprises).map((id) => d.parId.Entreprises.get(id)).filter(Boolean)
+    .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
+  // Entreprises qui occupent des casiers sans être attribuées au chantier
+  const nonAttribuees = [...new Set(occupees)].filter((id) => !attribuees.some((e) => e.id === id))
+    .map((id) => d.parId.Entreprises.get(id)?.Nom).filter(Boolean).sort()
+  return [
+    h('p', { className: 'structure-resume' }, `${pluriel(attribuees.length, 'entreprise')} attribuée${attribuees.length > 1 ? 's' : ''}`),
+    tableau(['Entreprise', 'Responsable', 'Téléphone', 'Email', 'Casiers occupés'],
+      attribuees.map((e) => [h('strong', null, e.Nom || 'Sans nom'), [e.Responsable_prenom, e.Responsable_nom].filter(Boolean).join(' ') || '—',
+        lienContact('tel', e.Telephone) || '—', lienContact('mailto', e.Email) || '—', casiersDe(e.id)]),
+      'Aucune entreprise n’est encore attribuée à ce chantier. Utilise « Gérer les entreprises ».'),
+    nonAttribuees.length > 0 && h('p', { className: 'sous-texte' },
+      `Occupent aussi des casiers sans être attribuées : ${nonAttribuees.join(', ')}.`),
+  ].filter(Boolean)
 }
 
 // ---- Onglet Casiers : occupation globale, graphiques (chantier, bases vie, étages), puis par vestiaire ----
@@ -275,6 +300,7 @@ function postes(d, c) {
 export function contenuFiche(d, c, onglet) {
   if (onglet === 'informations') return informations(d, c)
   if (onglet === 'equipe') return equipe(d, c)
+  if (onglet === 'entreprises') return entreprises(d, c)
   if (onglet === 'casiers') return casiers(d, c)
   if (onglet === 'incidents') return incidents(d, c)
   if (onglet === 'nettoyage') return nettoyage(d, c)
