@@ -9,10 +9,14 @@ const STATUTS_ACOMPTE = ['Nouvelle', 'Acceptée', 'Refusée']
 const CLASSES_STATUT_ACOMPTE = { 'Nouvelle': 'badge-nouveau', 'Acceptée': 'badge-resolu', 'Refusée': 'badge-ouvert' }
 const creeeLe = (v) => (v ? new Date(v * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
 
-export function creerEcranAcomptes(racine, recharger) {
+// `options.salarie` : seulement les demandes de ce salarié (onglet de la fiche salarié : colonne Salarié masquée, onglet Tous au départ)
+export function creerEcranAcomptes(racine, recharger, options = {}) {
+  const seul = options.salarie ?? null
+  const ongletDepart = seul ? '' : 'Nouvelle'
+  const titres = seul ? TITRES_ACOMPTES.filter((t) => t !== 'Salarié') : TITRES_ACOMPTES
   let d = null
   let recherche = ''
-  let onglet = 'Nouvelle' // statut affiché ; '' = tous
+  let onglet = ongletDepart // statut affiché ; '' = tous
 
   // Nom d'un salarié : son compte, sinon le candidat lié à l'embauche, sinon l'email
   const nomU = (u) => {
@@ -32,7 +36,7 @@ export function creerEcranAcomptes(racine, recharger) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Acompte.'))
       return
     }
-    const tous = d[TABLE_ACOMPTES]
+    const tous = d[TABLE_ACOMPTES].filter((a) => !seul || a.Salarie === seul)
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     // Ne redessine que les lignes : le champ de recherche garde le curseur
@@ -44,16 +48,16 @@ export function creerEcranAcomptes(racine, recharger) {
       const total = liste.reduce((s, a) => s + (Number(a.Montant) || 0), 0)
       compteur.textContent = `${liste.length} demande${liste.length > 1 ? 's' : ''} · ${euros.format(total)}`
       corps.replaceChildren(...(liste.length === 0
-        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_ACOMPTES.length }, filtre ? 'Aucun résultat.' : 'Aucune demande dans cet onglet.'))]
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : 'Aucune demande dans cet onglet.'))]
         : liste.map((a) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(a) },
-          h('td', { className: 'tableau-nom' }, salarie(a)),
-          h('td', null, a.Montant != null ? euros.format(a.Montant) : '—'),
+          !seul && h('td', { className: 'tableau-nom' }, salarie(a)),
+          h('td', { className: seul ? 'tableau-nom' : '' }, a.Montant != null ? euros.format(a.Montant) : '—'),
           h('td', null, creeeLe(a.Cree_le)),
           h('td', null, a.Statut ? h('span', { className: `badge ${CLASSES_STATUT_ACOMPTE[a.Statut] ?? ''}` }, a.Statut) : '—'),
           h('td', { className: 'tableau-actions' },
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(a) } }, 'Modifier'),
             h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(a) } }, 'Supprimer'))))))
-      etiqueterLignes(corps, TITRES_ACOMPTES)
+      etiqueterLignes(corps, titres)
     }
     dessinerLignes()
 
@@ -71,15 +75,15 @@ export function creerEcranAcomptes(racine, recharger) {
         compteur,
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, TITRES_ACOMPTES.map((t) => h('th', null, t)))),
+            h('thead', null, h('tr', null, titres.map((t) => h('th', null, t)))),
             corps))))
   }
 
   // ---- Fiche : nouvelle demande (`a` null) ou modification ----
 
   function ouvrirFiche(a) {
-    const champs = { Salarie: a?.Salarie || 0, Montant: a?.Montant ?? '', Statut: a?.Statut || 'Nouvelle' }
-    const salaries = d.Utilisateurs.filter((u) => (u.Profil === ROLE_SALARIE && u.Actif) || u.id === a?.Salarie)
+    const champs = { Salarie: a?.Salarie || seul || 0, Montant: a?.Montant ?? '', Statut: a?.Statut || 'Nouvelle' }
+    const salaries = d.Utilisateurs.filter((u) => (u.Profil === ROLE_SALARIE && u.Actif) || u.id === champs.Salarie)
       .map((u) => [u.id, nomU(u)]).sort((x, y) => String(x[1]).localeCompare(String(y[1])))
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, a ? 'Enregistrer' : 'Envoyer la demande')
@@ -139,7 +143,7 @@ export function creerEcranAcomptes(racine, recharger) {
     },
     accueil() {
       recherche = ''
-      onglet = 'Nouvelle'
+      onglet = ongletDepart
       rendre()
     },
   }

@@ -20,10 +20,14 @@ const duree = (min) => {
 // Heure qui situe l'émargement dans le temps (arrivée : début, départ : fin) : sert au tri
 const heureDe = (e) => e.Heure_debut || e.Heure_fin || 0
 
-export function creerEcranEmargements(racine, recharger) {
+// `options.salarie` : seulement les émargements de ce salarié (onglet de la fiche salarié : colonne Salarié masquée, onglet Tous au départ)
+export function creerEcranEmargements(racine, recharger, options = {}) {
+  const seul = options.salarie ?? null
+  const ongletDepart = seul ? '' : 'Présent'
+  const titres = seul ? TITRES_EMARGEMENTS.filter((t) => t !== 'Salarié') : TITRES_EMARGEMENTS
   let d = null
   let recherche = ''
-  let onglet = 'Présent'
+  let onglet = ongletDepart
   const choisis = new Set() // émargements cochés (suppression en masse)
 
   // Nom du salarié : colonne Nom complet (formule), sinon compte, sinon email
@@ -42,7 +46,7 @@ export function creerEcranEmargements(racine, recharger) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Emargement Salarié.'))
       return
     }
-    const tous = d[TABLE_EMARGEMENTS]
+    const tous = d[TABLE_EMARGEMENTS].filter((e) => !seul || e.Salarie === seul)
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     const supprimerSelection = h('button', { className: 'bouton bouton-compact bouton-danger', type: 'button',
@@ -82,13 +86,13 @@ export function creerEcranEmargements(racine, recharger) {
       toutCocher.checked = liste.length > 0 && liste.every((e) => choisis.has(e.id))
       toutCocher.disabled = liste.length === 0
       corps.replaceChildren(...(liste.length === 0
-        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_EMARGEMENTS.length }, filtre ? 'Aucun résultat.' : 'Aucun émargement dans cet onglet.'))]
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : 'Aucun émargement dans cet onglet.'))]
         : liste.map((e) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(e) },
           h('td', { onClick: (ev) => ev.stopPropagation() },
             h('input', { type: 'checkbox', 'aria-label': `Sélectionner l’émargement de ${nomSalarie(e)}`, checked: choisis.has(e.id),
               onChange: (ev) => { ev.target.checked ? choisis.add(e.id) : choisis.delete(e.id); dessinerLignes() } })),
-          h('td', { className: 'tableau-nom' }, nomSalarie(e)),
-          h('td', null, e.Arrivee_Depart || '—'),
+          !seul && h('td', { className: 'tableau-nom' }, nomSalarie(e)),
+          h('td', { className: seul ? 'tableau-nom' : '' }, e.Arrivee_Depart || '—'),
           h('td', null, heureEmargement(e.Heure_debut)),
           h('td', null, heureEmargement(e.Heure_fin)),
           h('td', null, e.Etat ? h('span', { className: `badge ${CLASSES_ETAT[e.Etat] ?? ''}` }, e.Etat) : '—'),
@@ -100,7 +104,7 @@ export function creerEcranEmargements(racine, recharger) {
           h('td', { className: 'tableau-actions' },
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(e) } }, 'Modifier'),
             h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression([e]) } }, 'Supprimer'))))))
-      etiqueterLignes(corps, TITRES_EMARGEMENTS)
+      etiqueterLignes(corps, titres)
     }
     toutCocher.addEventListener('change', () => {
       for (const e of liste) toutCocher.checked ? choisis.add(e.id) : choisis.delete(e.id)
@@ -121,7 +125,7 @@ export function creerEcranEmargements(racine, recharger) {
         compteur,
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, TITRES_EMARGEMENTS.map((t, i) => h('th', null, i === 0 ? toutCocher : t)))),
+            h('thead', null, h('tr', null, titres.map((t, i) => h('th', null, i === 0 ? toutCocher : t)))),
             corps))))
   }
 
@@ -251,7 +255,7 @@ export function creerEcranEmargements(racine, recharger) {
     },
     accueil() {
       recherche = ''
-      onglet = 'Présent'
+      onglet = ongletDepart
       choisis.clear()
       rendre()
     },

@@ -25,10 +25,14 @@ function periode(c) {
   return `${enFrancais(debut)} → ${enFrancais(fin)} (${jours} jours)`
 }
 
-export function creerEcranConges(racine, recharger) {
+// `options.salarie` : seulement les demandes de ce salarié (onglet de la fiche salarié : colonne Salarié masquée, onglet Tous au départ)
+export function creerEcranConges(racine, recharger, options = {}) {
+  const seul = options.salarie ?? null
+  const ongletDepart = seul ? '' : 'Nouvelle'
+  const titres = seul ? TITRES_CONGES.filter((t) => t !== 'Salarié') : TITRES_CONGES
   let d = null
   let recherche = ''
-  let onglet = 'Nouvelle' // statut affiché ; '' = tous
+  let onglet = ongletDepart // statut affiché ; '' = tous
 
   // Nom d'un salarié : son compte, sinon le candidat lié à l'embauche, sinon l'email
   const nomU = (u) => {
@@ -48,7 +52,7 @@ export function creerEcranConges(racine, recharger) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Demande de congé.'))
       return
     }
-    const tous = d[TABLE_CONGES]
+    const tous = d[TABLE_CONGES].filter((c) => !seul || c.Salarie === seul)
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     // Ne redessine que les lignes : le champ de recherche garde le curseur
@@ -59,17 +63,17 @@ export function creerEcranConges(racine, recharger) {
         .sort((a, b) => (b.Cree_le ?? 0) - (a.Cree_le ?? 0))
       compteur.textContent = `${liste.length} demande${liste.length > 1 ? 's' : ''}`
       corps.replaceChildren(...(liste.length === 0
-        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CONGES.length }, filtre ? 'Aucun résultat.' : 'Aucune demande dans cet onglet.'))]
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : 'Aucune demande dans cet onglet.'))]
         : liste.map((c) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(c) },
-          h('td', { className: 'tableau-nom' }, salarie(c)),
-          h('td', null, c.Type || '—'),
+          !seul && h('td', { className: 'tableau-nom' }, salarie(c)),
+          h('td', { className: seul ? 'tableau-nom' : '' }, c.Type || '—'),
           h('td', null, periode(c)),
           h('td', null, congeCreeLe(c.Cree_le)),
           h('td', null, c.Statut ? h('span', { className: `badge ${CLASSES_STATUT_CONGE[c.Statut] ?? ''}` }, c.Statut) : '—'),
           h('td', { className: 'tableau-actions' },
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(c) } }, 'Modifier'),
             h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer'))))))
-      etiqueterLignes(corps, TITRES_CONGES)
+      etiqueterLignes(corps, titres)
     }
     dessinerLignes()
 
@@ -87,7 +91,7 @@ export function creerEcranConges(racine, recharger) {
         compteur,
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, TITRES_CONGES.map((t) => h('th', null, t)))),
+            h('thead', null, h('tr', null, titres.map((t) => h('th', null, t)))),
             corps))))
   }
 
@@ -95,10 +99,10 @@ export function creerEcranConges(racine, recharger) {
 
   function ouvrirFiche(c) {
     const champs = {
-      Salarie: c?.Salarie || 0, Type: c?.Type || UNE_JOURNEE, Date_debut: depuisGrist(c?.Date_debut) ?? '', Date_fin: depuisGrist(c?.Date_fin) ?? '',
+      Salarie: c?.Salarie || seul || 0, Type: c?.Type || UNE_JOURNEE, Date_debut: depuisGrist(c?.Date_debut) ?? '', Date_fin: depuisGrist(c?.Date_fin) ?? '',
       Demi_journee: c?.Demi_journee || '', Statut: c?.Statut || 'Nouvelle',
     }
-    const salaries = d.Utilisateurs.filter((u) => (u.Profil === ROLE_SALARIE && u.Actif) || u.id === c?.Salarie)
+    const salaries = d.Utilisateurs.filter((u) => (u.Profil === ROLE_SALARIE && u.Actif) || u.id === champs.Salarie)
       .map((u) => [u.id, nomU(u)]).sort((x, y) => String(x[1]).localeCompare(String(y[1])))
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, c ? 'Enregistrer' : 'Envoyer la demande')
@@ -184,7 +188,7 @@ export function creerEcranConges(racine, recharger) {
     },
     accueil() {
       recherche = ''
-      onglet = 'Nouvelle'
+      onglet = ongletDepart
       rendre()
     },
   }

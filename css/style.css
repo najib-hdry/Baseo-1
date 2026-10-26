@@ -526,6 +526,8 @@ button.tiroir-lien.active { background: var(--signal); }
 .cellule-detail { white-space: pre-wrap; }
 .planning-actions { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 .planning-saut { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Tableaux de suivi dans la fiche salarié : sans la bordure noire de la carte des pages */
+.suivi-salarie .carte-tableau { padding: 0; border: none; }
 .bloc-lieu { display: grid; gap: 10px; margin: 0; padding: 12px 14px; border: 1px solid #d7dce1; border-radius: 8px; }
 .bloc-lieu legend { padding: 0 6px; font-weight: 700; }
 /* Aperçu de l'import : lignes en erreur en rouge pâle */

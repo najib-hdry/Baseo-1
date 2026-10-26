@@ -1,10 +1,14 @@
 // Écran « Gestion des utilisateurs » (admin) : onglets par rôle (Salarié en premier, Tous en dernier), tableau avec recherche,
 // fiche de création / modification (identité, rôle, chantiers, actif), suppression,
 // fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié ;
-// détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ; compte).
+// détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ;
+// émargements, demandes de congé et acomptes du salarié : tableaux des pages de suivi, filtrés sur lui ; compte).
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
 import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache } from './taches.js'
+import { creerEcranEmargements } from './emargements.js'
+import { creerEcranConges } from './conges.js'
+import { creerEcranAcomptes } from './acomptes.js'
 import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
@@ -173,6 +177,15 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('button', { className: 'bouton bouton-principal bouton-compact fiche-salarie-modifier', onClick: () => { fermer(); modifierCandidat(c.id) } }, 'Modifier les infos')))
     }
 
+    // Tableau d'une page de suivi (émargements, congés, acomptes) limité à ce salarié ; après un enregistrement,
+    // il se redessine avec les données rechargées (la fiche reste ouverte)
+    const suiviDuSalarie = (creerEcran) => {
+      const zone = h('div', { className: 'suivi-salarie' })
+      const ecran = creerEcran(zone, async () => { await recharger(); ecran.afficher(d) }, { salarie: u.id })
+      ecran.afficher(d)
+      return zone
+    }
+
     // Toutes les informations du candidat lié, en lecture, sans le suivi de la candidature
     const ongletDetail = () => (c
       ? blocsCandidatLecture(d, c, lien, ['Suivi de la candidature'])
@@ -190,6 +203,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail],
       // Après un import : fiche rouverte sur l'emploi du temps, au mois de la première tâche importée
       ['planning', 'Emploi du temps', () => blocEmploiDuTemps(u, moisPlanning, (mois) => { fermer(); ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'planning', mois) })],
+      ['emargements', 'Suivi des émargements', () => suiviDuSalarie(creerEcranEmargements)],
+      ['conges', 'Demandes de congé', () => suiviDuSalarie(creerEcranConges)],
+      ['acomptes', 'Acomptes', () => suiviDuSalarie(creerEcranAcomptes)],
       ['compte', 'Compte', ongletCompte]]
     const contenu = h('div', { className: 'fiche-contenu' })
     const barre = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche salarié' })
