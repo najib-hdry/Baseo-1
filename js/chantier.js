@@ -1,7 +1,7 @@
 // Fiche détail d'un chantier (page admin), en onglets :
 // Composants (structure), Informations, Salariés sur le chantier, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
 import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes, lienContact } from './outils.js'
-import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, entreprisesDuChantier, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
+import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 import { zonesDuChantier, basesVisibles, libelleLieu, lieuRapport } from './navigation.js'
 import { NETTOYAGE, MAINTENANCE } from './rapports.js'
 
@@ -10,6 +10,7 @@ export const ONGLETS_FICHE = [
   ['informations', 'Informations'],
   ['equipe', 'Salariés sur le chantier'],
   ['entreprises', 'Entreprises'],
+  ['sous_traitants', 'Sous-traitants'],
   ['casiers', 'Casiers'],
   ['incidents', 'Incidents'],
   ['nettoyage', 'Nettoyage'],
@@ -133,26 +134,29 @@ function equipe(d, c) {
   ]
 }
 
-// ---- Onglet Entreprises : lignes de la table Chantier+Entreprise (occupants et casiers occupés calculés par Grist) ----
+// ---- Onglets Entreprises et Sous-traitants : lignes de la table de liaison (occupants et casiers occupés calculés par Grist) ----
 
-function entreprises(d, c) {
-  if (d.absentes.has('Chantier_Entreprise')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Chantier+Entreprise.')
-  const lignes = entreprisesDuChantier(d, c.id).map((l) => ({ ...l, e: d.parId.Entreprises?.get(l.Entreprise) }))
-    .filter((l) => l.e).sort((a, b) => String(a.e.Nom).localeCompare(String(b.e.Nom)))
-  // Entreprises qui occupent des casiers du chantier sans y être attribuées
-  const occupees = d.Casiers.filter((k) => k.Chantier === c.id).map((k) => d.activeParCasier.get(k.id))
-    .filter(Boolean).map((a) => d.parId.Intervenants.get(a.Intervenant)?.Entreprise).filter(Boolean)
-  const nonAttribuees = [...new Set(occupees)].filter((id) => !lignes.some((l) => l.Entreprise === id))
-    .map((id) => d.parId.Entreprises?.get(id)?.Nom).filter(Boolean).sort()
+function partenaires(d, c, p) {
+  if (d.absentes.has(p.table)) return h('p', { className: 'message' }, `Ce document n’a pas de table ${p.table.replace('_', '+')}.`)
+  const lignes = partenairesDuChantier(d, p, c.id).map((l) => ({ ...l, x: d.parId[p.cible]?.get(l[p.col]) }))
+    .filter((l) => l.x).sort((a, b) => String(a.x.Nom).localeCompare(String(b.x.Nom)))
+  // Partenaires qui occupent des casiers du chantier sans y être attribués
+  const occupants = d.Casiers.filter((k) => k.Chantier === c.id).map((k) => d.activeParCasier.get(k.id))
+    .filter(Boolean).map((a) => d.parId.Intervenants.get(a.Intervenant)?.[p.occupant]).filter(Boolean)
+  const nonAttribues = [...new Set(occupants)].filter((id) => !lignes.some((l) => l[p.col] === id))
+    .map((id) => d.parId[p.cible]?.get(id)?.Nom).filter(Boolean).sort()
+  const sousTraitants = p.cle === 'sous_traitants' // un sous-traitant appartient à une entreprise
+  const titreNom = p.nom[0].toUpperCase() + p.nom.slice(1)
   return [
-    h('p', { className: 'structure-resume' }, `${pluriel(lignes.length, 'entreprise')} attribuée${lignes.length > 1 ? 's' : ''}`),
-    tableau(['Entreprise', 'Responsable', 'Téléphone', 'Email', 'Occupants', 'Casiers occupés'],
-      lignes.map(({ e, Nb_occupants, Nb_casiers_occupes }) => [h('strong', null, e.Nom || 'Sans nom'),
-        [e.Responsable_prenom, e.Responsable_nom].filter(Boolean).join(' ') || '—',
-        lienContact('tel', e.Telephone) || '—', lienContact('mailto', e.Email) || '—', Nb_occupants ?? 0, Nb_casiers_occupes ?? 0]),
-      'Aucune entreprise n’est encore attribuée à ce chantier. Utilise « Gérer les entreprises ».'),
-    nonAttribuees.length > 0 && h('p', { className: 'sous-texte' },
-      `Occupent aussi des casiers sans être attribuées : ${nonAttribuees.join(', ')}.`),
+    h('p', { className: 'structure-resume' }, `${pluriel(lignes.length, p.nom)} ${p.attribue}${lignes.length > 1 ? 's' : ''}`),
+    tableau([titreNom, ...(sousTraitants ? ['Entreprise'] : []), 'Responsable', 'Téléphone', 'Email', 'Occupants', 'Casiers occupés'],
+      lignes.map(({ x, Nb_occupants, Nb_casiers_occupes }) => [h('strong', null, x.Nom || 'Sans nom'),
+        ...(sousTraitants ? [d.parId.Entreprises?.get(x.Entreprise)?.Nom || '—'] : []),
+        [x.Responsable_prenom, x.Responsable_nom].filter(Boolean).join(' ') || '—',
+        lienContact('tel', x.Telephone) || '—', lienContact('mailto', x.Email) || '—', Nb_occupants ?? 0, Nb_casiers_occupes ?? 0]),
+      `${p.aucun} n’est encore ${p.attribue} à ce chantier. Utilise « Gérer les ${p.titre.toLowerCase()} ».`),
+    nonAttribues.length > 0 && h('p', { className: 'sous-texte' },
+      `Occupent aussi des casiers sans être ${p.attribue}s : ${nonAttribues.join(', ')}.`),
   ].filter(Boolean)
 }
 
@@ -299,7 +303,8 @@ function postes(d, c) {
 export function contenuFiche(d, c, onglet) {
   if (onglet === 'informations') return informations(d, c)
   if (onglet === 'equipe') return equipe(d, c)
-  if (onglet === 'entreprises') return entreprises(d, c)
+  if (onglet === 'entreprises') return partenaires(d, c, PARTENAIRES.entreprises)
+  if (onglet === 'sous_traitants') return partenaires(d, c, PARTENAIRES.sous_traitants)
   if (onglet === 'casiers') return casiers(d, c)
   if (onglet === 'incidents') return incidents(d, c)
   if (onglet === 'nettoyage') return nettoyage(d, c)

@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -316,26 +316,40 @@ export const modifierTache = (d, id, champs, copies = []) => action([['UpdateRec
 
 export const supprimerTaches = (ids) => action([['BulkRemoveRecord', 'Emploi_du_temps', ids]])
 
-// Lignes de la table Chantier+Entreprise d'un chantier (une par entreprise attribuée)
-export const entreprisesDuChantier = (d, chantierId) => (d.Chantier_Entreprise ?? []).filter((l) => l.Chantier === chantierId)
+/**
+ * Partenaires d'un chantier (entreprises, sous-traitants), chacun dans sa table de liaison « Chantier+… » (une ligne par couple) :
+ * - table / col : table de liaison et colonne de la référence ; cible : table référencée ;
+ * - occupant : colonne d'Intervenants qui rattache l'occupant d'un casier au partenaire ;
+ * - textes de l'écran (genre et nombre).
+ */
+export const PARTENAIRES = {
+  entreprises: { cle: 'entreprises', table: 'Chantier_Entreprise', col: 'Entreprise', cible: 'Entreprises', occupant: 'Entreprise',
+    titre: 'Entreprises', nom: 'entreprise', attribue: 'attribuée', aucun: 'Aucune entreprise', tous: 'Toutes les entreprises', un: 'une entreprise',
+    page: 'Gestion des entreprises' },
+  sous_traitants: { cle: 'sous_traitants', table: 'Chantier_Sous_traitant', col: 'Sous_traitant', cible: 'Sous_traitants', occupant: 'Employeur',
+    titre: 'Sous-traitants', nom: 'sous-traitant', attribue: 'attribué', aucun: 'Aucun sous-traitant', tous: 'Tous les sous-traitants', un: 'un sous-traitant',
+    page: 'Gestion des sous-traitants' },
+}
+
+// Lignes de la table de liaison du partenaire `p` pour un chantier
+export const partenairesDuChantier = (d, p, chantierId) => (d[p.table] ?? []).filter((l) => l.Chantier === chantierId)
 
 /**
- * Attribue au chantier exactement les entreprises `ids` dans la table Chantier+Entreprise, en un seul envoi :
- * une ligne est créée pour chaque nouvelle entreprise (jamais en double), celles des entreprises retirées sont supprimées,
+ * Attribue au chantier exactement les partenaires `ids` dans la table de liaison de `p`, en un seul envoi :
+ * une ligne est créée pour chaque nouveau partenaire (jamais en double), celles des partenaires retirés sont supprimées,
  * ainsi que les doublons éventuels déjà présents.
  */
-export async function attribuerEntreprises(d, chantierId, ids) {
-  const lignes = entreprisesDuChantier(d, chantierId)
-  const gardees = new Set()
+export async function attribuerPartenaires(d, p, chantierId, ids) {
+  const gardes = new Set()
   const aSupprimer = []
-  for (const l of lignes) {
-    if (ids.includes(l.Entreprise) && !gardees.has(l.Entreprise)) gardees.add(l.Entreprise)
-    else aSupprimer.push(l.id) // entreprise retirée, ou doublon
+  for (const l of partenairesDuChantier(d, p, chantierId)) {
+    if (ids.includes(l[p.col]) && !gardes.has(l[p.col])) gardes.add(l[p.col])
+    else aSupprimer.push(l.id) // partenaire retiré, ou doublon
   }
-  const aAjouter = [...new Set(ids)].filter((id) => !gardees.has(id))
+  const aAjouter = [...new Set(ids)].filter((id) => !gardes.has(id))
   const actions = [
-    ...(aSupprimer.length ? [['BulkRemoveRecord', 'Chantier_Entreprise', aSupprimer]] : []),
-    ...(aAjouter.length ? [['BulkAddRecord', 'Chantier_Entreprise', aAjouter.map(() => null), { Chantier: aAjouter.map(() => chantierId), Entreprise: aAjouter }]] : []),
+    ...(aSupprimer.length ? [['BulkRemoveRecord', p.table, aSupprimer]] : []),
+    ...(aAjouter.length ? [['BulkAddRecord', p.table, aAjouter.map(() => null), { Chantier: aAjouter.map(() => chantierId), [p.col]: aAjouter }]] : []),
   ]
   if (actions.length > 0) await action(actions)
 }
