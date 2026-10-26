@@ -3,14 +3,23 @@
 // Le fichier (Excel ou CSV) est lu dans le navigateur ; chaque niveau d'emplacement est cherché dans son chantier
 // (les noms « Base vie 1 », « RDC »… se répètent d'un chantier à l'autre), puis un aperçu signale les erreurs ligne par ligne.
 import { h, ouvrirPanneau, etiqueterLignes, choixEtiquettes } from './outils.js'
-import { importerTaches, nomContact, ROLE_SALARIE } from './donnees.js'
+import { importerTaches, modifierTache, nomContact, ROLE_SALARIE } from './donnees.js'
+
+// Secondes Grist → valeur d'un champ « datetime-local » (AAAA-MM-JJTHH:MM, heure locale)
+const versSaisie = (v) => {
+  if (!v) return ''
+  const dt = new Date(v * 1000)
+  const z = (n) => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${z(dt.getMonth() + 1)}-${z(dt.getDate())}T${z(dt.getHours())}:${z(dt.getMinutes())}`
+}
 
 /**
- * Formulaire « Ajouter une tâche » : la même tâche est créée pour chaque salarié choisi (le salarié de la fiche au départ).
+ * Fiche d'une tâche : ajout (`tache` absente) ou modification. À l'ajout, la même tâche est créée pour chaque salarié choisi
+ * (le salarié de la fiche au départ) ; en modification, le premier salarié garde la tâche et les autres en reçoivent une copie.
  * Emplacement en listes enchaînées : chaque liste ne propose que ce qui est dans le niveau choisi au-dessus, et choisir
  * un niveau bas (vestiaire, pièce) remplit tout seul ceux au-dessus. `apres(taches)` : après l'enregistrement.
  */
-export function ouvrirAjoutTache(d, salarie, apres) {
+export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
   // Compte sans prénom ni nom : nom du candidat lié, sinon email
   const nomU = (u) => {
     const c = d.Candidats?.find((x) => x.Utilisateur === u.id)
@@ -18,11 +27,12 @@ export function ouvrirAjoutTache(d, salarie, apres) {
   }
   const choixSalaries = choixEtiquettes({
     elements: () => d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && (u.Actif || u.id === salarie.id)).map((u) => ({ id: u.id, libelle: nomU(u) })),
-    choisis: [salarie.id],
+    choisis: [tache?.Salarie || salarie.id],
     textes: { aucun: 'Aucun salarié choisi.', choisir: 'Ajouter un salarié…', tous: 'Tous les salariés sont ajoutés', vide: 'Aucun salarié actif' },
   })
-  const champs = { debut: '', fin: '', Titre: '', Action: '', Detail: '' }
+  const champs = { debut: versSaisie(tache?.Date_debut), fin: versSaisie(tache?.Date_fin), Titre: tache?.Titre ?? '', Action: tache?.Action ?? '', Detail: tache?.Detail ?? '' }
   const lieu = { Chantier: 0, Zone: 0, Base_vie: 0, Etage: 0, Piece: 0, Vestiaire: 0 }
+  if (tache) for (const col of Object.keys(lieu)) lieu[col] = Number(tache[col]) || 0
   const listes = {} // select de chaque niveau
 
   // [colonne, table, libellé, condition par rapport aux niveaux choisis au-dessus]
@@ -67,7 +77,8 @@ export function ouvrirAjoutTache(d, salarie, apres) {
   dessinerListes()
 
   const erreur = h('p', { className: 'erreur', hidden: true })
-  const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Ajouter la tâche')
+  const libelleValider = tache ? 'Enregistrer' : 'Ajouter la tâche'
+  const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, libelleValider)
   const texte = (libelle, col, attributs = {}) => h('label', { className: 'champ-groupe' }, libelle,
     h('input', { className: 'champ', autocomplete: 'off', value: champs[col], ...attributs, onInput: (e) => { champs[col] = e.target.value } }))
   const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
@@ -93,30 +104,31 @@ export function ouvrirAjoutTache(d, salarie, apres) {
       Titre: champs.Titre.trim(), Action: champs.Action.trim(), Detail: champs.Detail.trim(),
     }))
     try {
-      await importerTaches(taches)
+      if (tache) await modifierTache(tache.id, taches[0], taches.slice(1))
+      else await importerTaches(taches)
     } catch (err) {
       erreur.textContent = err.message || 'L’enregistrement a échoué.'
       erreur.hidden = false
       valider.disabled = false
-      valider.textContent = 'Ajouter la tâche'
+      valider.textContent = libelleValider
       return
     }
     fermer()
     await apres(taches).catch((err) => alert(`La tâche est enregistrée, mais l’affichage n’a pas pu être mis à jour : ${err.message}`))
   } },
-  h('div', { className: 'champ-groupe' }, 'Salariés (la tâche est créée pour chacun)', choixSalaries.element),
+  h('div', { className: 'champ-groupe' }, tache ? 'Salariés (le premier garde la tâche, les autres en reçoivent une copie)' : 'Salariés (la tâche est créée pour chacun)', choixSalaries.element),
   h('div', { className: 'grille-2' },
     texte('Date et heure de début *', 'debut', { type: 'datetime-local', required: true }),
     texte('Date et heure de fin', 'fin', { type: 'datetime-local' })),
   texte('Titre de tâche *', 'Titre', { required: true }),
   texte('Action', 'Action'),
   h('label', { className: 'champ-groupe' }, 'Détail',
-    h('textarea', { className: 'champ champ-texte', onInput: (e) => { champs.Detail = e.target.value } })),
+    h('textarea', { className: 'champ champ-texte', value: champs.Detail, onInput: (e) => { champs.Detail = e.target.value } })),
   h('fieldset', { className: 'bloc-lieu' }, h('legend', null, 'Emplacement (facultatif)'),
     h('div', { className: 'grille-2' }, NIVEAUX_LIEU.map(([col, , libelle]) => h('label', { className: 'champ-groupe' }, libelle, listes[col])))),
   erreur, valider)
 
-  const { fermer, section } = ouvrirPanneau('Ajouter une tâche', formulaire)
+  const { fermer, section } = ouvrirPanneau(tache ? 'Modifier la tâche' : 'Ajouter une tâche', formulaire)
   section.classList.add('panneau-large')
 }
 

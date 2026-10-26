@@ -273,6 +273,15 @@ export function importerTaches(taches) {
   return action([['BulkAddRecord', 'Emploi_du_temps', taches.map(() => null), Object.fromEntries(colonnes.map((c) => [c, taches.map((t) => t[c])]))]])
 }
 
+// Tâche modifiée (`id`, `champs`) et, en un seul envoi, ses copies pour d'autres salariés (`copies`, même format)
+export function modifierTache(id, champs, copies = []) {
+  const colonnes = Object.keys(champs)
+  return action([['UpdateRecord', 'Emploi_du_temps', id, champs],
+    ...(copies.length ? [['BulkAddRecord', 'Emploi_du_temps', copies.map(() => null), Object.fromEntries(colonnes.map((c) => [c, copies.map((t) => t[c])]))]] : [])])
+}
+
+export const supprimerTaches = (ids) => action([['BulkRemoveRecord', 'Emploi_du_temps', ids]])
+
 export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
 
 // Affecte au chantier exactement les utilisateurs `ids` : le chantier est ajouté à la liste de chacun d'eux

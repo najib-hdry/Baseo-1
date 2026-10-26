@@ -5,7 +5,7 @@
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
 import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache } from './taches.js'
-import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion } from './donnees.js'
+import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -342,7 +342,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
   // ---- Emploi du temps du salarié (onglet de la fiche) : calendrier du mois, puis tableau des tâches de ce mois ----
 
   const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-  const TITRES_TACHES = ['Date début', 'Date fin', 'Emplacement', 'Titre de tâche', 'Action', 'Détail']
+  const TITRES_TACHES = ['', 'Date début', 'Date fin', 'Emplacement', 'Titre de tâche', 'Action', 'Détail', '']
   const enDate = (v) => (v ? new Date(v * 1000) : null) // colonnes Date et heure : secondes depuis 1970
   const cleJour = (dt) => `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`
   const heure = (dt) => dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -356,7 +356,16 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const taches = d.Emploi_du_temps.filter((t) => t.Salarie === u.id && t.Date_debut).sort((a, b) => a.Date_debut - b.Date_debut)
     const auj = new Date()
     let mois = moisInitial ?? new Date(auj.getFullYear(), auj.getMonth(), 1)
+    const choisies = new Set() // tâches cochées du mois affiché (suppression en masse)
     const moisDe = (t) => { const dt = enDate(t.Date_debut); return new Date(dt.getFullYear(), dt.getMonth(), 1) }
+    // Fiche de la tâche (même formulaire que l'ajout, pré-rempli)
+    const modifier = (t) => ouvrirAjoutTache(d, u, apresAjout, t)
+    // Suppression d'une ou plusieurs tâches, après confirmation ; la fiche est ensuite redessinée au même mois
+    const confirmerSuppression = (liste) => fenetreSuppression(
+      liste.length === 1 ? `Supprimer la tâche « ${liste[0].Titre || 'sans titre'} » ?` : `Supprimer ${liste.length} tâches ?`,
+      [h('p', null, liste.length === 1 ? `Le ${dateHeure(liste[0].Date_debut)}.` : 'Les tâches cochées de ce mois seront supprimées de l’emploi du temps.')],
+      [['Supprimer définitivement', 'bouton-danger', () => supprimerTaches(liste.map((t) => t.id))]],
+      async () => { await recharger(); rouvrir(mois) })
     // Après un ajout ou un import : la fiche est rouverte sur cet onglet, au mois de la première nouvelle tâche
     const apresAjout = async (nouvelles) => {
       await recharger()
@@ -364,6 +373,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       rouvrir(premiere ? moisDe(premiere) : mois)
     }
     const zone = h('div', { className: 'planning' })
+    const remplir = (...parties) => zone.replaceChildren(...parties.filter((p) => p !== false && p != null))
 
     const dessiner = () => {
       const annee = mois.getFullYear()
@@ -378,14 +388,15 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       const debut = new Date(annee, m, 1 - ((new Date(annee, m, 1).getDay() + 6) % 7))
       const nbJours = Math.ceil(((new Date(annee, m + 1, 0) - debut) / 86400000 + 1) / 7) * 7
       const cases = Array.from({ length: nbJours }, (_, i) => new Date(debut.getFullYear(), debut.getMonth(), debut.getDate() + i))
-      const changer = (n) => { mois = new Date(annee, m + n, 1); dessiner() }
+      const changer = (n) => { mois = new Date(annee, m + n, 1); choisies.clear(); dessiner() }
 
-      zone.replaceChildren(
+      // Les parties absentes (false) sont ignorées : replaceChildren les écrirait en texte
+      remplir(
         h('div', { className: 'planning-haut' },
           h('button', { className: 'bouton bouton-compact', type: 'button', 'aria-label': 'Mois précédent', onClick: () => changer(-1) }, '‹'),
           h('h3', null, mois.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })),
           h('button', { className: 'bouton bouton-compact', type: 'button', 'aria-label': 'Mois suivant', onClick: () => changer(1) }, '›'),
-          h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { mois = new Date(auj.getFullYear(), auj.getMonth(), 1); dessiner() } }, 'Aujourd’hui'),
+          h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { mois = new Date(auj.getFullYear(), auj.getMonth(), 1); choisies.clear(); dessiner() } }, 'Aujourd’hui'),
           h('span', { className: 'planning-actions' },
             h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => alert(err.message)) }, 'Modèle Excel'),
             h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => ouvrirImportTaches(d, u, apresAjout) }, 'Importer des tâches'),
@@ -401,25 +412,39 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         duMois.length === 0 && taches.length > 0 && (() => {
           const precedente = [...taches].reverse().find((t) => enDate(t.Date_debut) < mois)
           const suivante = taches.find((t) => enDate(t.Date_debut) >= new Date(annee, m + 1, 1))
-          const aller = (t) => { mois = moisDe(t); dessiner() }
+          const aller = (t) => { mois = moisDe(t); choisies.clear(); dessiner() }
           const date = (t) => enDate(t.Date_debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
           return h('div', { className: 'planning-saut' },
             precedente && h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => aller(precedente) }, `‹ Tâche précédente : ${date(precedente)}`),
             suivante && h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => aller(suivante) }, `Tâche suivante : ${date(suivante)} ›`))
         })(),
+        // Suppression en masse des tâches cochées
+        duMois.length > 0 && h('div', { className: 'planning-saut' },
+          h('button', { className: 'bouton bouton-compact bouton-danger', type: 'button', disabled: choisies.size === 0,
+            onClick: () => confirmerSuppression(duMois.filter((t) => choisies.has(t.id))) },
+          `Supprimer la sélection (${choisies.size})`)),
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, TITRES_TACHES.map((t) => h('th', null, t)))),
+            h('thead', null, h('tr', null, TITRES_TACHES.map((t, i) => h('th', null, i === 0 && duMois.length > 0
+              ? h('input', { type: 'checkbox', 'aria-label': 'Tout sélectionner', checked: duMois.every((x) => choisies.has(x.id)),
+                onChange: (e) => { for (const x of duMois) e.target.checked ? choisies.add(x.id) : choisies.delete(x.id); dessiner() } })
+              : t)))),
             (() => {
               const corps = h('tbody', null, duMois.length === 0
                 ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_TACHES.length }, 'Aucune tâche ce mois-ci.'))
-                : duMois.map((t) => h('tr', null,
+                : duMois.map((t) => h('tr', { className: 'tableau-ligne', onClick: () => modifier(t) },
+                  h('td', { onClick: (e) => e.stopPropagation() },
+                    h('input', { type: 'checkbox', 'aria-label': `Sélectionner ${t.Titre || 'la tâche'}`, checked: choisies.has(t.id),
+                      onChange: (e) => { e.target.checked ? choisies.add(t.id) : choisies.delete(t.id); dessiner() } })),
                   h('td', { className: 'tableau-nom' }, dateHeure(t.Date_debut)),
                   h('td', null, dateHeure(t.Date_fin)),
                   h('td', null, emplacement(t) || '—'),
                   h('td', null, t.Titre || '—'),
                   h('td', null, t.Action || '—'),
-                  h('td', { className: 'cellule-detail' }, t.Detail || '—'))))
+                  h('td', { className: 'cellule-detail' }, t.Detail || '—'),
+                  h('td', { className: 'tableau-actions' },
+                    h('button', { className: 'bouton bouton-compact', type: 'button', onClick: (e) => { e.stopPropagation(); modifier(t) } }, 'Modifier'),
+                    h('button', { className: 'bouton bouton-compact bouton-danger', type: 'button', onClick: (e) => { e.stopPropagation(); confirmerSuppression([t]) } }, 'Supprimer')))))
               etiqueterLignes(corps, TITRES_TACHES)
               return corps
             })())))
