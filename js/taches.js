@@ -125,8 +125,8 @@ export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
       Titre: champs.Titre.trim(), Action: champs.Action.trim(), Detail: champs.Detail.trim(),
     }))
     try {
-      if (tache) await modifierTache(tache.id, taches[0], taches.slice(1))
-      else await importerTaches(taches)
+      if (tache) await modifierTache(d, tache.id, taches[0], taches.slice(1))
+      else await importerTaches(d, taches)
     } catch (err) {
       erreur.textContent = err.message || 'L’enregistrement a échoué.'
       erreur.hidden = false
@@ -341,7 +341,7 @@ export function ouvrirImportTaches(d, salarie, apres) {
       importer.textContent = 'Import en cours…'
       const taches = pretes.map((r) => r.tache)
       try {
-        await importerTaches(taches)
+        await importerTaches(d, taches)
       } catch (err) {
         erreur.textContent = err.message || 'L’import a échoué.'
         erreur.hidden = false

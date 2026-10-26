@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -267,18 +267,52 @@ export const enregistrerContrat = (id, champs) => action([id == null ? ['AddReco
 export const ajouterSuiviInsertion = (salarieId, commentaire, prive) =>
   action([['AddRecord', 'Suivi_d_insertion', null, { Salarie: salarieId, Commentaire: commentaire, Pas_visible_pour_tous: prive }]])
 
-// Tâches de l'emploi du temps importées d'un fichier, en un seul envoi ; `taches` : objets au format Grist (mêmes colonnes)
-export function importerTaches(taches) {
-  const colonnes = Object.keys(taches[0])
-  return action([['BulkAddRecord', 'Emploi_du_temps', taches.map(() => null), Object.fromEntries(colonnes.map((c) => [c, taches.map((t) => t[c])]))]])
+// Ajout groupé de lignes (objets au format Grist) dans `table` ; colonnes : celles du premier objet
+const ajoutGroupeLignes = (table, lignes) => {
+  const colonnes = Object.keys(lignes[0])
+  return ['BulkAddRecord', table, lignes.map(() => null), Object.fromEntries(colonnes.map((c) => [c, lignes.map((l) => l[c] ?? null)]))]
 }
 
-// Tâche modifiée (`id`, `champs`) et, en un seul envoi, ses copies pour d'autres salariés (`copies`, même format)
-export function modifierTache(id, champs, copies = []) {
-  const colonnes = Object.keys(champs)
-  return action([['UpdateRecord', 'Emploi_du_temps', id, champs],
-    ...(copies.length ? [['BulkAddRecord', 'Emploi_du_temps', copies.map(() => null), Object.fromEntries(colonnes.map((c) => [c, copies.map((t) => t[c])]))]] : [])])
+// Jour local d'une date Grist (secondes) : « AAAA-M-J »
+const jourDe = (s) => { const dt = new Date(s * 1000); return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}` }
+
+/**
+ * Émargements des journées touchées par des tâches enregistrées : deux par salarié et par jour, jamais en double.
+ * - Arrivée : Heure début = début de la première tâche du jour ; Départ : Heure fin = fin de la dernière (son début si elle n'a pas de fin).
+ * - État « Présent » par défaut à la création.
+ * - Un émargement qui existe déjà pour ce salarié, ce jour et ce type n'est pas recréé : son heure est seulement mise à jour
+ *   (sauf s'il est validé, auquel cas on n'y touche pas).
+ * `nouvelles` : tâches qui vont être enregistrées ; `remplacee` : tâche modifiée (son ancienne version ne compte plus).
+ */
+function actionsEmargements(d, nouvelles, remplacee = null) {
+  if (d.absentes?.has('Emargement_Salarie') || !d.Emargement_Salarie) return []
+  const journees = new Set(nouvelles.filter((t) => t.Salarie && t.Date_debut).map((t) => `${t.Salarie}|${jourDe(t.Date_debut)}`))
+  const toutes = [...d.Emploi_du_temps.filter((t) => t.id !== remplacee), ...nouvelles]
+  const misesAJour = []
+  const ajouts = []
+  for (const journee of journees) {
+    const [salarie, jour] = [Number(journee.split('|')[0]), journee.split('|')[1]]
+    const duJour = toutes.filter((t) => t.Salarie === salarie && t.Date_debut && jourDe(t.Date_debut) === jour)
+    const arrivee = Math.min(...duJour.map((t) => t.Date_debut))
+    const depart = Math.max(...duJour.map((t) => t.Date_fin || t.Date_debut))
+    for (const [type, col, heure] of [['Arrivée', 'Heure_debut', arrivee], ['Départ', 'Heure_fin', depart]]) {
+      // Même salarié, même type, même jour (un départ après minuit compte pour le jour de la tâche ou celui de son heure)
+      const existant = d.Emargement_Salarie.find((e) => e.Salarie === salarie && e.Arrivee_Depart === type && e[col]
+        && [jour, jourDe(heure)].includes(jourDe(e[col])))
+      if (!existant) ajouts.push({ Salarie: salarie, Arrivee_Depart: type, Heure_debut: null, Heure_fin: null, [col]: heure, Etat: 'Présent' })
+      else if (!existant.Emargement_valide && existant[col] !== heure) misesAJour.push(['UpdateRecord', 'Emargement_Salarie', existant.id, { [col]: heure }])
+    }
+  }
+  return [...misesAJour, ...(ajouts.length ? [ajoutGroupeLignes('Emargement_Salarie', ajouts)] : [])]
 }
+
+// Tâches ajoutées (formulaire ou import) et leurs émargements, en un seul envoi ; `taches` : objets au format Grist
+export const importerTaches = (d, taches) => action([ajoutGroupeLignes('Emploi_du_temps', taches), ...actionsEmargements(d, taches)])
+
+// Tâche modifiée (`id`, `champs`), ses copies pour d'autres salariés (`copies`, même format) et les émargements, en un seul envoi
+export const modifierTache = (d, id, champs, copies = []) => action([['UpdateRecord', 'Emploi_du_temps', id, champs],
+  ...(copies.length ? [ajoutGroupeLignes('Emploi_du_temps', copies)] : []),
+  ...actionsEmargements(d, [champs, ...copies], id)])
 
 export const supprimerTaches = (ids) => action([['BulkRemoveRecord', 'Emploi_du_temps', ids]])
 
