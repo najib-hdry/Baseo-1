@@ -1,8 +1,124 @@
-// Import de tâches en masse dans l'emploi du temps (fiche salarié) et modèle Excel à remplir.
+// Tâches de l'emploi du temps (fiche salarié) : ajout d'une tâche pour un ou plusieurs salariés,
+// import en masse et modèle Excel à remplir.
 // Le fichier (Excel ou CSV) est lu dans le navigateur ; chaque niveau d'emplacement est cherché dans son chantier
 // (les noms « Base vie 1 », « RDC »… se répètent d'un chantier à l'autre), puis un aperçu signale les erreurs ligne par ligne.
-import { h, ouvrirPanneau, etiqueterLignes } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, choixEtiquettes } from './outils.js'
 import { importerTaches, nomContact, ROLE_SALARIE } from './donnees.js'
+
+/**
+ * Formulaire « Ajouter une tâche » : la même tâche est créée pour chaque salarié choisi (le salarié de la fiche au départ).
+ * Emplacement en listes enchaînées : chaque liste ne propose que ce qui est dans le niveau choisi au-dessus, et choisir
+ * un niveau bas (vestiaire, pièce) remplit tout seul ceux au-dessus. `apres(taches)` : après l'enregistrement.
+ */
+export function ouvrirAjoutTache(d, salarie, apres) {
+  // Compte sans prénom ni nom : nom du candidat lié, sinon email
+  const nomU = (u) => {
+    const c = d.Candidats?.find((x) => x.Utilisateur === u.id)
+    return nomContact(u) || (c && nomContact(c)) || u.Email || 'Sans nom'
+  }
+  const choixSalaries = choixEtiquettes({
+    elements: () => d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && (u.Actif || u.id === salarie.id)).map((u) => ({ id: u.id, libelle: nomU(u) })),
+    choisis: [salarie.id],
+    textes: { aucun: 'Aucun salarié choisi.', choisir: 'Ajouter un salarié…', tous: 'Tous les salariés sont ajoutés', vide: 'Aucun salarié actif' },
+  })
+  const champs = { debut: '', fin: '', Titre: '', Action: '', Detail: '' }
+  const lieu = { Chantier: 0, Zone: 0, Base_vie: 0, Etage: 0, Piece: 0, Vestiaire: 0 }
+  const listes = {} // select de chaque niveau
+
+  // [colonne, table, libellé, condition par rapport aux niveaux choisis au-dessus]
+  const NIVEAUX_LIEU = [
+    ['Chantier', 'Chantiers', 'Chantier', () => true],
+    ['Zone', 'Zones', 'Zone', (r) => r.Chantier === lieu.Chantier],
+    ['Base_vie', 'Bases_vie', 'Base vie', (r) => r.Chantier === lieu.Chantier && (!lieu.Zone || r.Zone === lieu.Zone)],
+    ['Etage', 'Etages', 'Étage', (r) => r.Chantier === lieu.Chantier && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
+    ['Piece', 'Pieces', 'Pièce', (r) => r.Chantier === lieu.Chantier && (!lieu.Etage || r.Etage === lieu.Etage) && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
+    ['Vestiaire', 'Vestiaires', 'Vestiaire', (r) => r.Chantier === lieu.Chantier && (!lieu.Etage || r.Etage === lieu.Etage) && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
+  ]
+  // Libellé d'une option : le nom, avec le niveau au-dessus quand le nom se répète (« RDC · Base vie 2 »)
+  const libelleLieu = (r, lignes) => {
+    if (lignes.filter((x) => x.Nom === r.Nom).length < 2) return r.Nom || 'Sans nom'
+    const parent = r.Etage ? d.parId.Etages.get(r.Etage)?.Nom : r.Base_vie ? d.parId.Bases_vie.get(r.Base_vie)?.Nom : r.Zone ? d.parId.Zones.get(r.Zone)?.Nom : ''
+    return [r.Nom, parent].filter(Boolean).join(' · ')
+  }
+  const dessinerListes = () => {
+    for (const [col, table, , condition] of NIVEAUX_LIEU) {
+      const lignes = col !== 'Chantier' && !lieu.Chantier ? [] : (d[table] ?? []).filter(condition)
+        .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr', { numeric: true }))
+      if (lieu[col] && !lignes.some((r) => r.id === lieu[col])) lieu[col] = 0 // n'est plus dans le niveau au-dessus
+      listes[col].replaceChildren(h('option', { value: '0', selected: !lieu[col] }, col === 'Chantier' ? '— Aucun —' : '— Tous / aucun —'),
+        lignes.map((r) => h('option', { value: String(r.id), selected: r.id === lieu[col] }, libelleLieu(r, lignes))))
+      listes[col].disabled = col !== 'Chantier' && !lieu.Chantier
+    }
+  }
+  const choisir = (col, table, id) => {
+    lieu[col] = id
+    const r = id && d.parId[table].get(id)
+    // Un niveau bas choisi remplit ceux au-dessus ; un niveau haut changé vide ceux en dessous qui n'en font plus partie
+    if (r) {
+      if (r.Etage) lieu.Etage = r.Etage
+      if (r.Base_vie) lieu.Base_vie = r.Base_vie
+      if (lieu.Base_vie) lieu.Zone = d.parId.Bases_vie.get(lieu.Base_vie)?.Zone || lieu.Zone
+    }
+    dessinerListes()
+  }
+  for (const [col, table] of NIVEAUX_LIEU) {
+    listes[col] = h('select', { className: 'champ', onChange: (e) => choisir(col, table, Number(e.target.value) || 0) })
+  }
+  dessinerListes()
+
+  const erreur = h('p', { className: 'erreur', hidden: true })
+  const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Ajouter la tâche')
+  const texte = (libelle, col, attributs = {}) => h('label', { className: 'champ-groupe' }, libelle,
+    h('input', { className: 'champ', autocomplete: 'off', value: champs[col], ...attributs, onInput: (e) => { champs[col] = e.target.value } }))
+  const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+    e.preventDefault()
+    erreur.hidden = true
+    const ids = choixSalaries.ids()
+    const debut = champs.debut ? new Date(champs.debut) : null
+    const fin = champs.fin ? new Date(champs.fin) : null
+    const probleme = ids.length === 0 ? 'Choisis au moins un salarié.'
+      : !debut ? 'La date de début est obligatoire.'
+        : !champs.Titre.trim() ? 'Le titre de la tâche est obligatoire.'
+          : fin && fin < debut ? 'La date de fin est avant la date de début.' : null
+    if (probleme) {
+      erreur.textContent = probleme
+      erreur.hidden = false
+      return
+    }
+    valider.disabled = true
+    valider.textContent = 'Enregistrement…'
+    // Une ligne par salarié, en un seul envoi
+    const taches = ids.map((id) => ({
+      Salarie: id, Date_debut: debut.getTime() / 1000, Date_fin: fin ? fin.getTime() / 1000 : null, ...lieu,
+      Titre: champs.Titre.trim(), Action: champs.Action.trim(), Detail: champs.Detail.trim(),
+    }))
+    try {
+      await importerTaches(taches)
+    } catch (err) {
+      erreur.textContent = err.message || 'L’enregistrement a échoué.'
+      erreur.hidden = false
+      valider.disabled = false
+      valider.textContent = 'Ajouter la tâche'
+      return
+    }
+    fermer()
+    await apres(taches).catch((err) => alert(`La tâche est enregistrée, mais l’affichage n’a pas pu être mis à jour : ${err.message}`))
+  } },
+  h('div', { className: 'champ-groupe' }, 'Salariés (la tâche est créée pour chacun)', choixSalaries.element),
+  h('div', { className: 'grille-2' },
+    texte('Date et heure de début *', 'debut', { type: 'datetime-local', required: true }),
+    texte('Date et heure de fin', 'fin', { type: 'datetime-local' })),
+  texte('Titre de tâche *', 'Titre', { required: true }),
+  texte('Action', 'Action'),
+  h('label', { className: 'champ-groupe' }, 'Détail',
+    h('textarea', { className: 'champ champ-texte', onInput: (e) => { champs.Detail = e.target.value } })),
+  h('fieldset', { className: 'bloc-lieu' }, h('legend', null, 'Emplacement (facultatif)'),
+    h('div', { className: 'grille-2' }, NIVEAUX_LIEU.map(([col, , libelle]) => h('label', { className: 'champ-groupe' }, libelle, listes[col])))),
+  erreur, valider)
+
+  const { fermer, section } = ouvrirPanneau('Ajouter une tâche', formulaire)
+  section.classList.add('panneau-large')
+}
 
 // Lecteur Excel (SheetJS), chargé seulement quand on importe ou télécharge le modèle
 const URL_XLSX = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'

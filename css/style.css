@@ -526,6 +526,8 @@ button.tiroir-lien.active { background: var(--signal); }
 .cellule-detail { white-space: pre-wrap; }
 .planning-actions { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 .planning-saut { display: flex; gap: 8px; flex-wrap: wrap; }
+.bloc-lieu { display: grid; gap: 10px; margin: 0; padding: 12px 14px; border: 1px solid #d7dce1; border-radius: 8px; }
+.bloc-lieu legend { padding: 0 6px; font-weight: 700; }
 /* Aperçu de l'import : lignes en erreur en rouge pâle */
 .ligne-erreur td { background: #fdecea; }
 .erreur-import { color: var(--hs); font-weight: 600; }

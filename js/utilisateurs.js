@@ -4,7 +4,7 @@
 // détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ; compte).
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
-import { ouvrirImportTaches, telechargerModeleTaches } from './taches.js'
+import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache } from './taches.js'
 import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
@@ -357,6 +357,12 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const auj = new Date()
     let mois = moisInitial ?? new Date(auj.getFullYear(), auj.getMonth(), 1)
     const moisDe = (t) => { const dt = enDate(t.Date_debut); return new Date(dt.getFullYear(), dt.getMonth(), 1) }
+    // Après un ajout ou un import : la fiche est rouverte sur cet onglet, au mois de la première nouvelle tâche
+    const apresAjout = async (nouvelles) => {
+      await recharger()
+      const premiere = [...nouvelles].sort((a, b) => a.Date_debut - b.Date_debut)[0]
+      rouvrir(premiere ? moisDe(premiere) : mois)
+    }
     const zone = h('div', { className: 'planning' })
 
     const dessiner = () => {
@@ -382,12 +388,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { mois = new Date(auj.getFullYear(), auj.getMonth(), 1); dessiner() } }, 'Aujourd’hui'),
           h('span', { className: 'planning-actions' },
             h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => alert(err.message)) }, 'Modèle Excel'),
-            // Après l'import : la fiche est rouverte sur cet onglet, avec les nouvelles tâches
-            h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => ouvrirImportTaches(d, u, async (importees) => {
-              await recharger()
-              const premiere = [...importees].sort((a, b) => a.Date_debut - b.Date_debut)[0]
-              rouvrir(premiere ? moisDe(premiere) : mois)
-            }) }, 'Importer des tâches'))),
+            h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => ouvrirImportTaches(d, u, apresAjout) }, 'Importer des tâches'),
+            h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => ouvrirAjoutTache(d, u, apresAjout) }, '＋ Ajouter une tâche'))),
         h('div', { className: 'calendrier' },
           JOURS.map((j) => h('div', { className: 'calendrier-jour-nom' }, j)),
           cases.map((jour) => h('div', { className: `calendrier-case${jour.getMonth() !== m ? ' hors-mois' : ''}${cleJour(jour) === cleJour(auj) ? ' aujourdhui' : ''}` },
