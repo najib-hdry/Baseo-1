@@ -17,7 +17,8 @@ const versSaisie = (v) => {
  * Fiche d'une tâche : ajout (`tache` absente) ou modification. À l'ajout, la même tâche est créée pour chaque salarié choisi
  * (le salarié de la fiche au départ) ; en modification, le premier salarié garde la tâche et les autres en reçoivent une copie.
  * Emplacement en listes enchaînées : chaque liste ne propose que ce qui est dans le niveau choisi au-dessus, et choisir
- * un niveau bas (vestiaire, pièce) remplit tout seul ceux au-dessus. `apres(taches)` : après l'enregistrement.
+ * un niveau bas (vestiaire, pièce) remplit tout seul ceux au-dessus. « Tous » à un niveau (toutes les bases vie…) bloque
+ * et vide les niveaux en dessous. `apres(taches)` : après l'enregistrement.
  */
 export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
   // Compte sans prénom ni nom : nom du candidat lié, sinon email
@@ -34,16 +35,26 @@ export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
   const lieu = { Chantier: 0, Zone: 0, Base_vie: 0, Etage: 0, Piece: 0, Vestiaire: 0 }
   if (tache) for (const col of Object.keys(lieu)) lieu[col] = Number(tache[col]) || 0
   const listes = {} // select de chaque niveau
+  const tous = new Set() // niveaux réglés sur « Tous » : ceux en dessous sont bloqués (enregistrés vides, comme « Choisir »)
 
-  // [colonne, table, libellé, condition par rapport aux niveaux choisis au-dessus]
+  // [colonne, table, libellé, profondeur, texte « Tous », condition par rapport aux niveaux choisis au-dessus]
+  // Pièce et vestiaire sont au même niveau, sous l'étage
   const NIVEAUX_LIEU = [
-    ['Chantier', 'Chantiers', 'Chantier', () => true],
-    ['Zone', 'Zones', 'Zone', (r) => r.Chantier === lieu.Chantier],
-    ['Base_vie', 'Bases_vie', 'Base vie', (r) => r.Chantier === lieu.Chantier && (!lieu.Zone || r.Zone === lieu.Zone)],
-    ['Etage', 'Etages', 'Étage', (r) => r.Chantier === lieu.Chantier && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
-    ['Piece', 'Pieces', 'Pièce', (r) => r.Chantier === lieu.Chantier && (!lieu.Etage || r.Etage === lieu.Etage) && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
-    ['Vestiaire', 'Vestiaires', 'Vestiaire', (r) => r.Chantier === lieu.Chantier && (!lieu.Etage || r.Etage === lieu.Etage) && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
+    ['Chantier', 'Chantiers', 'Chantier', 0, '', () => true],
+    ['Zone', 'Zones', 'Zone', 1, 'Toutes les zones', (r) => r.Chantier === lieu.Chantier],
+    ['Base_vie', 'Bases_vie', 'Base vie', 2, 'Toutes les bases vie', (r) => r.Chantier === lieu.Chantier && (!lieu.Zone || r.Zone === lieu.Zone)],
+    ['Etage', 'Etages', 'Étage', 3, 'Tous les étages', (r) => r.Chantier === lieu.Chantier && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
+    ['Piece', 'Pieces', 'Pièce', 4, 'Toutes les pièces', (r) => r.Chantier === lieu.Chantier && (!lieu.Etage || r.Etage === lieu.Etage) && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
+    ['Vestiaire', 'Vestiaires', 'Vestiaire', 4, 'Tous les vestiaires', (r) => r.Chantier === lieu.Chantier && (!lieu.Etage || r.Etage === lieu.Etage) && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
   ]
+  const profondeur = Object.fromEntries(NIVEAUX_LIEU.map(([col, , , p]) => [col, p]))
+  // Bloqué : pas de chantier, ou un niveau au-dessus réglé sur « Tous »
+  const bloque = (col) => col !== 'Chantier' && (!lieu.Chantier || [...tous].some((t) => profondeur[t] < profondeur[col]))
+  // Fiche d'une tâche existante : le premier niveau vide sous le plus bas rempli s'affiche « Tous » (la tâche couvre tout ce niveau)
+  if (tache && lieu.Chantier) {
+    const premierVide = ['Zone', 'Base_vie', 'Etage'].find((col, i, cols) => !lieu[col] && cols.slice(i).every((c) => !lieu[c]) && !lieu.Piece && !lieu.Vestiaire)
+    if (premierVide) tous.add(premierVide)
+  }
   // Libellé d'une option : le nom, avec le niveau au-dessus quand le nom se répète (« RDC · Base vie 2 »)
   const libelleLieu = (r, lignes) => {
     if (lignes.filter((x) => x.Nom === r.Nom).length < 2) return r.Nom || 'Sans nom'
@@ -51,28 +62,38 @@ export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
     return [r.Nom, parent].filter(Boolean).join(' · ')
   }
   const dessinerListes = () => {
-    for (const [col, table, , condition] of NIVEAUX_LIEU) {
-      const lignes = col !== 'Chantier' && !lieu.Chantier ? [] : (d[table] ?? []).filter(condition)
+    for (const [col, table, , , texteTous, condition] of NIVEAUX_LIEU) {
+      const ferme = bloque(col)
+      if (ferme) { lieu[col] = 0; tous.delete(col) } // bloqué : vidé
+      const lignes = ferme ? [] : (d[table] ?? []).filter(condition)
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr', { numeric: true }))
       if (lieu[col] && !lignes.some((r) => r.id === lieu[col])) lieu[col] = 0 // n'est plus dans le niveau au-dessus
-      listes[col].replaceChildren(h('option', { value: '0', selected: !lieu[col] }, col === 'Chantier' ? '— Aucun —' : '— Tous / aucun —'),
-        ...lignes.map((r) => h('option', { value: String(r.id), selected: r.id === lieu[col] }, libelleLieu(r, lignes))))
-      listes[col].disabled = col !== 'Chantier' && !lieu.Chantier
+      const valeur = tous.has(col) ? 'tous' : String(lieu[col] || '')
+      listes[col].replaceChildren(
+        h('option', { value: '', selected: valeur === '' }, col === 'Chantier' ? '— Aucun —' : '— Choisir —'),
+        ...(col === 'Chantier' || ferme ? [] : [h('option', { value: 'tous', selected: valeur === 'tous' }, texteTous)]),
+        ...lignes.map((r) => h('option', { value: String(r.id), selected: String(r.id) === valeur }, libelleLieu(r, lignes))))
+      listes[col].disabled = ferme
     }
   }
-  const choisir = (col, table, id) => {
+  const choisir = (col, table, valeur) => {
+    if (col === 'Chantier') tous.clear()
+    if (valeur === 'tous') { tous.add(col); lieu[col] = 0; dessinerListes(); return }
+    tous.delete(col)
+    const id = Number(valeur) || 0
     lieu[col] = id
     const r = id && d.parId[table].get(id)
-    // Un niveau bas choisi remplit ceux au-dessus ; un niveau haut changé vide ceux en dessous qui n'en font plus partie
+    // Un niveau bas choisi remplit ceux au-dessus (qui ne sont alors plus sur « Tous ») ;
+    // un niveau haut changé vide ceux en dessous qui n'en font plus partie
     if (r) {
-      if (r.Etage) lieu.Etage = r.Etage
-      if (r.Base_vie) lieu.Base_vie = r.Base_vie
-      if (lieu.Base_vie) lieu.Zone = d.parId.Bases_vie.get(lieu.Base_vie)?.Zone || lieu.Zone
+      if (r.Etage) { lieu.Etage = r.Etage; tous.delete('Etage') }
+      if (r.Base_vie) { lieu.Base_vie = r.Base_vie; tous.delete('Base_vie') }
+      if (lieu.Base_vie) { lieu.Zone = d.parId.Bases_vie.get(lieu.Base_vie)?.Zone || lieu.Zone; if (lieu.Zone) tous.delete('Zone') }
     }
     dessinerListes()
   }
   for (const [col, table] of NIVEAUX_LIEU) {
-    listes[col] = h('select', { className: 'champ', onChange: (e) => choisir(col, table, Number(e.target.value) || 0) })
+    listes[col] = h('select', { className: 'champ', onChange: (e) => choisir(col, table, e.target.value) })
   }
   dessinerListes()
 
