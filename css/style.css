@@ -696,9 +696,10 @@ body.synchro .entete::after {
     background: var(--baseo-vert); border: 2px solid var(--baseo-bordure); border-radius: 18px;
   }
   .menu-logo { width: 150px; margin: 0 auto 24px; color: var(--baseo-fonce); }
-  .menu-liens { flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 4px; padding-right: 4px;
+  /* Colonne qui défile ; les liens ne rétrécissent jamais (un libellé sur 3 lignes ne déborde pas sur le suivant) */
+  .menu-liens { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px;
     scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .6) transparent; }
-  .menu-lateral .tiroir-lien { min-height: 50px; padding: 0 12px; color: #fff; border: 1px solid transparent; }
+  .menu-lateral .tiroir-lien { flex: none; min-height: 50px; padding: 6px 12px; line-height: 1.25; color: #fff; border: 1px solid transparent; }
   .menu-lateral .tiroir-icone { width: 26px; color: #fff; background: transparent; }
   .menu-lateral .tiroir-lien:hover { background: rgba(255, 255, 255, .1); }
   .menu-lateral .tiroir-lien.active { color: var(--baseo-fonce); background: #fff; border-color: var(--baseo-bordure); }
