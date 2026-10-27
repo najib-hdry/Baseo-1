@@ -174,12 +174,16 @@ const COLONNES_IMPORT = [
   ['Action', 'Action', []],
   ['Detail', 'Détail', []],
 ]
-// Niveaux d'emplacement sous le chantier, du plus haut au plus bas : [colonne, table, libellé]
-const NIVEAUX = [['Zone', 'Zones', 'Zone'], ['Base_vie', 'Bases_vie', 'Base vie'], ['Etage', 'Etages', 'Étage'], ['Piece', 'Pieces', 'Pièce'], ['Vestiaire', 'Vestiaires', 'Vestiaire']]
+// Niveaux d'emplacement sous le chantier, du plus haut au plus bas : [colonne, table, libellé, niveau parent]
+// Pièce et vestiaire sont au même niveau, sous l'étage
+const NIVEAUX = [['Zone', 'Zones', 'Zone', 'Chantier'], ['Base_vie', 'Bases_vie', 'Base vie', 'Zone'], ['Etage', 'Etages', 'Étage', 'Base_vie'],
+  ['Piece', 'Pieces', 'Pièce', 'Etage'], ['Vestiaire', 'Vestiaires', 'Vestiaire', 'Etage']]
+const LIBELLES_LIEU = { Chantier: 'le chantier', Zone: 'la zone', Base_vie: 'la base vie', Etage: 'l’étage' }
 // Sans accents, en minuscules, ponctuation réduite à des espaces : « Base-vie » = « base vie »
 const normaliser = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9@.+]+/g, ' ').trim()
 
 // Date et heure d'une cellule : nombre Excel, ou texte « JJ/MM/AAAA HH:MM » ou « AAAA-MM-JJ HH:MM » → Date locale
+// (null si vide, undefined si illisible ; rien ne doit suivre l'heure, secondes mises à part)
 function lireDate(v) {
   if (v === '' || v == null) return null
   if (typeof v === 'number') {
@@ -188,21 +192,31 @@ function lireDate(v) {
     return new Date(jour.getUTCFullYear(), jour.getUTCMonth(), jour.getUTCDate(), Math.floor(minutes / 60), minutes % 60)
   }
   const t = String(v).trim()
-  let m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:[ T]+(\d{1,2})[:hH](\d{2}))?/)
-  if (m) return valide(new Date(+m[3], +m[2] - 1, +m[1], +(m[4] ?? 0), +(m[5] ?? 0)), +m[1], +m[2])
-  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]+(\d{1,2}):(\d{2}))?/)
-  if (m) return valide(new Date(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0)), +m[3], +m[2])
+  let m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:[ T]+(\d{1,2})[:hH](\d{2})(?::\d{2})?)?$/)
+  if (m) return valide(+m[3], +m[2], +m[1], +(m[4] ?? 0), +(m[5] ?? 0))
+  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]+(\d{1,2}):(\d{2})(?::\d{2})?)?$/)
+  if (m) return valide(+m[1], +m[2], +m[3], +(m[4] ?? 0), +(m[5] ?? 0))
   return undefined // texte non reconnu
 }
-// 31/02 devient le 3 mars en JavaScript : on refuse
-const valide = (dt, jour, mois) => (dt.getDate() === jour && dt.getMonth() === mois - 1 ? dt : undefined)
+// 31/02 deviendrait le 3 mars et 25:00 le lendemain en JavaScript : on refuse
+function valide(annee, mois, jour, heure, minute) {
+  if (heure > 23 || minute > 59) return undefined
+  const dt = new Date(annee, mois - 1, jour, heure, minute)
+  return dt.getDate() === jour && dt.getMonth() === mois - 1 ? dt : undefined
+}
 // Mois en toutes lettres : une date inversée par Excel (05/11 compris comme le 11 mai) se voit tout de suite dans l'aperçu
 const texteDate = (dt) => dt.toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 // Lignes du premier onglet (« Tâches » s'il existe) : la ligne de titres est la première qui contient « Date début »
 async function lireFichier(fichier) {
   const XLSX = await chargerXlsx()
-  const classeur = XLSX.read(await fichier.arrayBuffer(), { type: 'array', raw: true }) // raw : les dates en texte du CSV restent du texte
+  const octets = await fichier.arrayBuffer()
+  // CSV : décodé ici, en UTF-8 (avec ou sans BOM) ou, à défaut, en Windows-1252 (CSV d'Excel « ANSI »), pour garder les accents
+  const csv = /\.(csv|txt)$/i.test(fichier.name)
+  let texteCsv = null
+  if (csv) try { texteCsv = new TextDecoder('utf-8', { fatal: true }).decode(octets) } catch { texteCsv = new TextDecoder('windows-1252').decode(octets) }
+  // raw : les dates en texte du CSV restent du texte
+  const classeur = csv ? XLSX.read(texteCsv, { type: 'string', raw: true }) : XLSX.read(octets, { type: 'array', raw: true })
   const feuille = classeur.Sheets[classeur.SheetNames.find((n) => normaliser(n) === 'taches') ?? classeur.SheetNames[0]]
   const lignes = XLSX.utils.sheet_to_json(feuille, { header: 1, raw: true, defval: '' })
   const iTitres = lignes.findIndex((l) => l.some((c) => normaliser(c) === 'date debut'))
@@ -216,8 +230,8 @@ async function lireFichier(fichier) {
 }
 
 /**
- * Ligne du fichier → tâche Grist, ou liste d'erreurs. Chaque niveau est cherché par son nom parmi ceux du chantier
- * (et du niveau au-dessus s'il est donné) ; un niveau trouvé complète ceux au-dessus (un vestiaire donne son étage, sa base vie, sa zone).
+ * Ligne du fichier → tâche Grist, ou liste d'erreurs. L'emplacement se lit de haut en bas : chaque niveau est cherché
+ * par son nom dans le niveau au-dessus ; une case vide veut dire « tout ce niveau » et les cases en dessous doivent être vides.
  */
 function analyserLigne(d, l, salarieParDefaut) {
   const erreurs = []
@@ -238,44 +252,27 @@ function analyserLigne(d, l, salarieParDefaut) {
 
   // Emplacement
   const lieu = { Chantier: 0, Zone: 0, Base_vie: 0, Etage: 0, Piece: 0, Vestiaire: 0 }
+  const nomsEgaux = (r, col) => normaliser(r.Nom) === normaliser(texte(col))
   if (!texte('Chantier') && NIVEAUX.some(([n]) => texte(n))) erreurs.push('Chantier manquant : il faut le chantier pour retrouver l’emplacement')
   else if (texte('Chantier')) {
-    const nomsEgaux = (r, col) => normaliser(r.Nom) === normaliser(texte(col))
-    const chantiers = d.Chantiers.filter((c) => nomsEgaux(c, 'Chantier'))
-    if (chantiers.length !== 1) erreurs.push(chantiers.length ? `Chantier « ${texte('Chantier')} » en double` : `Chantier « ${texte('Chantier')} » introuvable`)
+    const chantier = d.Chantiers.find((c) => nomsEgaux(c, 'Chantier'))
+    if (!chantier) erreurs.push(`Chantier « ${texte('Chantier')} » introuvable`)
     else {
-      lieu.Chantier = chantiers[0].id
-      const nomChantier = chantiers[0].Nom
-      // Ancêtres d'une ligne (zone, base vie, étage) pour vérifier que les niveaux donnés vont ensemble
-      const ancetres = (r) => {
-        const base = r.Base_vie ? d.parId.Bases_vie.get(r.Base_vie) : null
-        return { Zone: r.Zone ?? base?.Zone ?? 0, Base_vie: r.Base_vie ?? 0, Etage: r.Etage ?? 0 }
-      }
-      // Candidats de chaque niveau rempli : même nom, même chantier
-      const candidats = Object.fromEntries(NIVEAUX.filter(([n]) => texte(n)).map(([n, table]) =>
-        [n, (d[table] ?? []).filter((r) => r.Chantier === lieu.Chantier && nomsEgaux(r, n))]))
-      const introuvables = new Set(Object.keys(candidats).filter((n) => candidats[n].length === 0))
-      // Les niveaux se départagent entre eux (le vestiaire « V-1 » désigne le bon « RDC ») : on garde les combinaisons cohérentes
-      for (let passe = 0; passe < 2; passe++) {
-        for (const [haut] of NIVEAUX) for (const [bas] of NIVEAUX) {
-          if (haut === bas || !candidats[haut] || !candidats[bas] || !['Zone', 'Base_vie', 'Etage'].includes(haut)) continue
-          if (NIVEAUX.findIndex(([n]) => n === haut) >= NIVEAUX.findIndex(([n]) => n === bas)) continue
-          const ids = new Set(candidats[haut].map((r) => r.id))
-          candidats[bas] = candidats[bas].filter((r) => ids.has(ancetres(r)[haut]))
-          candidats[haut] = candidats[haut].filter((h) => candidats[bas].some((r) => ancetres(r)[haut] === h.id))
+      lieu.Chantier = chantier.id
+      const trouves = { Chantier: chantier }
+      let vide = null // premier niveau laissé vide (« tout ce niveau ») : ceux en dessous doivent l'être aussi
+      for (const [n, table, libelle, parent] of NIVEAUX) {
+        if (!texte(n)) {
+          if (n !== 'Piece' && n !== 'Vestiaire') vide ??= n
+          continue
         }
-      }
-      for (const [n, , libelle] of NIVEAUX) {
-        if (!candidats[n]) continue
-        if (introuvables.has(n)) erreurs.push(`${libelle} « ${texte(n)} » introuvable dans ${nomChantier}`)
-        else if (candidats[n].length === 0) erreurs.push(`${libelle} « ${texte(n)} » ne correspond pas aux autres niveaux de la ligne`)
-        else if (candidats[n].length > 1) erreurs.push(`${libelle} « ${texte(n)} » existe plusieurs fois dans ${nomChantier} : précise le niveau au-dessus`)
-        else lieu[n] = candidats[n][0].id
-      }
-      // Niveaux au-dessus complétés à partir du plus bas trouvé (un vestiaire donne son étage, sa base vie, sa zone)
-      if (erreurs.length === 0) {
-        const plusBas = [...NIVEAUX].reverse().map(([n, table]) => lieu[n] && d.parId[table].get(lieu[n])).find(Boolean)
-        if (plusBas) for (const [n, valeur] of Object.entries(ancetres(plusBas))) if (!lieu[n]) lieu[n] = valeur || 0
+        if (vide) { erreurs.push(`${libelle} « ${texte(n)} » rempli alors que ${LIBELLES_LIEU[vide]} est vide (= tout ce niveau) : vide la case ${libelle} ou remplis ${LIBELLES_LIEU[vide]}`); break }
+        if (n === 'Vestiaire' && lieu.Piece) { erreurs.push('Pièce et vestiaire remplis tous les deux : garde l’un ou l’autre'); break }
+        const dans = `dans ${LIBELLES_LIEU[parent]} « ${trouves[parent].Nom} »`
+        const lignes = (d[table] ?? []).filter((r) => r[parent] === lieu[parent] && nomsEgaux(r, n))
+        if (lignes.length !== 1) { erreurs.push(`${libelle} « ${texte(n)} » ${lignes.length ? 'existe plusieurs fois' : 'introuvable'} ${dans}`); break }
+        lieu[n] = lignes[0].id
+        trouves[n] = lignes[0]
       }
     }
   }
@@ -397,9 +394,10 @@ export async function telechargerModeleTaches(d) {
     ['Si tu colles des dates venant d’ailleurs, vérifie l’aperçu : il écrit le mois en toutes lettres (Excel inverse parfois jour et mois).'],
     ['Titre de tâche : obligatoire.'],
     ['Salarié (email) : laisser vide pour le salarié dont la fiche est ouverte ; sinon l’email de son compte (onglet « Salariés »).'],
-    ['Emplacement : le chantier est obligatoire si un niveau est rempli. Recopier les noms exacts de l’onglet « Emplacements ».'],
-    ['Les niveaux au-dessus sont complétés tout seuls : un vestiaire suffit à retrouver son étage, sa base vie et sa zone.'],
-    ['Si un nom existe plusieurs fois dans le chantier (« RDC »…), remplir aussi le niveau au-dessus (base vie, étage).'],
+    ['Emplacement : le chantier est obligatoire si un niveau est rempli. Recopier les noms exacts de l’onglet « Emplacements », de gauche à droite.'],
+    ['Chaque niveau est cherché dans celui de gauche : zone dans le chantier, base vie dans la zone, étage dans la base vie, pièce ou vestiaire dans l’étage.'],
+    ['Une case vide veut dire « tout ce niveau » : zone vide = tout le chantier, base vie vide = toute la zone, étage vide = toute la base vie, pièce et vestiaire vides = tout l’étage.'],
+    ['Après une case vide, les cases à droite doivent rester vides. Remplir la pièce ou le vestiaire, pas les deux.'],
     ['Avant l’enregistrement, l’application montre un aperçu : les lignes en erreur ne sont pas importées.'],
   ])
   aide['!cols'] = [{ wch: 120 }]
