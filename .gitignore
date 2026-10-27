@@ -3,3 +3,10 @@ node_modules
 
 # Carte graphify (décrit aussi docs/, ne pas publier)
 graphify-out/
+
+# Fichiers locaux, jamais publiés (Baseo-1 est public) : documentation interne, réglages de l’éditeur et de Claude Code
+docs/
+.vscode/
+.claude/
+CLAUDE.md
+.graphifyignore
