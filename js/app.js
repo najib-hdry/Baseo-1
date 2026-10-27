@@ -128,8 +128,8 @@ function afficherPage() {
   iconeTitre.replaceChildren(icone(infos.icone, 24))
   dessinerMenuLateral() // page active et pages visibles (admin) à jour
   if (donnees && !donnees.moi) {
-    principal.replaceChildren(h('h1', null, 'Accès non configuré'),
-      h('p', { className: 'message' }, 'Ton compte n’a pas encore de profil actif dans l’application. Demande à l’administrateur de t’ajouter dans la table Utilisateurs.'))
+    principal.replaceChildren(h('h1', null, donnees.refus ? 'Profil non vérifié' : 'Accès non configuré'),
+      h('p', { className: 'message' }, donnees.refus ?? 'Ton compte n’a pas encore de profil actif dans l’application. Demande à l’administrateur de t’ajouter dans la table Utilisateurs.'))
     return
   }
   // Avant le premier chargement : un message plutôt qu'une page vide

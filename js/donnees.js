@@ -11,21 +11,23 @@ function enLignes(table) {
   return table.id.map((_, i) => Object.fromEntries(Object.keys(table).map((col) => [col, table[col][i]])))
 }
 
-// Profil de la personne connectée : { profil: 'Admin' | 'Chef d’équipe' | 'Salarié' | 'RH' | 'CIP' | 'Client', nom }
-// (colonne Utilisateurs.Profil, libellé « Rôle ») ou null si aucun accès.
-// - Acces_complet n'est lisible que par les admins (règles d'accès).
+// Profil de la personne connectée : { profil: 'Admin' | 'Chef d’équipe' | 'Salarié' | 'RH' | 'CIP' | 'Client', nom },
+// { refus: message } si le profil ne peut pas être vérifié, ou null si aucun accès.
+// - Acces_complet n'est lisible que par les admins (règles d'accès) : seule source du profil Admin.
 // - Utilisateurs ne montre à chacun que sa propre ligne.
-// - Document sans table Utilisateurs (plus ancien) : tout le monde garde l'accès complet.
+// - Une erreur de lecture ne donne jamais l'accès : un second essai, puis un message.
 async function lireProfil() {
   const admin = await grist.docApi.fetchTable('Acces_complet').then((t) => t.id.length > 0).catch(() => false)
   if (admin) return { profil: 'Admin', nom: null }
+  const lire = () => grist.docApi.fetchTable('Utilisateurs')
   let lignes
   try {
-    lignes = enLignes(await grist.docApi.fetchTable('Utilisateurs'))
+    lignes = enLignes(await lire().catch(lire))
   } catch {
-    return { profil: 'Admin', nom: null }
+    return { refus: 'Impossible de vérifier ton profil. Recharge la page ; si le message reste, demande à l’administrateur de vérifier ton accès.' }
   }
-  const moi = lignes.length === 1 && lignes[0].Actif ? lignes[0] : null
+  if (lignes.length > 1) return { refus: 'Les règles d’accès de la table Utilisateurs sont à corriger : chacun ne doit voir que sa propre ligne. Préviens l’administrateur.' }
+  const moi = lignes[0]?.Actif ? lignes[0] : null
   return moi?.Profil ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null } : null
 }
 
@@ -37,7 +39,7 @@ export const estAdmin = (d) => d?.moi?.profil === 'Admin'
 // Charge toutes les tables et prépare les index utiles aux écrans ; `moi` null = pas d'accès
 export async function chargerTout() {
   const moi = await lireProfil()
-  if (!moi) return { moi: null }
+  if (!moi?.profil) return { moi: null, refus: moi?.refus }
   const absentes = new Set()
   const brutes = await Promise.all(TABLES.map((t) => grist.docApi.fetchTable(t).catch((e) => {
     if (!OPTIONNELLES.includes(t)) throw e
