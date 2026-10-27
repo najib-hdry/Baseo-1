@@ -277,6 +277,8 @@ const ajoutGroupeLignes = (table, lignes) => {
 
 // Jour local d'une date Grist (secondes) : « AAAA-M-J »
 const jourDe = (s) => { const dt = new Date(s * 1000); return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}` }
+// Journée d'une tâche : « salarié|AAAA-M-J »
+const journeeDe = (t) => `${t.Salarie}|${jourDe(t.Date_debut)}`
 
 /**
  * Émargements des journées touchées par des tâches enregistrées : deux par salarié et par jour, jamais en double.
@@ -285,13 +287,17 @@ const jourDe = (s) => { const dt = new Date(s * 1000); return `${dt.getFullYear(
  * - Un émargement qui existe déjà pour ce salarié, ce jour et ce type n'est pas recréé : son heure est seulement mise à jour
  *   (sauf s'il est validé, auquel cas on n'y touche pas).
  * `nouvelles` : tâches qui vont être enregistrées ; `remplacee` : tâche modifiée (son ancienne version ne compte plus).
+ * `deplaces` : émargements de l'ancienne journée de la tâche modifiée, déplacés sur la journée de `nouvelles[0]`
+ * au lieu d'en créer de nouveaux ; ceux qui feraient doublon (la journée en a déjà un du même type) sont supprimés.
  */
-function actionsEmargements(d, nouvelles, remplacee = null) {
+function actionsEmargements(d, nouvelles, remplacee = null, deplaces = []) {
   if (d.absentes?.has('Emargement_Salarie') || !d.Emargement_Salarie) return []
   const journees = new Set(nouvelles.filter((t) => t.Salarie && t.Date_debut).map((t) => `${t.Salarie}|${jourDe(t.Date_debut)}`))
   const toutes = [...d.Emploi_du_temps.filter((t) => t.id !== remplacee), ...nouvelles]
   const misesAJour = []
   const ajouts = []
+  const restants = [...deplaces] // pas encore déplacés
+  const journeeDeplacee = nouvelles[0]?.Salarie && nouvelles[0]?.Date_debut ? journeeDe(nouvelles[0]) : null
   for (const journee of journees) {
     const [salarie, jour] = [Number(journee.split('|')[0]), journee.split('|')[1]]
     const duJour = toutes.filter((t) => t.Salarie === salarie && t.Date_debut && jourDe(t.Date_debut) === jour)
@@ -301,22 +307,75 @@ function actionsEmargements(d, nouvelles, remplacee = null) {
       // Même salarié, même type, même jour (un départ après minuit compte pour le jour de la tâche ou celui de son heure)
       const existant = d.Emargement_Salarie.find((e) => e.Salarie === salarie && e.Arrivee_Depart === type && e[col]
         && [jour, jourDe(heure)].includes(jourDe(e[col])))
-      if (!existant) ajouts.push({ Salarie: salarie, Arrivee_Depart: type, Heure_debut: null, Heure_fin: null, [col]: heure, Etat: 'Présent' })
+      if (existant && restants.includes(existant)) restants.splice(restants.indexOf(existant), 1) // déjà sur la nouvelle journée
+      const aDeplacer = !existant && journee === journeeDeplacee ? restants.find((e) => e.Arrivee_Depart === type) : null
+      if (aDeplacer) {
+        restants.splice(restants.indexOf(aDeplacer), 1)
+        misesAJour.push(['UpdateRecord', 'Emargement_Salarie', aDeplacer.id, { Salarie: salarie, [col]: heure }])
+      } else if (!existant) ajouts.push({ Salarie: salarie, Arrivee_Depart: type, Heure_debut: null, Heure_fin: null, [col]: heure, Etat: 'Présent' })
       else if (!existant.Emargement_valide && existant[col] !== heure) misesAJour.push(['UpdateRecord', 'Emargement_Salarie', existant.id, { [col]: heure }])
     }
   }
-  return [...misesAJour, ...(ajouts.length ? [ajoutGroupeLignes('Emargement_Salarie', ajouts)] : [])]
+  return [...misesAJour, ...(ajouts.length ? [ajoutGroupeLignes('Emargement_Salarie', ajouts)] : []),
+    ...(restants.length ? [['BulkRemoveRecord', 'Emargement_Salarie', restants.map((e) => e.id)]] : [])]
+}
+
+/**
+ * Effet sur les émargements du retrait des tâches `ids` (suppression, ou modification : `nouvelles` = leurs nouvelles versions).
+ * Pour chaque ancienne journée que `actionsEmargements` ne traite pas déjà :
+ * - elle garde des tâches : heures d'arrivée et de départ recalculées (`recalculs`, émargements non validés) ;
+ * - elle n'a plus de tâche : ses émargements sont `orphelins` (non validés : à supprimer, déplacer ou garder) ou `valides` (jamais touchés).
+ */
+export function bilanEmargements(d, ids, nouvelles = []) {
+  const bilan = { recalculs: [], orphelins: [], valides: [] }
+  if (d.absentes?.has('Emargement_Salarie') || !d.Emargement_Salarie) return bilan
+  const avecDate = (t) => t.Salarie && t.Date_debut
+  const retirees = d.Emploi_du_temps.filter((t) => ids.includes(t.id) && avecDate(t))
+  const toutes = [...d.Emploi_du_temps.filter((t) => !ids.includes(t.id)), ...nouvelles].filter(avecDate)
+  const traitees = new Set(nouvelles.filter(avecDate).map(journeeDe))
+  for (const journee of new Set(retirees.map(journeeDe))) {
+    if (traitees.has(journee)) continue
+    const [salarie, jour] = [Number(journee.split('|')[0]), journee.split('|')[1]]
+    const avant = d.Emploi_du_temps.filter((t) => avecDate(t) && journeeDe(t) === journee)
+    const apres = toutes.filter((t) => journeeDe(t) === journee)
+    // Un départ après minuit compte pour le jour de la tâche ou celui de son heure (comme à la création)
+    const ancienDepart = Math.max(...avant.map((t) => t.Date_fin || t.Date_debut))
+    const heures = { 'Arrivée': Math.min(...apres.map((t) => t.Date_debut)), 'Départ': Math.max(...apres.map((t) => t.Date_fin || t.Date_debut)) }
+    for (const [type, col] of [['Arrivée', 'Heure_debut'], ['Départ', 'Heure_fin']]) {
+      const jours = type === 'Départ' ? [jour, jourDe(ancienDepart)] : [jour]
+      for (const e of d.Emargement_Salarie.filter((e) => e.Salarie === salarie && e.Arrivee_Depart === type && e[col] && jours.includes(jourDe(e[col])))) {
+        if (apres.length === 0) (e.Emargement_valide ? bilan.valides : bilan.orphelins).push(e)
+        else if (!e.Emargement_valide && e[col] !== heures[type]) bilan.recalculs.push(['UpdateRecord', 'Emargement_Salarie', e.id, { [col]: heures[type] }])
+      }
+    }
+  }
+  return bilan
 }
 
 // Tâches ajoutées (formulaire ou import) et leurs émargements, en un seul envoi ; `taches` : objets au format Grist
 export const importerTaches = (d, taches) => action([ajoutGroupeLignes('Emploi_du_temps', taches), ...actionsEmargements(d, taches)])
 
-// Tâche modifiée (`id`, `champs`), ses copies pour d'autres salariés (`copies`, même format) et les émargements, en un seul envoi
-export const modifierTache = (d, id, champs, copies = []) => action([['UpdateRecord', 'Emploi_du_temps', id, champs],
-  ...(copies.length ? [ajoutGroupeLignes('Emploi_du_temps', copies)] : []),
-  ...actionsEmargements(d, [champs, ...copies], id)])
+/**
+ * Tâche modifiée (`id`, `champs`), ses copies pour d'autres salariés (`copies`, même format) et les émargements, en un seul envoi.
+ * `choix` : sort des émargements de l'ancienne journée restée sans tâche — 'deplacer' (vers la nouvelle), 'supprimer' ou 'garder'.
+ */
+export function modifierTache(d, id, champs, copies = [], choix = 'garder') {
+  const nouvelles = [champs, ...copies]
+  const { recalculs, orphelins } = bilanEmargements(d, [id], nouvelles)
+  return action([['UpdateRecord', 'Emploi_du_temps', id, champs],
+    ...(copies.length ? [ajoutGroupeLignes('Emploi_du_temps', copies)] : []),
+    ...recalculs,
+    ...(choix === 'supprimer' && orphelins.length ? [['BulkRemoveRecord', 'Emargement_Salarie', orphelins.map((e) => e.id)]] : []),
+    ...actionsEmargements(d, nouvelles, id, choix === 'deplacer' ? orphelins : [])])
+}
 
-export const supprimerTaches = (ids) => action([['BulkRemoveRecord', 'Emploi_du_temps', ids]])
+// Tâches supprimées ; les émargements des journées restées sans tâche sont supprimés aussi si `avecEmargements`
+// (jamais les validés), ceux des journées qui gardent des tâches sont remis à l'heure
+export function supprimerTaches(d, ids, avecEmargements = false) {
+  const { recalculs, orphelins } = bilanEmargements(d, ids)
+  return action([['BulkRemoveRecord', 'Emploi_du_temps', ids], ...recalculs,
+    ...(avecEmargements && orphelins.length ? [['BulkRemoveRecord', 'Emargement_Salarie', orphelins.map((e) => e.id)]] : [])])
+}
 
 /**
  * Partenaires d'un chantier (entreprises, sous-traitants), chacun dans sa table de liaison « Chantier+… » (une ligne par couple) :

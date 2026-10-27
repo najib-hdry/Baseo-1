@@ -5,11 +5,11 @@
 // émargements, demandes de congé et acomptes du salarié : tableaux des pages de suivi, filtrés sur lui ; compte).
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
-import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache } from './taches.js'
+import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEmargements } from './taches.js'
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
-import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches } from './donnees.js'
+import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -376,12 +376,24 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const moisDe = (t) => { const dt = enDate(t.Date_debut); return new Date(dt.getFullYear(), dt.getMonth(), 1) }
     // Fiche de la tâche (même formulaire que l'ajout, pré-rempli)
     const modifier = (t) => ouvrirAjoutTache(d, u, apresAjout, t)
-    // Suppression d'une ou plusieurs tâches, après confirmation ; la fiche est ensuite redessinée au même mois
-    const confirmerSuppression = (liste) => fenetreSuppression(
-      liste.length === 1 ? `Supprimer la tâche « ${liste[0].Titre || 'sans titre'} » ?` : `Supprimer ${liste.length} tâches ?`,
-      [h('p', null, liste.length === 1 ? `Le ${dateHeure(liste[0].Date_debut)}.` : 'Les tâches cochées de ce mois seront supprimées de l’emploi du temps.')],
-      [['Supprimer définitivement', 'bouton-danger', () => supprimerTaches(liste.map((t) => t.id))]],
-      async () => { await recharger(); rouvrir(mois) })
+    // Suppression d'une ou plusieurs tâches, après confirmation ; la fiche est ensuite redessinée au même mois.
+    // Les jours qui n'ont plus de tâche : on propose de supprimer aussi leurs émargements non validés
+    const confirmerSuppression = (liste) => {
+      const ids = liste.map((t) => t.id)
+      const { orphelins, valides } = bilanEmargements(d, ids)
+      const n = orphelins.length
+      fenetreSuppression(
+        liste.length === 1 ? `Supprimer la tâche « ${liste[0].Titre || 'sans titre'} » ?` : `Supprimer ${liste.length} tâches ?`,
+        [h('p', null, liste.length === 1 ? `Le ${dateHeure(liste[0].Date_debut)}.` : 'Les tâches cochées de ce mois seront supprimées de l’emploi du temps.'),
+          ...(n > 0 ? [h('p', null, `Le salarié n’aura plus de tâche ${n > 1 ? 'ces jours-là' : 'ce jour-là'}. ${n > 1 ? `${n} émargements non validés` : 'Un émargement non validé'} :`),
+            listeEmargements(orphelins)] : []),
+          valides.length > 0 && h('p', { className: 'sous-texte' }, `${valides.length > 1 ? `${valides.length} émargements déjà validés restent` : 'Un émargement déjà validé reste'} tel quel.`)],
+        n > 0
+          ? [[`Supprimer aussi ${n > 1 ? `les ${n} émargements` : 'l’émargement'}`, 'bouton-danger', () => supprimerTaches(d, ids, true)],
+            ['Supprimer, garder les émargements', 'bouton-danger', () => supprimerTaches(d, ids, false)]]
+          : [['Supprimer définitivement', 'bouton-danger', () => supprimerTaches(d, ids)]],
+        async () => { await recharger(); rouvrir(mois) })
+    }
     // Après un ajout ou un import : la fiche est rouverte sur cet onglet, au mois de la première nouvelle tâche
     const apresAjout = async (nouvelles) => {
       await recharger()

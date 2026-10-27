@@ -3,7 +3,7 @@
 // Le fichier (Excel ou CSV) est lu dans le navigateur ; chaque niveau d'emplacement est cherché dans son chantier
 // (les noms « Base vie 1 », « RDC »… se répètent d'un chantier à l'autre), puis un aperçu signale les erreurs ligne par ligne.
 import { h, ouvrirPanneau, etiqueterLignes, choixEtiquettes, versSaisie } from './outils.js'
-import { importerTaches, modifierTache, nomContact, ROLE_SALARIE } from './donnees.js'
+import { importerTaches, modifierTache, bilanEmargements, nomContact, ROLE_SALARIE } from './donnees.js'
 
 /**
  * Fiche d'une tâche : ajout (`tache` absente) ou modification. À l'ajout, la même tâche est créée pour chaque salarié choisi
@@ -109,15 +109,19 @@ export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
       erreur.hidden = false
       return
     }
-    valider.disabled = true
-    valider.textContent = 'Enregistrement…'
     // Une ligne par salarié, en un seul envoi
     const taches = ids.map((id) => ({
       Salarie: id, Date_debut: debut.getTime() / 1000, Date_fin: fin ? fin.getTime() / 1000 : null, ...lieu,
       Titre: champs.Titre.trim(), Action: champs.Action.trim(), Detail: champs.Detail.trim(),
     }))
+    // Tâche déplacée et ancien jour resté sans tâche : on demande quoi faire de ses émargements
+    const bilan = tache ? bilanEmargements(d, [tache.id], taches) : null
+    const choix = bilan?.orphelins.length ? await choisirSortEmargements(bilan, taches[0]) : 'garder'
+    if (!choix) return // fenêtre fermée : rien n'est enregistré
+    valider.disabled = true
+    valider.textContent = 'Enregistrement…'
     try {
-      if (tache) await modifierTache(d, tache.id, taches[0], taches.slice(1))
+      if (tache) await modifierTache(d, tache.id, taches[0], taches.slice(1), choix)
       else await importerTaches(d, taches)
     } catch (err) {
       erreur.textContent = err.message || 'L’enregistrement a échoué.'
@@ -146,6 +150,38 @@ export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
 }
 
 // Lecteur Excel (SheetJS), chargé seulement quand on importe ou télécharge le modèle
+// Émargements groupés par jour : « lundi 3 novembre : arrivée 08:00 · départ 12:00 (En retard) »
+export function listeEmargements(liste) {
+  const parJour = new Map()
+  for (const e of [...liste].sort((a, b) => (a.Heure_debut || a.Heure_fin) - (b.Heure_debut || b.Heure_fin))) {
+    const dt = new Date((e.Heure_debut || e.Heure_fin) * 1000)
+    const jour = dt.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const texte = `${e.Arrivee_Depart.toLowerCase()} ${dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+      + (e.Etat && e.Etat !== 'Présent' ? ` (${e.Etat})` : '')
+    parJour.set(jour, [...(parJour.get(jour) ?? []), texte])
+  }
+  return h('ul', null, [...parJour].map(([jour, textes]) => h('li', null, `${jour} : ${textes.join(' · ')}`)))
+}
+
+// Ancien jour d'une tâche modifiée resté sans tâche : déplacer ses émargements vers la tâche (`nouvelle`), les supprimer
+// ou les garder → 'deplacer' | 'supprimer' | 'garder' ; la promesse reste en attente si la fenêtre est fermée sans choix
+function choisirSortEmargements(bilan, nouvelle) {
+  return new Promise((choisir) => {
+    const jour = new Date(nouvelle.Date_debut * 1000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const n = bilan.orphelins.length
+    const bouton = (libelle, classe, choix) => h('button', { className: `bouton ${classe}`, type: 'button', onClick: () => { fermer(); choisir(choix) } }, libelle)
+    const { fermer } = ouvrirPanneau('Émargements de l’ancien jour', [
+      h('p', null, `Après cette modification, le salarié n’a plus de tâche ce jour-là. ${n > 1 ? `Ses ${n} émargements non validés` : 'Son émargement non validé'} :`),
+      listeEmargements(bilan.orphelins),
+      bilan.valides.length > 0 && h('p', { className: 'sous-texte' }, `${bilan.valides.length > 1 ? `${bilan.valides.length} émargements déjà validés restent` : 'Un émargement déjà validé reste'} tel quel.`),
+      h('p', { className: 'sous-texte' }, `Déplacer : ils passent au ${jour} aux heures de la tâche, avec leur état (retard, absence…). Si ce jour a déjà un émargement du même type, l’ancien est supprimé pour éviter un doublon.`),
+      bouton(`Déplacer au ${jour}`, 'bouton-principal', 'deplacer'),
+      bouton(n > 1 ? 'Supprimer ces émargements' : 'Supprimer cet émargement', 'bouton-danger', 'supprimer'),
+      bouton('Les garder tels quels', '', 'garder'),
+    ])
+  })
+}
+
 const URL_XLSX = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 let chargementXlsx = null
 function chargerXlsx() {
