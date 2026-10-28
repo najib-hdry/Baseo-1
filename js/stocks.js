@@ -1,7 +1,7 @@
 // Écrans des stocks (admin), deux pages du menu :
 // - « Gestion des stocks » (vue 'stocks') : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche, suppression ;
 // - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte } from './outils.js'
 import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock } from './donnees.js'
 
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
@@ -75,7 +75,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         const liste = d.Stock
           .filter((s) => !filtre || [s.Nom ?? '', nomsChantiers(s), nomsBases(s)].some((v) => v.toLowerCase().includes(filtre)))
           .sort((a, b) => String(a.Nom ?? '').localeCompare(String(b.Nom ?? ''), 'fr', { numeric: true }) || nomsChantiers(a).localeCompare(nomsChantiers(b)) || a.id - b.id)
-        compteur.textContent = `${liste.length} stock${liste.length > 1 ? 's' : ''}`
+        compteur.textContent = compte(liste.length, d.Stock.length, 'stock')
         corps.replaceChildren(...(liste.length === 0
           ? ligneVide(6, d.Stock.length === 0
             ? 'Aucun stock pour l’instant. Crée le premier avec « ＋ Nouveau stock » : chaque ligne aura ensuite ses boutons Modifier et Supprimer.'
@@ -272,7 +272,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         .filter((e) => !seulementAlertes || enAlerte(e))
         .filter((e) => !filtre || [e.libelle, type(e), source(e), e.Commentaire].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
       const alertes = elements.filter(enAlerte).length
-      compteur.textContent = `${liste.length} article${liste.length > 1 ? 's' : ''}${alertes ? ` · ${alertes} à commander` : ''}`
+      compteur.textContent = `${compte(liste.length, elements.length, 'article')}${alertes ? ` · ${alertes} à commander` : ''}`
       corps.replaceChildren(...(liste.length === 0
         ? ligneVide(10, elements.length === 0 ? 'Ce stock n’a pas encore d’articles : ajoute-les depuis sa fiche (« Ajouter des articles du catalogue »).' : 'Aucun article ne correspond à la recherche ou aux filtres.')
         : liste.map((e) => {
@@ -424,7 +424,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
           .filter((r) => !filtreSource || r.Source === filtreSource)
           .filter((r) => !filtre || [r.Descriptif, r.Format_ou_taille, r.Commentaire, type(r), source(r)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
           .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || String(a.Descriptif).localeCompare(String(b.Descriptif), 'fr', { numeric: true }))
-        compteur.textContent = `${liste.length} article${liste.length > 1 ? 's' : ''}`
+        compteur.textContent = compte(liste.length, d.Stock_Reference.filter((r) => !filtreSource || r.Source === filtreSource).length, 'article')
         corps.replaceChildren(...(liste.length === 0
           ? ligneVide(7, d.Stock_Reference.length === 0 ? 'Aucun article pour l’instant. Ajoute le premier avec « ＋ Nouvel article ».' : 'Aucun article ne correspond à la recherche ou à la source choisie.')
           : liste.map((r) => {

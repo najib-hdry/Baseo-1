@@ -1,6 +1,6 @@
 // Écran « Suivi des demandes de congé » (admin) : onglets par statut (Nouvelle, Acceptée, Refusée, Tous), tableau avec recherche,
 // fiche de demande (nouvelle ou modification) dont les dates suivent le type de congé, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versGrist, depuisGrist, enFrancais } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versGrist, depuisGrist, enFrancais, compte } from './outils.js'
 import { estAdmin, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact } from './donnees.js'
 
 const TABLE_CONGES = 'Demande_de_conge'
@@ -61,7 +61,7 @@ export function creerEcranConges(racine, recharger, options = {}) {
       const liste = tous.filter((c) => !onglet || c.Statut === onglet)
         .filter((c) => !filtre || [salarie(c), c.Type, periode(c), c.Statut, congeCreeLe(c.Cree_le)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => (b.Cree_le ?? 0) - (a.Cree_le ?? 0))
-      compteur.textContent = `${liste.length} demande${liste.length > 1 ? 's' : ''}`
+      compteur.textContent = compte(liste.length, tous.filter((c) => !onglet || c.Statut === onglet).length, 'demande')
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : 'Aucune demande dans cet onglet.'))]
         : liste.map((c) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(c) },

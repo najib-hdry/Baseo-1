@@ -954,3 +954,10 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
   .compo-vestiaire { grid-template-columns: 1fr auto; }
   .compo-barre { grid-column: 1 / -1; order: 3; }
 }
+
+/* Tri des tableaux : en-têtes cliquables, flèche sur la colonne triée (pas sur téléphone : les lignes y sont des fiches) */
+.tableau thead th:not(:empty) { cursor: pointer; user-select: none; }
+.tableau thead th:not(:empty):hover { color: var(--action-fonce); }
+.tableau thead th[aria-sort] { color: var(--action-fonce); }
+.tableau thead th[aria-sort="ascending"]::after { content: " ↑"; }
+.tableau thead th[aria-sort="descending"]::after { content: " ↓"; }

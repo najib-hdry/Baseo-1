@@ -1,6 +1,6 @@
 // Écran « Gestion des postes » (admin) : tableau de tous les postes avec recherche et filtre par statut,
 // fiche de création / modification, suppression avec confirmation.
-import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression } from './outils.js'
+import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte } from './outils.js'
 import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste, estAdmin, libelleHoraires } from './donnees.js'
 
 const TITRES_POSTES = ['Poste', 'Chantiers', 'Démarrage', 'Personnes', 'Horaires', 'Statut', '']
@@ -35,7 +35,7 @@ export function creerEcranPostes(racine, recharger) {
         .filter(garde)
         .filter((p) => !filtre || [p.Titre, p.Mission, nomsChantiers(p)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => (depuisGrist(a.Date_demarrage) ?? '9999').localeCompare(depuisGrist(b.Date_demarrage) ?? '9999') || String(a.Titre).localeCompare(String(b.Titre)))
-      compteur.textContent = `${liste.length} poste${liste.length > 1 ? 's' : ''}`
+      compteur.textContent = compte(liste.length, d.Postes.filter(garde).length, 'poste')
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: 7 }, d.Postes.length === 0
           ? 'Aucun poste pour l’instant. Crée le premier avec « ＋ Nouveau poste » : chaque ligne aura ensuite ses boutons Modifier et Supprimer.'

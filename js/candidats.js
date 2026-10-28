@@ -3,7 +3,7 @@
 // fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié),
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
-import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte, zoneFichier } from './outils.js'
+import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte, zoneFichier, compte } from './outils.js'
 import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
@@ -186,7 +186,7 @@ export function creerEcranCandidats(racine, recharger) {
         .filter((c) => !onglet || c.Statut === onglet)
         .filter((c) => !filtre || [nom(c), nationalite(c), c.Telephone, c.Email, poste(c), cip(c)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)) || String(a.Prenom).localeCompare(String(b.Prenom)))
-      compteur.textContent = `${liste.length} candidat${liste.length > 1 ? 's' : ''}${filtre ? ` sur ${d.Candidats.length}` : ''}`
+      compteur.textContent = compte(liste.length, d.Candidats.filter((c) => !onglet || c.Statut === onglet).length, 'candidat')
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CANDIDATS.length }, filtre ? 'Aucun candidat ne correspond.' : 'Aucun candidat pour l’instant.'))]
         : liste.map((c) => {

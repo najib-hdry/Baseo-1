@@ -2,7 +2,7 @@
 // - onglet Déclarer : comme la déclaration d'incident, sans casiers — plan 3D, étage, puis on touche le vestiaire
 //   ou la pièce ; le formulaire (lieu modifiable, date, fiche de passage, commentaire, 4 photos) s'ouvre sur ce lieu ;
 // - onglet Historique : les enregistrements du chantier en tableau (filtres, recherche, fiche, modifier, supprimer).
-import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos } from './outils.js'
+import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte } from './outils.js'
 import { envoyerPhoto, enregistrer, lienPhotos, modifierLigne, supprimerFiche, peutGerer, estAdmin, idsDeListe } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, zonesDuChantier, basesVisibles, lieuRapport } from './navigation.js'
 
@@ -120,7 +120,7 @@ export function creerEcranRapport(racine, recharger, config) {
       const texte = (etat.recherche ?? '').trim().toLowerCase()
       const visibles = liste.filter((r) => !etat.filtreHisto || r[premier.col] === etat.filtreHisto)
         .filter((r) => !texte || [lieu(r), r.Commentaire, ...config.choix.map((c) => r[c.col])].some((v) => String(v ?? '').toLowerCase().includes(texte)))
-      compteur.textContent = `${visibles.length} enregistrement${visibles.length > 1 ? 's' : ''}`
+      compteur.textContent = compte(visibles.length, liste.filter((r) => !etat.filtreHisto || r[premier.col] === etat.filtreHisto).length, 'enregistrement')
       corps.replaceChildren(...(visibles.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length },
           texte ? 'Aucun enregistrement ne correspond à la recherche.' : 'Aucun enregistrement pour ce chantier.'))]

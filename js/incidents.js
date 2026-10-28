@@ -1,6 +1,6 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
-import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos } from './outils.js'
+import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte } from './outils.js'
 import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer, estAdmin, idsDeListe, modifierIncident, supprimerIncident } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
@@ -194,7 +194,7 @@ export function creerEcranIncidents(racine, recharger) {
       const texte = (etat.rechercheSuivi ?? '').trim().toLowerCase()
       const visibles = incidents.filter(filtre.garde)
         .filter((i) => !texte || [lieu(i), i.Categorie, i.Description, i.Statut].some((v) => String(v ?? '').toLowerCase().includes(texte)))
-      compteur.textContent = `${visibles.length} incident${visibles.length > 1 ? 's' : ''}`
+      compteur.textContent = compte(visibles.length, incidents.filter(filtre.garde).length, 'incident')
       corps.replaceChildren(...(visibles.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_SUIVI.length },
           texte ? 'Aucun incident ne correspond à la recherche.' : etat.filtreSuivi === 'actifs' ? 'Aucun incident à traiter.' : 'Aucun incident dans cette catégorie.'))]

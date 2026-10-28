@@ -3,7 +3,7 @@
 // fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié ;
 // détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ;
 // émargements, demandes de congé et acomptes du salarié : tableaux des pages de suivi, filtrés sur lui ; compte).
-import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier, notifier } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier, notifier, compte } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
 import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEmargements } from './taches.js'
 import { creerEcranEmargements } from './emargements.js'
@@ -54,7 +54,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         .filter((u) => dansOnglet(u, onglet))
         .filter((u) => !filtre || [nom(u), u.Profil, u.Telephone, u.Email, chantiers(u)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)) || String(a.Prenom).localeCompare(String(b.Prenom)))
-      compteur.textContent = `${liste.length} utilisateur${liste.length > 1 ? 's' : ''}`
+      compteur.textContent = compte(liste.length, d.Utilisateurs.filter((u) => dansOnglet(u, onglet)).length, 'utilisateur')
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_UTILISATEURS.length }, filtre ? 'Aucun résultat.' : 'Aucun utilisateur dans cet onglet.'))]
         : liste.map((u) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrir(u) },

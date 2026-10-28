@@ -1,6 +1,6 @@
 // Écran « Suivi des demandes d'acompte » (admin) : onglets par statut (Nouvelle, Acceptée, Refusée, Tous), tableau avec recherche,
 // fiche de demande (nouvelle ou modification), suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, euros } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, euros, compte } from './outils.js'
 import { estAdmin, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact } from './donnees.js'
 
 const TABLE_ACOMPTES = 'Acompte'
@@ -46,7 +46,7 @@ export function creerEcranAcomptes(racine, recharger, options = {}) {
         .filter((a) => !filtre || [salarie(a), a.Statut, creeeLe(a.Cree_le), a.Montant].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => (b.Cree_le ?? 0) - (a.Cree_le ?? 0))
       const total = liste.reduce((s, a) => s + (Number(a.Montant) || 0), 0)
-      compteur.textContent = `${liste.length} demande${liste.length > 1 ? 's' : ''} · ${euros.format(total)}`
+      compteur.textContent = `${compte(liste.length, tous.filter((a) => !onglet || a.Statut === onglet).length, 'demande')} · ${euros.format(total)}`
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : 'Aucune demande dans cet onglet.'))]
         : liste.map((a) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(a) },

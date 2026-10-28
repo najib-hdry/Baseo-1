@@ -326,6 +326,55 @@ export function ouvrirPanneau(titre, contenu) {
 
 // Recopie le titre de chaque colonne sur les cellules (data-label) : sur un écran étroit,
 // le CSS affiche alors chaque ligne comme une fiche étiquetée
+// Compteur d'une liste : « 120 articles », ou « 12 articles sur 120 » quand une recherche ou un filtre la réduit
+export const compte = (n, total, mot, pluriel = `${mot}s`) => `${n} ${n > 1 ? pluriel : mot}${n < total ? ` sur ${total}` : ''}`
+
+// ---- Tri des tableaux (tous) : clic sur un en-tête de colonne → croissant ↑, puis décroissant ↓ ----
+// Le tri est gardé quand les lignes sont redessinées (recherche, filtre) : il est réappliqué aussitôt.
+// Nombres, pourcentages, montants et dates (JJ/MM/AAAA [HH:MM]) sont comparés comme des valeurs ; les cases vides vont à la fin.
+function valeurTri(td) {
+  const t = (td?.dataset.tri ?? td?.textContent ?? '').trim()
+  if (!t || t === '—') return null
+  const date = t.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\D+(\d{1,2}):(\d{2}))?/)
+  if (date) return +`${date[3]}${date[2]}${date[1]}${(date[4] ?? '0').padStart(2, '0')}${date[5] ?? '00'}`
+  const nombre = t.replace(/[\s\u202f\u00a0]/g, '').match(/^-?\d+(?:[.,]\d+)?/)
+  if (nombre) return parseFloat(nombre[0].replace(',', '.'))
+  return t.toLowerCase()
+}
+function trierTableau(table) {
+  const col = Number(table.dataset.triCol)
+  const sens = table.dataset.triSens === 'desc' ? -1 : 1
+  const tbody = table.tBodies[0]
+  if (!tbody || Number.isNaN(col)) return
+  const lignes = [...tbody.rows]
+  const triables = lignes.filter((tr) => tr.cells.length > col && ![...tr.cells].some((td) => td.colSpan > 1))
+  const autres = lignes.filter((tr) => !triables.includes(tr)) // ligne « aucun résultat »…
+  triables.sort((a, b) => {
+    const x = valeurTri(a.cells[col])
+    const y = valeurTri(b.cells[col])
+    if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1 // vides toujours à la fin
+    return sens * (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'fr', { numeric: true }))
+  })
+  tbody.append(...triables, ...autres)
+  observateurTri.takeRecords() // ce déplacement n'est pas un nouveau dessin
+}
+const observateurTri = new MutationObserver((mutations) => {
+  const tables = new Set(mutations.map((m) => m.target.closest?.('table[data-tri-col]')).filter(Boolean))
+  tables.forEach(trierTableau)
+})
+observateurTri.observe(document.body, { childList: true, subtree: true })
+document.addEventListener('click', (e) => {
+  const th = e.target.closest?.('.tableau thead th')
+  if (!th || !th.textContent.trim() || th.querySelector('input, button')) return // colonne d'actions ou de cases
+  const table = th.closest('table')
+  const col = th.cellIndex
+  table.dataset.triSens = Number(table.dataset.triCol) === col && table.dataset.triSens === 'asc' ? 'desc' : 'asc'
+  table.dataset.triCol = String(col)
+  for (const autre of th.parentElement.cells) autre.removeAttribute('aria-sort')
+  th.setAttribute('aria-sort', table.dataset.triSens === 'asc' ? 'ascending' : 'descending')
+  trierTableau(table)
+})
+
 export function etiqueterLignes(tbody, titres) {
   for (const tr of tbody.rows)
     [...tr.cells].forEach((td, i) => { if (td.colSpan === 1) td.dataset.label = titres[i] ?? '' })

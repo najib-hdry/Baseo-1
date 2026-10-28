@@ -1,7 +1,7 @@
 // Écran « Suivi des émargements » (admin) : onglets par état (Présent, En retard, Absent, Tous), tableau avec recherche,
 // fiche de modification (les champs suivent l'état : absence autorisée si absent, durée si en retard ou parti plus tôt…),
 // validation et suppression des émargements cochés.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier, compte } from './outils.js'
 import { estAdmin, ROLE_SALARIE, modifierLigne, supprimerLignes, validerEmargements, nomContact } from './donnees.js'
 
 const TABLE_EMARGEMENTS = 'Emargement_Salarie'
@@ -77,7 +77,7 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
         .sort((a, b) => heureDe(b) - heureDe(a))
       // La sélection ne garde que les lignes affichées
       for (const id of [...choisis]) if (!liste.some((e) => e.id === id)) choisis.delete(id)
-      compteur.textContent = `${liste.length} émargement${liste.length > 1 ? 's' : ''}`
+      compteur.textContent = compte(liste.length, tous.filter((e) => !onglet || e.Etat === onglet).length, 'émargement')
       supprimerSelection.textContent = `Supprimer la sélection (${choisis.size})`
       supprimerSelection.disabled = choisis.size === 0
       const aValider = liste.filter((e) => choisis.has(e.id) && !e.Emargement_valide).length

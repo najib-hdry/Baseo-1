@@ -1,6 +1,6 @@
 // Écrans « annuaire » (admin) : tableau avec recherche, fiche de création / modification, suppression.
 // Une même logique pour deux tables, décrites par ENTREPRISES et SOUS_TRAITANTS.
-import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, compte } from './outils.js'
 import { enregistrerFiche, supprimerFiche, estAdmin } from './donnees.js'
 
 const responsable = (r) => [r.Responsable_prenom, r.Responsable_nom].filter(Boolean).join(' ')
@@ -83,7 +83,7 @@ export function creerEcranAnnuaire(racine, recharger, config) {
       const liste = d[config.table].filter((r) => !filtre || texte(r).includes(filtre))
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
       const total = d[config.table].length
-      compteur.textContent = `${liste.length} ${config.unite}${liste.length > 1 ? 's' : ''}${filtre ? ` sur ${total}` : ''}`
+      compteur.textContent = compte(liste.length, total, config.unite)
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : `Aucun ${config.unite} pour l’instant.`))]
         : liste.map((r) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(r) },
