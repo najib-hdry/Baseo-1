@@ -88,37 +88,45 @@ function composants(d, c) {
     nb.etages++
     nb.vestiaires += vestiaires.length
     nb.pieces += pieces.length
-    return h('div', { className: 'niveau niveau-etage' },
-      h('div', { className: 'niveau-haut' }, h('span', { className: 'niveau-type' }, 'Étage'), h('strong', null, e.Nom), h('span', { className: 'sous-texte' }, `niveau ${e.Niveau ?? 0}`)),
-      vestiaires.map((v) => {
-        const o = occupation(d, d.Casiers.filter((k) => k.Vestiaire === v.id))
-        nb.casiers += o.total
-        return h('div', { className: 'ligne-element' },
-          h('span', { className: 'niveau-type' }, 'Vestiaire'),
-          h('span', { className: 'composant-nom' }, v.Nom),
-          v.Type && h('span', { className: 'badge badge-termine' }, v.Type),
-          h('span', { className: 'sous-texte' }, `${pluriel(o.total, 'casier')} · ${o.occupes} occupés · ${o.libres} libres${o.hs ? ` · ${o.hs} HS` : ''}`))
-      }),
-      pieces.length > 0 && h('div', { className: 'ligne-element' },
-        h('span', { className: 'niveau-type' }, 'Pièces'),
-        h('ul', { className: 'pieces' }, pieces.map((p) => h('li', { className: `piece piece-${p.Type}` }, p.Nom)))),
-      vestiaires.length + pieces.length === 0 && h('p', { className: 'sous-texte' }, 'Étage vide.'))
+    // Une ligne par étage : nom et niveau à gauche ; vestiaires (barre d'occupation) puis pièces à droite
+    return h('div', { className: 'compo-etage' },
+      h('div', { className: 'compo-etage-titre' }, h('strong', null, e.Nom), h('span', { className: 'compo-niveau' }, `Niveau ${e.Niveau ?? 0}`)),
+      h('div', { className: 'compo-etage-contenu' },
+        vestiaires.map((v) => {
+          const o = occupation(d, d.Casiers.filter((k) => k.Vestiaire === v.id))
+          nb.casiers += o.total
+          return h('div', { className: 'compo-vestiaire' },
+            h('span', { className: 'compo-vestiaire-nom' }, h('span', { className: 'composant-nom' }, v.Nom),
+              v.Type && h('span', { className: `compo-type compo-type-${String(v.Type).toLowerCase()}` }, v.Type)),
+            h('span', { className: 'compo-barre', title: `${o.occupes} occupés · ${o.libres} libres · ${o.hs} HS` },
+              PARTS.filter(([type]) => o[type] > 0).map(([type]) => h('span', { className: `graph-${type}`, style: { flexGrow: o[type] } }))),
+            h('span', { className: 'compo-chiffres' }, h('strong', null, `${o.occupes}/${o.total}`), ' occupés',
+              o.libres > 0 && ` · ${o.libres} libre${o.libres > 1 ? 's' : ''}`, o.hs > 0 && h('span', { className: 'compo-hs' }, ` · ${o.hs} HS`)))
+        }),
+        pieces.length > 0 && h('ul', { className: 'pieces compo-pieces', 'aria-label': `Pièces de ${e.Nom}` },
+          pieces.map((p) => h('li', { className: `piece piece-${p.Type}` }, p.Nom))),
+        vestiaires.length + pieces.length === 0 && h('p', { className: 'sous-texte' }, 'Étage vide.')))
   }
 
+  // Carte d'une base vie : bandeau (nom, étages, casiers), puis ses étages
   const blocBase = (b) => {
     const etages = d.Etages.filter((e) => e.Base_vie === b.id)
+    const casiers = d.Casiers.filter((k) => etages.some((e) => d.parId.Vestiaires.get(k.Vestiaire)?.Etage === e.id))
+    const o = occupation(d, casiers)
     nb.bases++
-    return h('div', { className: 'niveau niveau-base' },
-      h('div', { className: 'niveau-haut' }, h('span', { className: 'niveau-type' }, 'Base vie'), h('strong', null, b.Nom)),
-      etages.length > 0 ? etages.map(blocEtage) : h('p', { className: 'sous-texte' }, 'Aucun étage.'))
+    return h('section', { className: 'compo-base' },
+      h('div', { className: 'compo-base-titre' },
+        h('span', { className: 'compo-etiquette' }, 'Base vie'), h('strong', null, b.Nom),
+        h('span', { className: 'compo-base-chiffres' }, `${pluriel(etages.length, 'étage')} · ${pluriel(o.total, 'casier')}${o.total ? ` · ${taux(o)} occupés` : ''}`)),
+      etages.length > 0 ? etages.map(blocEtage) : h('p', { className: 'sous-texte compo-vide' }, 'Aucun étage.'))
   }
 
   const blocs = groupes.map((z) => {
     const bases = basesVisibles(d, { chantierId: c.id, zoneId: z.id })
     const contenu = bases.length > 0 ? bases.map(blocBase) : h('p', { className: 'sous-texte' }, 'Aucune base vie.')
-    return z.id == null ? h('div', { className: 'structure' }, contenu)
-      : h('div', { className: 'niveau niveau-zone' },
-        h('div', { className: 'niveau-haut' }, h('span', { className: 'niveau-type' }, 'Zone'), h('strong', null, z.Nom)),
+    return z.id == null ? h('div', { className: 'compo-zone' }, contenu)
+      : h('div', { className: 'compo-zone' },
+        h('h4', { className: 'compo-zone-titre' }, h('span', { className: 'compo-etiquette' }, 'Zone'), z.Nom),
         contenu)
   })
 
