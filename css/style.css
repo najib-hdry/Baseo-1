@@ -750,3 +750,16 @@ body.synchro .entete::after {
 .tb-col { position: relative; width: 38%; max-width: 26px; min-height: 2px; border-radius: 4px 4px 0 0; }
 .tb-col-valeur { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--encre-douce); }
 .tb-mois-libelle { font-size: 12px; color: var(--encre-douce); text-transform: capitalize; }
+
+/* Bandeau de notification (« Enregistré ✓ », erreurs) : en bas, au-dessus des fenêtres ; un clic le ferme */
+.notification { position: fixed; left: 50%; bottom: 24px; z-index: 100; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px));
+  padding: 12px 20px; font-weight: 600; border-radius: 12px; box-shadow: 0 8px 24px rgba(21, 33, 43, .25); cursor: pointer; animation: apparait .15s ease-out; }
+.notification-succes { color: #fff; background: var(--baseo-vert); }
+.notification-erreur { color: #fff; background: var(--hs); }
+/* Erreur inattendue : message lisible, bouton Recharger, détail technique replié */
+.erreur-globale { position: fixed; left: 50%; top: 24px; z-index: 100; transform: translateX(-50%); width: min(560px, calc(100vw - 32px));
+  display: grid; gap: 10px; padding: 18px 20px; background: #fff; border: 2px solid var(--hs); border-radius: 14px; box-shadow: 0 12px 40px rgba(21, 33, 43, .35); }
+.erreur-globale strong { color: var(--hs); font-size: 1.1rem; }
+.erreur-globale p { margin: 0; }
+.erreur-globale summary { cursor: pointer; font-size: .85rem; color: var(--encre-douce); }
+.erreur-globale pre { max-height: 200px; overflow: auto; margin: 8px 0 0; font-size: 11px; white-space: pre-wrap; }

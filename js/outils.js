@@ -68,7 +68,7 @@ export const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currenc
 export const enFrancais = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '')
 export function dateHeure(v) {
   const ms = v instanceof Date ? v.getTime() : typeof v === 'number' ? v * 1000 : Date.parse(v)
-  return Number.isNaN(ms) ? '' : new Date(ms).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return Number.isNaN(ms) ? '' : new Date(ms).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // Lien tél. / e-mail (`type` : 'tel' ou 'mailto') ; chaîne vide sans valeur. Le clic n'ouvre pas la ligne du tableau.
@@ -89,6 +89,7 @@ export function fenetreSuppression(titre, texte, boutons, recharger) {
       try {
         await fn()
         fermer()
+        notifier(classe.includes('danger') ? 'Supprimé ✓' : 'Enregistré ✓')
         await recharger()
       } catch (err) {
         erreur.textContent = err.message || 'L’opération a échoué.'
@@ -271,7 +272,11 @@ export function ouvrirPanneau(titre, contenu) {
     const i = pilePanneaux.indexOf(panneau)
     if (i >= 0) pilePanneaux.splice(i, 1)
   }
-  const fermer = () => { retirer(); parent?.fermer() }
+  const fermer = () => {
+    if (envoye && pilePanneaux.includes(panneau)) notifier('Enregistré ✓') // fermeture après un enregistrement
+    retirer()
+    parent?.fermer()
+  }
   const annuler = () => {
     if (attente || enregistrementEnCours()) return
     retirer()
@@ -313,6 +318,10 @@ export function ouvrirPanneau(titre, contenu) {
   const panneau = { voile, fermer, annuler, rendreFocus }
   pilePanneaux.push(panneau)
   document.body.append(voile)
+  // Curseur dans le premier champ d'un formulaire, sinon sur la fenêtre ; pas de champ sur téléphone (le clavier s'ouvrirait)
+  const premierChamp = section.querySelector('form input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]):not([disabled]), form select:not([disabled]), form textarea:not([disabled])')
+  if (premierChamp && window.matchMedia?.('(pointer: fine)').matches) premierChamp.focus({ preventScroll: true })
+  else section.focus({ preventScroll: true })
   return { fermer, annuler, ouvrirDepuis, section }
 }
 
@@ -332,7 +341,25 @@ export function onglets(libelle, elements, actifId, onChoisir) {
     elements.map((e) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(e.id === actifId), onClick: () => onChoisir(e) }, e.Nom)))
 }
 
-// Affiche une erreur JavaScript dans le widget (pas de console dans Grist)
+// Erreur inattendue (pas de console dans Grist) : message lisible, bouton Recharger, détail technique replié
 export function afficherErreur(err) {
-  document.body.append(h('div', { className: 'debug' }, `Erreur : ${err?.message ?? err}\n${err?.stack ?? ''}`))
+  document.querySelector('.erreur-globale')?.remove()
+  const boite = h('div', { className: 'erreur-globale', role: 'alert' },
+    h('strong', null, 'Un problème est survenu'),
+    h('p', null, err?.message ?? String(err)),
+    h('div', { className: 'fiche-boutons' },
+      h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => location.reload() }, 'Recharger la page'),
+      h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => boite.remove() }, 'Fermer')),
+    h('details', null, h('summary', null, 'Détail technique'), h('pre', null, err?.stack ?? '')))
+  document.body.append(boite)
+}
+
+// Bandeau bref en bas de l'écran : « Enregistré ✓ », ou un message d'erreur (à la place des alertes du navigateur)
+let bandeauNotification = null
+export function notifier(texte, type = 'succes') {
+  bandeauNotification?.remove()
+  const bandeau = h('div', { className: `notification notification-${type}`, role: type === 'erreur' ? 'alert' : 'status', onClick: () => bandeau.remove() }, texte)
+  bandeauNotification = bandeau
+  document.body.append(bandeau)
+  setTimeout(() => { if (bandeauNotification === bandeau) { bandeau.remove(); bandeauNotification = null } }, type === 'erreur' ? 8000 : 2500)
 }

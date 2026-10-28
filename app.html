@@ -4,13 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Casiers chantier — application Grist</title>
-    <link rel="stylesheet" href="css/style.css" />
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   </head>
   <body>
     <main id="app" class="widget">
       <p class="attente">Chargement des données Grist…</p>
     </main>
-    <script type="module" src="js/app.js"></script>
+    <script>
+      // Charge la version assemblée (builder/app.html et builder/app.js, produits par npm run assembler) avec son
+      // numéro de version, relu à chaque ouverture : après une mise à jour, jamais d'ancienne copie en cache.
+      (async () => {
+        let version = ''
+        try {
+          version = (await (await fetch(`builder/version.txt?t=${Date.now()}`, { cache: 'no-store' })).text()).trim()
+        } catch {}
+        const v = encodeURIComponent(/^[0-9a-f]{6,40}$/.test(version) ? version : String(Date.now()))
+        try {
+          const reponse = await fetch(`builder/app.html?v=${v}`)
+          if (!reponse.ok) throw new Error(reponse.status)
+          document.body.innerHTML = await reponse.text() // styles + conteneur de l'application
+          const script = document.createElement('script')
+          script.src = `builder/app.js?v=${v}`
+          document.body.append(script)
+        } catch {
+          document.body.textContent = 'L’application n’a pas pu se charger. Recharge la page.'
+        }
+      })()
+    </script>
   </body>
 </html>

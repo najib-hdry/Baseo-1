@@ -221,7 +221,7 @@ export function creerEcranCandidats(racine, recharger) {
         h('div', { className: 'barre-outils' },
           h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, nationalité, téléphone, email, poste, CIP…)', value: recherche,
             'aria-label': 'Rechercher un candidat', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
-          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFormulaire(null) }, '＋ Ajouter un candidat')),
+          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFormulaire(null) }, '＋ Nouveau candidat')),
         compteur,
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },

@@ -2,6 +2,7 @@
 // un bloc HTML (CSS intégré + conteneur) et un bloc JavaScript sans import/export.
 // Usage : npm run assembler  →  builder/<widget>.html et builder/<widget>.js (minifiés)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { transformSync } from 'esbuild'
 
 const MODULES_COMMUNS = ['outils', 'donnees', 'plan3d', 'navigation', 'casiers', 'incidents', 'rapports', 'chantier', 'admin', 'annuaire', 'postes', 'candidats', 'taches', 'emargements', 'acomptes', 'conges', 'stocks', 'tableau_bord', 'utilisateurs'] // ordre des dépendances
@@ -28,5 +29,9 @@ for (const widget of WIDGETS) {
   const js = minifier(`(() => {\n${avecImages}\n})()\n`, 'js')
   writeFileSync(new URL(`../builder/${widget}.html`, import.meta.url), html)
   writeFileSync(new URL(`../builder/${widget}.js`, import.meta.url), js)
-  console.log(`${widget} : html ${html.length} car., js ${js.length} car.`)
+  // Numéro de version (empreinte du contenu) : app.html le lit à chaque ouverture et charge builder/ sans copie en cache
+  const version = createHash('sha1').update(html).update(js).digest('hex').slice(0, 12)
+  writeFileSync(new URL(`../builder/version.txt`, import.meta.url), `${version}
+`)
+  console.log(`${widget} : html ${html.length} car., js ${js.length} car., version ${version}`)
 }

@@ -3,7 +3,7 @@
 // fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié ;
 // détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ;
 // émargements, demandes de congé et acomptes du salarié : tableaux des pages de suivi, filtrés sur lui ; compte).
-import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier, notifier } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
 import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEmargements } from './taches.js'
 import { creerEcranEmargements } from './emargements.js'
@@ -272,7 +272,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
 
     return h('section', { className: 'bloc-candidat bloc-contrats' },
       h('div', { className: 'contrats-haut' }, h('h3', null, 'Contrats'),
-        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirContrat(u, null, lien, rouvrir) }, '＋ Ajouter un contrat')),
+        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirContrat(u, null, lien, rouvrir) }, '＋ Nouveau contrat')),
       onglets,
       h('div', { className: 'barre-outils' }, compteur,
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (n°, site, poste…)', 'aria-label': 'Rechercher un contrat',
@@ -426,9 +426,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('button', { className: 'bouton bouton-compact', type: 'button', 'aria-label': 'Mois suivant', onClick: () => changer(1) }, '›'),
           h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { mois = new Date(auj.getFullYear(), auj.getMonth(), 1); choisies.clear(); dessiner() } }, 'Aujourd’hui'),
           h('span', { className: 'planning-actions' },
-            h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => alert(err.message)) }, 'Modèle Excel'),
+            h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => notifier(err.message, 'erreur')) }, 'Modèle Excel'),
             h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => ouvrirImportTaches(d, u, apresAjout) }, 'Importer des tâches'),
-            h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => ouvrirAjoutTache(d, u, apresAjout) }, '＋ Ajouter une tâche'))),
+            h('button', { className: 'bouton bouton-principal bouton-compact', type: 'button', onClick: () => ouvrirAjoutTache(d, u, apresAjout) }, '＋ Nouvelle tâche'))),
         h('div', { className: 'calendrier' },
           JOURS.map((j) => h('div', { className: 'calendrier-jour-nom' }, j)),
           cases.map((jour) => h('div', { className: `calendrier-case${jour.getMonth() !== m ? ' hors-mois' : ''}${cleJour(jour) === cleJour(auj) ? ' aujourdhui' : ''}` },

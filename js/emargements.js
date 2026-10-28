@@ -1,7 +1,7 @@
 // Écran « Suivi des émargements » (admin) : onglets par état (Présent, En retard, Absent, Tous), tableau avec recherche,
 // fiche de modification (les champs suivent l'état : absence autorisée si absent, durée si en retard ou parti plus tôt…),
 // validation et suppression des émargements cochés.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier } from './outils.js'
 import { estAdmin, ROLE_SALARIE, modifierLigne, supprimerLignes, validerEmargements, nomContact } from './donnees.js'
 
 const TABLE_EMARGEMENTS = 'Emargement_Salarie'
@@ -61,7 +61,7 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
         await validerEmargements(ids)
         choisis.clear()
       } catch (err) {
-        alert(err.message || 'La validation a échoué.')
+        notifier(err.message || 'La validation a échoué.', 'erreur')
       }
       await recharger()
     } })

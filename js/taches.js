@@ -2,7 +2,7 @@
 // import en masse et modèle Excel à remplir.
 // Le fichier (Excel ou CSV) est lu dans le navigateur ; chaque niveau d'emplacement est cherché dans son chantier
 // (les noms « Base vie 1 », « RDC »… se répètent d'un chantier à l'autre), puis un aperçu signale les erreurs ligne par ligne.
-import { h, ouvrirPanneau, etiqueterLignes, choixEtiquettes, versSaisie } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, choixEtiquettes, versSaisie, notifier } from './outils.js'
 import { importerTaches, modifierTache, bilanEmargements, nomContact, ROLE_SALARIE } from './donnees.js'
 
 /**
@@ -131,7 +131,7 @@ export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
       return
     }
     fermer()
-    await apres(taches).catch((err) => alert(`La tâche est enregistrée, mais l’affichage n’a pas pu être mis à jour : ${err.message}`))
+    await apres(taches).catch((err) => notifier(`La tâche est enregistrée, mais l’affichage n’a pas pu être mis à jour : ${err.message}`, 'erreur'))
   } },
   h('div', { className: 'champ-groupe' }, tache ? 'Salariés (le premier garde la tâche, les autres en reçoivent une copie)' : 'Salariés (la tâche est créée pour chacun)', choixSalaries.element),
   h('div', { className: 'grille-2' },
@@ -169,8 +169,8 @@ function choisirSortEmargements(bilan, nouvelle) {
   return new Promise((choisir) => {
     const jour = new Date(nouvelle.Date_debut * 1000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
     const n = bilan.orphelins.length
-    const bouton = (libelle, classe, choix) => h('button', { className: `bouton ${classe}`, type: 'button', onClick: () => { fermer(); choisir(choix) } }, libelle)
-    const { fermer } = ouvrirPanneau('Émargements de l’ancien jour', [
+    const bouton = (libelle, classe, choix) => h('button', { className: `bouton ${classe}`, type: 'button', onClick: () => { annuler(); choisir(choix) } }, libelle)
+    const { annuler } = ouvrirPanneau('Émargements de l’ancien jour', [
       h('p', null, `Après cette modification, le salarié n’a plus de tâche ce jour-là. ${n > 1 ? `Ses ${n} émargements non validés` : 'Son émargement non validé'} :`),
       listeEmargements(bilan.orphelins),
       bilan.valides.length > 0 && h('p', { className: 'sous-texte' }, `${bilan.valides.length > 1 ? `${bilan.valides.length} émargements déjà validés restent` : 'Un émargement déjà validé reste'} tel quel.`),
@@ -334,7 +334,7 @@ export function ouvrirImportTaches(d, salarie, apres) {
       h('span', { className: 'bouton bouton-compact' }, 'Choisir le fichier'),
       h('span', { className: 'sous-texte' }, 'Excel (.xlsx) ou CSV'),
       h('input', { type: 'file', hidden: true, accept: '.xlsx,.xls,.csv', onChange: (e) => e.target.files?.[0] && apercu(e.target.files[0]) })),
-    h('button', { className: 'bouton', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => alert(err.message)) }, 'Télécharger le modèle Excel'))
+    h('button', { className: 'bouton', type: 'button', onClick: () => telechargerModeleTaches(d).catch((err) => notifier(err.message, 'erreur')) }, 'Télécharger le modèle Excel'))
 
   async function apercu(fichier) {
     zone.replaceChildren(h('p', { className: 'attente' }, `Lecture de ${fichier.name}…`))
@@ -375,7 +375,7 @@ export function ouvrirImportTaches(d, salarie, apres) {
         return
       }
       fermer()
-      await apres(taches).catch((err) => alert(`Les tâches sont importées, mais l’affichage n’a pas pu être mis à jour : ${err.message}`))
+      await apres(taches).catch((err) => notifier(`Les tâches sont importées, mais l’affichage n’a pas pu être mis à jour : ${err.message}`, 'erreur'))
     } }, pretes.length ? `Importer ${pretes.length} tâche${pretes.length > 1 ? 's' : ''}` : 'Aucune tâche à importer')
     zone.replaceChildren(
       h('p', { className: 'sous-texte' }, 'Vérifie les dates (mois en toutes lettres) : Excel inverse parfois le jour et le mois.'),
