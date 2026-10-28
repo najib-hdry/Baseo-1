@@ -15,10 +15,12 @@ import { creerEcranEmargements } from './emargements.js'
 import { creerEcranAcomptes } from './acomptes.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranStocks } from './stocks.js'
+import { creerEcranTableauDeBord } from './tableau_bord.js'
 
 // `admin` : page visible seulement par le profil Admin ; `parent` : sous-page, affichée décalée sous sa page.
 // La première page visible s'ouvre au démarrage.
 const PAGES = [
+  { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', admin: true },
   { cle: 'chantiers', libelle: 'Gestion des chantiers', icone: 'grue', admin: true },
   { cle: 'casiers', libelle: 'Gestion des casiers', icone: 'total' },
   { cle: 'incidents', libelle: 'Gestion des incidents', icone: 'hs' },
@@ -53,6 +55,7 @@ const ecrans = {
   acomptes: creerEcranAcomptes(zones.acomptes, () => recharger()),
   conges: creerEcranConges(zones.conges, () => recharger()),
   stocks: creerEcranStocks(zones.stocks, () => recharger(), 'stocks'),
+  tableau_bord: creerEcranTableauDeBord(zones.tableau_bord, () => recharger(), (cle) => allerA(cle)),
   catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }

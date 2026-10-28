@@ -725,3 +725,28 @@ body.synchro .entete::after {
   .menu-utilisateur-texte strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .menu-utilisateur-texte span { font-size: .8rem; color: var(--encre-douce); }
 }
+
+/* Tableau de bord */
+.widget:has(.tableau-bord) { max-width: none; }
+.tb-filtre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 16px; }
+.tb-filtre .champ-compact { min-width: 240px; }
+.tb-tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+.tb-tuile { display: grid; align-content: start; gap: 4px; padding: 14px 16px; font: inherit; text-align: left; color: var(--encre); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--trait); border-left: 6px solid var(--teinte, var(--baseo-turquoise)); border-radius: 12px; }
+.tb-tuile:hover { border-color: var(--encre-douce); border-left-color: var(--teinte, var(--baseo-turquoise)); }
+.tb-tuile:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+.tb-valeur { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.tb-libelle { font-weight: 600; }
+.tb-detail { font-size: .82rem; color: var(--encre-douce); }
+.tb-section { margin-top: 28px; }
+.tb-section > h2 { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; }
+.tb-section .titre-icone { width: 34px; height: 34px; }
+.tb-section .graphiques { margin-bottom: 0; }
+.tb-section > .tableau-defilant { margin-top: 12px; }
+.graph .tableau-defilant { margin-top: 4px; }
+.tb-colonnes { display: flex; align-items: stretch; gap: 12px; height: 180px; padding-top: 18px; }
+.tb-mois { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.tb-paire { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 4px; width: 100%; }
+.tb-col { position: relative; width: 38%; max-width: 26px; min-height: 2px; border-radius: 4px 4px 0 0; }
+.tb-col-valeur { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--encre-douce); }
+.tb-mois-libelle { font-size: 12px; color: var(--encre-douce); text-transform: capitalize; }
