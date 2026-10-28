@@ -386,10 +386,10 @@ export function supprimerTaches(d, ids, avecEmargements = false) {
 export const PARTENAIRES = {
   entreprises: { cle: 'entreprises', table: 'Chantier_Entreprise', col: 'Entreprise', cible: 'Entreprises', occupant: 'Entreprise',
     titre: 'Entreprises', nom: 'entreprise', attribue: 'attribuée', aucun: 'Aucune entreprise', tous: 'Toutes les entreprises', un: 'une entreprise',
-    page: 'Gestion des entreprises' },
+    page: 'Partenaires › Entreprises' },
   sous_traitants: { cle: 'sous_traitants', table: 'Chantier_Sous_traitant', col: 'Sous_traitant', cible: 'Sous_traitants', occupant: 'Employeur',
     titre: 'Sous-traitants', nom: 'sous-traitant', attribue: 'attribué', aucun: 'Aucun sous-traitant', tous: 'Tous les sous-traitants', un: 'un sous-traitant',
-    page: 'Gestion des sous-traitants' },
+    page: 'Partenaires › Sous-traitants' },
 }
 
 // Lignes de la table de liaison du partenaire `p` pour un chantier

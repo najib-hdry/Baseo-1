@@ -158,7 +158,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const infosSalarie = () => {
       if (!c) return h('section', { className: 'bloc-candidat' },
         infos([['Nom', u.Nom || '—'], ['Prénom', u.Prenom || '—'], ['Téléphone', lienContact('tel', u.Telephone) || '—']]),
-        h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Gestion des candidats).'))
+        h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Ressources humaines › Candidats).'))
       const photo = idsDeListe(c.Photo)[0]
       // Photo à gauche, informations au centre, bouton à droite
       return h('section', { className: 'bloc-candidat' },
@@ -189,7 +189,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     // Toutes les informations du candidat lié, en lecture, sans le suivi de la candidature
     const ongletDetail = () => (c
       ? blocsCandidatLecture(d, c, lien, ['Suivi de la candidature'])
-      : h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Gestion des candidats).'))
+      : h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Ressources humaines › Candidats).'))
 
     const ongletCompte = () => h('section', { className: 'bloc-candidat' },
       infos([

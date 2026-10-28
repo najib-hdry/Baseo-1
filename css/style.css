@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&family=Roboto:wght@400;500;700&family=Titillium+Web:wght@600;700&display=swap');
 
 :root {
   --fond: #E9ECEE;
@@ -11,11 +11,11 @@
   --occupe: #3D5A73;
   --hs: #B42318;
   --rayon: 10px;
-  /* Couleurs baseo (menu latéral, barre du haut, logo) */
-  --baseo-vert: #1d6b5e;
-  --baseo-fonce: #0d3d3a;
-  --baseo-bordure: #0f3d36;
-  --baseo-turquoise: #2aa69c;
+  /* Couleurs de la marque ID PILOTE (menu, barre du haut, logo, notifications) */
+  --marque-vert: #1d6b5e;
+  --marque-fonce: #0d3d3a;
+  --marque-bordure: #0f3d36;
+  --marque-turquoise: #2aa69c;
 
   font-family: 'Barlow', system-ui, sans-serif;
   font-size: 17px;
@@ -51,11 +51,10 @@ h2 { font-size: 1.3rem; }
 }
 .entete-icone {
   flex: none; display: grid; place-items: center; width: 46px; height: 46px;
-  color: #fff; background: linear-gradient(135deg, #1d8a7e, var(--baseo-fonce)); border-radius: 10px;
+  color: #fff; background: linear-gradient(135deg, #1d8a7e, var(--marque-fonce)); border-radius: 10px;
 }
 .entete-titre { font-size: 1.45rem; font-weight: 700; color: #000; }
-.entete-logo { flex: none; width: 88px; color: var(--baseo-fonce); }
-.logo-baseo { display: block; width: 100%; height: auto; }
+.entete-logo { flex: none; width: 88px; color: var(--marque-fonce); }
 
 /* Formulaires et boutons */
 .formulaire { display: grid; gap: 12px; margin-top: 20px; }
@@ -528,10 +527,10 @@ button.tiroir-lien.active { background: var(--signal); }
 .calendrier-jour-nom { padding: 4px; font-size: .8rem; font-weight: 700; text-align: center; color: var(--encre-douce); }
 .calendrier-case { display: grid; align-content: start; gap: 3px; min-height: 92px; padding: 6px; background: #fff; border: 1px solid #d7dce1; border-radius: 6px; }
 .calendrier-case.hors-mois { background: #f3f5f7; color: #9aa5ad; }
-.calendrier-case.aujourdhui { border: 2px solid var(--baseo-turquoise); }
+.calendrier-case.aujourdhui { border: 2px solid var(--marque-turquoise); }
 .calendrier-numero { font-size: .85rem; font-weight: 700; }
 .calendrier-tache { overflow: hidden; padding: 2px 6px; font-size: .78rem; white-space: nowrap; text-overflow: ellipsis;
-  color: #0d3d3a; background: #d5f0ec; border-left: 3px solid var(--baseo-turquoise); border-radius: 4px; }
+  color: #0d3d3a; background: #d5f0ec; border-left: 3px solid var(--marque-turquoise); border-radius: 4px; }
 .cellule-detail { white-space: pre-wrap; }
 .planning-actions { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 .planning-saut { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -694,7 +693,7 @@ body.synchro .entete::after {
 .fiche-boutons .bouton { flex: 1 1 160px; }
 .cellule-photo { display: inline-flex; align-items: center; gap: 6px; }
 
-/* Menu latéral baseo, toujours ouvert sur grand écran (≥ 900 px) ; sur téléphone, le bouton ☰ ouvre le tiroir */
+/* Menu latéral, toujours ouvert sur grand écran (≥ 900 px) ; sur téléphone, le bouton ☰ ouvre le tiroir */
 .menu-lateral { display: none; }
 @media (min-width: 900px) {
   .burger { display: none; }
@@ -704,9 +703,9 @@ body.synchro .entete::after {
     display: flex; flex-direction: column; flex: none; width: 240px;
     position: sticky; top: 12px; height: calc(100vh - 24px); margin: 12px 0 12px 12px;
     padding: 22px 12px 12px; color: #fff;
-    background: var(--baseo-vert); border: 2px solid var(--baseo-bordure); border-radius: 18px;
+    background: var(--marque-vert); border: 2px solid var(--marque-bordure); border-radius: 18px;
   }
-  .menu-logo { width: 150px; margin: 0 auto 24px; color: var(--baseo-fonce); }
+  .menu-logo { width: 150px; margin: 0 auto 24px; color: var(--marque-fonce); }
   /* Colonne qui défile ; les liens ne rétrécissent jamais (un libellé sur 3 lignes ne déborde pas sur le suivant) */
   .menu-liens { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px;
     scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .6) transparent; }
@@ -714,8 +713,8 @@ body.synchro .entete::after {
   .menu-lateral .tiroir-icone { width: 26px; color: #fff; background: transparent; }
   .menu-lateral .tiroir-lien.sous-lien { min-height: 40px; }
   .menu-lateral .tiroir-lien:hover { background: rgba(255, 255, 255, .1); }
-  .menu-lateral .tiroir-lien.active { color: var(--baseo-fonce); background: #fff; border-color: var(--baseo-bordure); }
-  .menu-lateral .tiroir-lien.active .tiroir-icone { color: var(--baseo-turquoise); background: transparent; }
+  .menu-lateral .tiroir-lien.active { color: var(--marque-fonce); background: #fff; border-color: var(--marque-bordure); }
+  .menu-lateral .tiroir-lien.active .tiroir-icone { color: var(--marque-turquoise); background: transparent; }
   .menu-utilisateur {
     display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px;
     color: var(--encre); background: #fff; border-radius: 12px;
@@ -732,8 +731,8 @@ body.synchro .entete::after {
 .tb-filtre .champ-compact { min-width: 240px; }
 .tb-tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
 .tb-tuile { display: grid; align-content: start; gap: 4px; padding: 14px 16px; font: inherit; text-align: left; color: var(--encre); cursor: pointer;
-  background: var(--surface); border: 1px solid var(--trait); border-left: 6px solid var(--teinte, var(--baseo-turquoise)); border-radius: 12px; }
-.tb-tuile:hover { border-color: var(--encre-douce); border-left-color: var(--teinte, var(--baseo-turquoise)); }
+  background: var(--surface); border: 1px solid var(--trait); border-left: 6px solid var(--teinte, var(--marque-turquoise)); border-radius: 12px; }
+.tb-tuile:hover { border-color: var(--encre-douce); border-left-color: var(--teinte, var(--marque-turquoise)); }
 .tb-tuile:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
 .tb-valeur { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .tb-libelle { font-weight: 600; }
@@ -754,7 +753,7 @@ body.synchro .entete::after {
 /* Bandeau de notification (« Enregistré ✓ », erreurs) : en bas, au-dessus des fenêtres ; un clic le ferme */
 .notification { position: fixed; left: 50%; bottom: 24px; z-index: 100; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px));
   padding: 12px 20px; font-weight: 600; border-radius: 12px; box-shadow: 0 8px 24px rgba(21, 33, 43, .25); cursor: pointer; animation: apparait .15s ease-out; }
-.notification-succes { color: #fff; background: var(--baseo-vert); }
+.notification-succes { color: #fff; background: var(--marque-vert); }
 .notification-erreur { color: #fff; background: var(--hs); }
 /* Erreur inattendue : message lisible, bouton Recharger, détail technique replié */
 .erreur-globale { position: fixed; left: 50%; top: 24px; z-index: 100; transform: translateX(-50%); width: min(560px, calc(100vw - 32px));
@@ -763,3 +762,101 @@ body.synchro .entete::after {
 .erreur-globale p { margin: 0; }
 .erreur-globale summary { cursor: pointer; font-size: .85rem; color: var(--encre-douce); }
 .erreur-globale pre { max-height: 200px; overflow: auto; margin: 8px 0 0; font-size: 11px; white-space: pre-wrap; }
+
+
+/* ======================================================================
+   Thème ID PILOTE (inspiré de groupeidees.fr) : vert vif pour les actions, filets jaunes,
+   une couleur par groupe du menu, Titillium Web pour les titres et Roboto pour le texte.
+   Ce bloc vient en dernier : il remplace les couleurs et formes définies plus haut.
+   ====================================================================== */
+:root {
+  --fond: #F4F5F2;
+  --encre: #2E2E2E;
+  --encre-douce: #6B6B6B;
+  --trait: #D4D7D0;
+  --trait-clair: #E2E4DF;
+  --action: #00845A;        /* boutons principaux (texte blanc lisible) */
+  --action-fonce: #00704A;
+  --accent: #00A470;        /* soulignements, liserés */
+  --jaune: #F7E700;         /* filets d'accent */
+  --rayon: 6px;
+  --marque-vert: #00845A;
+  --marque-fonce: #00553A;
+  --marque-bordure: #E2E4DF;
+  --marque-turquoise: #00A470;
+  font-family: 'Roboto', system-ui, sans-serif;
+  color: #444444;
+}
+h1, h2, h3, .stat-valeur, .tb-valeur, .anneau-taux { font-family: 'Titillium Web', 'Roboto', sans-serif; color: var(--encre); }
+
+/* Logo texte */
+.logo-marque { display: block; font-family: 'Titillium Web', sans-serif; font-weight: 700; font-size: 1.9rem; line-height: 1; letter-spacing: .02em; color: var(--action-fonce); white-space: nowrap; }
+
+/* Boutons : vert pour l'action principale, contour discret pour les autres */
+.bouton { border: 1px solid var(--trait); border-radius: var(--rayon); }
+.bouton-principal { color: #fff; background: var(--action); border-color: var(--action); }
+.bouton-principal:hover { background: var(--action-fonce); border-color: var(--action-fonce); }
+.bouton:focus-visible, .burger:focus-visible, .tiroir-lien:focus-visible, .tb-tuile:focus-visible, .lieu-bouton:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.bouton-danger { color: #fff; background: var(--hs); border-color: var(--hs); }
+/* Dans les tableaux, « Supprimer » reste discret ; le rouge plein est pour la confirmation */
+.tableau-actions .bouton-danger { color: var(--hs); background: #fff; border-color: #EBC6C2; }
+.tableau-actions .bouton-danger:hover { background: #FDF1F0; }
+.champ { border: 1px solid var(--trait); border-radius: var(--rayon); }
+.champ:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 164, 112, .15); }
+
+/* Onglets de statut : soulignés en vert au lieu de pastilles */
+.onglets-statut { gap: 22px; border-bottom: 1px solid var(--trait-clair); }
+.onglets-statut .onglet { min-height: 40px; padding: 0 2px; color: #555; font-weight: 500; background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 0; }
+.onglets-statut .onglet[aria-selected="true"] { color: var(--action-fonce); font-weight: 700; background: none; border-bottom-color: var(--accent); }
+
+/* Cartes et tableaux : bordure fine, en-tête blanc souligné de vert */
+.carte-tableau { padding: 16px 18px; border: 1px solid var(--trait-clair); border-radius: var(--rayon); box-shadow: none; }
+.carte-tableau .tableau-defilant { border: 0; border-radius: 0; }
+.tableau th { font-family: 'Titillium Web', sans-serif; font-size: .8rem; color: #555; background: #fff; border-bottom: 0; box-shadow: inset 0 -3px 0 var(--accent); }
+.tableau td { border-bottom-color: #ECEEEA; }
+.tableau-ligne:hover td { background: #F7F8F5; }
+.panneau-fiche :is(.tableau th) { color: #555; }
+.badge { border-radius: 3px; }
+.badge-en_cours { color: #4A4300; background: #FBF5A8; }
+.badge-nouveau { color: #4E2F63; background: #EFE6F4; }
+.badge-resolu { color: #00553A; background: #E6F5EE; }
+.graph, .tb-tuile, .panneau { border-radius: var(--rayon); }
+.graph { border-color: var(--trait-clair); }
+
+/* Barre du haut : blanche, icône et sur-titre à la couleur du groupe de la page, filet jaune sous le titre */
+.entete { background: #fff; border: 1px solid var(--trait-clair); border-radius: var(--rayon); box-shadow: none; }
+.entete-icone { background: var(--groupe, var(--action)); border-radius: var(--rayon); }
+.entete-groupe { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--groupe, var(--encre-douce)); }
+.entete-titre { font-family: 'Titillium Web', sans-serif; color: var(--encre); }
+.entete-titre::after { content: ""; display: block; width: 48px; height: 4px; margin-top: 4px; background: var(--jaune); border-radius: 2px; }
+.entete-logo { width: auto; }
+.entete-logo .logo-marque { font-size: 1.3rem; }
+
+/* Menu (tiroir du téléphone et menu latéral) : titres de groupe avec pastille de couleur */
+.menu-groupe { display: flex; align-items: center; gap: 8px; margin: 14px 8px 4px; font-family: 'Titillium Web', sans-serif; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--encre-douce); }
+.menu-groupe::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--groupe); }
+.tiroir-lien { color: #444; }
+.tiroir-icone { color: var(--groupe, var(--encre)); background: transparent; }
+button.tiroir-lien { font-weight: 500; }
+.tiroir-lien:hover { background: #F1F3EF; }
+.tiroir-lien.active, button.tiroir-lien.active { color: var(--marque-fonce); font-weight: 700; background: #E6F5EE; box-shadow: inset 4px 0 0 var(--groupe, var(--accent)); }
+.tiroir-lien.active .tiroir-icone { background: transparent; }
+.tiroir-lien.sous-lien { width: calc(100% - 22px); margin-left: 22px; }
+
+@media (min-width: 900px) {
+  .entete-logo { display: none; } /* le logo est déjà dans le menu */
+  .menu-lateral { padding: 0 10px 12px; color: var(--encre); background: #fff; border: 1px solid var(--trait-clair); border-radius: var(--rayon); }
+  .menu-logo { width: auto; margin: 0 -10px 4px; padding: 20px 18px 14px; border-bottom: 4px solid var(--jaune); }
+  .menu-sous-titre { display: block; margin-top: 4px; font-size: .78rem; color: var(--encre-douce); }
+  .menu-liens { gap: 1px; scrollbar-color: #C9CDC4 transparent; }
+  .menu-lateral .tiroir-lien { min-height: 32px; padding: 3px 10px; font-size: .92rem; line-height: 1.2; color: #444; border: 0; border-radius: var(--rayon); }
+  .menu-lateral .tiroir-icone { width: 22px; height: 22px; color: var(--groupe); background: transparent; }
+  .menu-lateral .tiroir-lien:hover { background: #F1F3EF; }
+  .menu-lateral .tiroir-lien.active { color: var(--marque-fonce); background: #E6F5EE; border: 0; box-shadow: inset 4px 0 0 var(--groupe, var(--accent)); }
+  .menu-lateral .tiroir-lien.active .tiroir-icone { color: var(--groupe); }
+  .menu-lateral .tiroir-lien.sous-lien { min-height: 32px; }
+  .menu-lateral .menu-groupe { margin: 10px 8px 2px; }
+  .menu-logo .logo-marque { font-size: 1.7rem; }
+  .menu-logo { padding: 16px 18px 10px; }
+  .menu-utilisateur { color: var(--encre); background: var(--fond); border-radius: var(--rayon); }
+}

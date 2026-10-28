@@ -172,9 +172,8 @@ export const versSaisie = (v) => {
   return `${dt.getFullYear()}-${z(dt.getMonth() + 1)}-${z(dt.getDate())}T${z(dt.getHours())}:${z(dt.getMinutes())}`
 }
 
-// Logo « baseo » (image du projet, fond transparent) ; l'assemblage remplace ce chemin par l'image intégrée
-const LOGO_BASEO = 'img/logo-baseo.png'
-export const logoBaseo = () => h('img', { className: 'logo-baseo', src: LOGO_BASEO, alt: 'baseo' })
+// Logo « ID PILOTE » : le nom de l'application en texte (police des titres)
+export const logoMarque = () => h('span', { className: 'logo-marque' }, 'ID PILOTE')
 
 // Galerie des photos d'une fiche (identifiants de pièces jointes Grist) ; chaque photo s'ouvre en grand dans un nouvel onglet.
 // `lien(id)` : adresse temporaire d'une pièce jointe (null si indisponible)

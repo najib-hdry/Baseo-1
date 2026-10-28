@@ -1,7 +1,7 @@
 // Application « Casiers chantier » dans Grist : en-tête, menu « Mes pages »
 // et les deux écrans (casiers, incidents), comme l'application Supabase.
 /* global grist */
-import { h, icone, afficherErreur, logoBaseo } from './outils.js'
+import { h, icone, afficherErreur, logoMarque } from './outils.js'
 import { chargerTout, estAdmin } from './donnees.js'
 import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
@@ -17,26 +17,35 @@ import { creerEcranConges } from './conges.js'
 import { creerEcranStocks } from './stocks.js'
 import { creerEcranTableauDeBord } from './tableau_bord.js'
 
-// `admin` : page visible seulement par le profil Admin ; `parent` : sous-page, affichée décalée sous sa page.
-// La première page visible s'ouvre au démarrage.
-const PAGES = [
-  { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', admin: true },
-  { cle: 'chantiers', libelle: 'Gestion des chantiers', icone: 'grue', admin: true },
-  { cle: 'casiers', libelle: 'Gestion des casiers', icone: 'total' },
-  { cle: 'incidents', libelle: 'Gestion des incidents', icone: 'hs' },
-  { cle: 'nettoyage', libelle: 'Contrôle nettoyage', icone: 'nettoyage' },
-  { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance' },
-  { cle: 'entreprises', libelle: 'Gestion des entreprises', icone: 'entreprise', admin: true },
-  { cle: 'sous_traitants', libelle: 'Gestion des sous-traitants', icone: 'sous_traitant', admin: true },
-  { cle: 'postes', libelle: 'Gestion des postes', icone: 'poste', admin: true },
-  { cle: 'candidats', libelle: 'Gestion des candidats', icone: 'occupes', admin: true },
-  { cle: 'utilisateurs', libelle: 'Gestion des utilisateurs', icone: 'utilisateurs', admin: true },
-  { cle: 'emargements', libelle: 'Suivi des émargements', icone: 'emargements', admin: true },
-  { cle: 'acomptes', libelle: 'Suivi des demandes d’acompte', icone: 'acomptes', admin: true },
-  { cle: 'conges', libelle: 'Suivi des demandes de congé', icone: 'conges', admin: true },
-  { cle: 'stocks', libelle: 'Gestion des stocks', icone: 'stock', admin: true },
-  { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', admin: true, parent: 'stocks' },
+// Groupes du menu, dans l'ordre : titre et couleur (pastille, icônes, sur-titre de la page)
+const GROUPES = [
+  { cle: 'pilotage', titre: 'Pilotage', couleur: '#00A470' },
+  { cle: 'chantiers', titre: 'Chantiers', couleur: '#007EBD' },
+  { cle: 'partenaires', titre: 'Partenaires', couleur: '#7E9A12' },
+  { cle: 'rh', titre: 'Ressources humaines', couleur: '#946AAB' },
+  { cle: 'stocks', titre: 'Stocks', couleur: '#C9861A' },
 ]
+// `groupe` : groupe du menu ; `admin` : page visible seulement par le profil Admin ;
+// `parent` : sous-page, affichée décalée sous sa page. La première page visible s'ouvre au démarrage.
+const PAGES = [
+  { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', groupe: 'pilotage', admin: true },
+  { cle: 'chantiers', libelle: 'Chantiers', icone: 'grue', groupe: 'chantiers', admin: true },
+  { cle: 'casiers', libelle: 'Casiers', icone: 'total', groupe: 'chantiers' },
+  { cle: 'incidents', libelle: 'Incidents', icone: 'hs', groupe: 'chantiers' },
+  { cle: 'nettoyage', libelle: 'Nettoyage', icone: 'nettoyage', groupe: 'chantiers' },
+  { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance', groupe: 'chantiers' },
+  { cle: 'entreprises', libelle: 'Entreprises', icone: 'entreprise', groupe: 'partenaires', admin: true },
+  { cle: 'sous_traitants', libelle: 'Sous-traitants', icone: 'sous_traitant', groupe: 'partenaires', admin: true },
+  { cle: 'postes', libelle: 'Postes', icone: 'poste', groupe: 'rh', admin: true },
+  { cle: 'candidats', libelle: 'Candidats', icone: 'occupes', groupe: 'rh', admin: true },
+  { cle: 'utilisateurs', libelle: 'Utilisateurs', icone: 'utilisateurs', groupe: 'rh', admin: true },
+  { cle: 'emargements', libelle: 'Émargements', icone: 'emargements', groupe: 'rh', admin: true },
+  { cle: 'conges', libelle: 'Congés', icone: 'conges', groupe: 'rh', admin: true },
+  { cle: 'acomptes', libelle: 'Acomptes', icone: 'acomptes', groupe: 'rh', admin: true },
+  { cle: 'stocks', libelle: 'Stocks', icone: 'stock', groupe: 'stocks', admin: true },
+  { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', groupe: 'stocks', admin: true, parent: 'stocks' },
+]
+const groupeDe = (page) => GROUPES.find((g) => g.cle === page.groupe) ?? GROUPES[0]
 const pagesVisibles = () => PAGES.filter((p) => !p.admin || estAdmin(donnees))
 
 const principal = document.getElementById('app')
@@ -66,19 +75,28 @@ let donnees = null
 
 // ---- En-tête et menu ----
 
-// Barre du haut : icône et nom de la page ouverte
+// Barre du haut : icône, groupe (sur-titre) et nom de la page ouverte
 const iconeTitre = h('span', { className: 'entete-icone', 'aria-hidden': 'true' })
+const surTitre = h('div', { className: 'entete-groupe' })
 const titrePage = h('div', { className: 'entete-titre' })
 
 // Liens des pages (communs au tiroir du téléphone et au menu latéral de l'ordinateur) ;
 // `profil` : le tiroir affiche la personne connectée en tête, le menu latéral dans sa carte du bas
 const liensMenu = (avant = () => {}, profil = true) => [
   profil && donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
-  pagesVisibles().map((p) => h('button', {
-    className: `tiroir-lien${p.parent ? ' sous-lien' : ''}${p.cle === pageCourante() ? ' active' : ''}`,
-    'aria-current': p.cle === pageCourante() ? 'page' : null,
-    onClick: () => { avant(); allerA(p.cle) },
-  }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle)),
+  // Un titre par groupe qui a au moins une page visible, puis ses pages ; la couleur du groupe passe par --groupe
+  GROUPES.map((g) => {
+    const pages = pagesVisibles().filter((p) => groupeDe(p) === g)
+    return pages.length === 0 ? [] : [
+      h('div', { className: 'menu-groupe', style: { '--groupe': g.couleur } }, g.titre),
+      pages.map((p) => h('button', {
+        className: `tiroir-lien${p.parent ? ' sous-lien' : ''}${p.cle === pageCourante() ? ' active' : ''}`,
+        style: { '--groupe': g.couleur },
+        'aria-current': p.cle === pageCourante() ? 'page' : null,
+        onClick: () => { avant(); allerA(p.cle) },
+      }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle)),
+    ]
+  }),
 ]
 
 // Téléphone : menu en tiroir, ouvert par le bouton ☰
@@ -102,7 +120,7 @@ function ouvrirMenu() {
 // logo, pages, puis la carte de la personne connectée
 const menuLateral = h('nav', { className: 'menu-lateral', 'aria-label': 'Mes pages' })
 const dessinerMenuLateral = () => menuLateral.replaceChildren(
-  h('div', { className: 'menu-logo' }, logoBaseo()),
+  h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des chantiers')),
   h('div', { className: 'menu-liens' }, liensMenu(undefined, false)),
   ...(donnees?.moi ? [h('div', { className: 'menu-utilisateur' },
     h('span', { className: 'menu-avatar' }, icone('occupes', 22)),
@@ -117,8 +135,8 @@ const entete = h('header', { className: 'entete' },
       return span.firstChild
     })()),
   iconeTitre,
-  h('div', { className: 'entete-centre' }, titrePage),
-  h('span', { className: 'entete-logo' }, logoBaseo()))
+  h('div', { className: 'entete-centre' }, surTitre, titrePage),
+  h('span', { className: 'entete-logo' }, logoMarque()))
 
 // ---- Navigation entre les écrans ----
 
@@ -134,6 +152,8 @@ function afficherPage() {
   const page = pageCourante()
   const infos = PAGES.find((p) => p.cle === page)
   titrePage.textContent = infos.libelle
+  surTitre.textContent = groupeDe(infos).titre
+  entete.style.setProperty('--groupe', groupeDe(infos).couleur) // couleur du groupe : icône et sur-titre
   iconeTitre.replaceChildren(icone(infos.icone, 24))
   dessinerMenuLateral() // page active et pages visibles (admin) à jour
   if (donnees && !donnees.moi) {

@@ -6,7 +6,7 @@ import { estAdmin, idsDeListe, nomContact, ROLE_SALARIE } from './donnees.js'
 
 // Couleurs des graphiques (variables du thème)
 const TB_COULEURS = { occupes: 'var(--occupe)', libres: 'var(--libre)', hs: 'var(--hs)', ouvert: 'var(--hs)', en_cours: 'var(--signal)',
-  resolu: 'var(--libre)', actif: 'var(--baseo-turquoise)', inactif: '#9AA7B2', alerte: 'var(--hs)', neutre: 'var(--baseo-vert)' }
+  resolu: 'var(--libre)', actif: 'var(--marque-turquoise)', inactif: '#9AA7B2', alerte: 'var(--hs)', neutre: 'var(--marque-vert)' }
 const tbPluriel = (n, mot, pluriel = `${mot}s`) => `${n} ${n > 1 ? pluriel : mot}`
 
 // `aller(cle)` : ouvre une page du menu
