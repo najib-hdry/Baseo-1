@@ -860,3 +860,32 @@ button.tiroir-lien { font-weight: 500; }
   .menu-logo { padding: 16px 18px 10px; }
   .menu-utilisateur { color: var(--encre); background: var(--fond); border-radius: var(--rayon); }
 }
+
+/* Menu pliable (ordinateur) : le bouton ☰ de la barre du haut replie le menu en une colonne d'icônes */
+@media (min-width: 900px) {
+  .burger { display: grid; border: 1px solid var(--trait); border-radius: var(--rayon); }
+  .menu-lateral { transition: width .15s ease; }
+  .menu-replie .menu-lateral { width: 66px; padding: 0 6px 12px; }
+  .menu-replie .menu-logo { margin: 0 -6px 4px; padding: 14px 4px 10px; text-align: center; }
+  .menu-replie .menu-logo .logo-marque { font-size: .95rem; line-height: 1.05; white-space: normal; }
+  .menu-replie .menu-sous-titre, .menu-replie .tiroir-libelle, .menu-replie .menu-utilisateur-texte { display: none; }
+  .menu-replie .menu-lateral .menu-groupe { justify-content: center; margin: 10px 0 2px; font-size: 0; }
+  .menu-replie .menu-lateral .tiroir-lien { justify-content: center; padding: 3px 0; }
+  .menu-replie .menu-lateral .tiroir-lien.sous-lien { width: 100%; margin-left: 0; }
+  .menu-replie .menu-liens { padding-right: 0; scrollbar-width: none; } /* la molette fait toujours défiler */
+  .menu-replie .menu-utilisateur { justify-content: center; padding: 8px 0; }
+}
+
+/* Groupes du menu pliables : le titre est un bouton, la flèche pointe vers le bas (déplié) ou la droite (plié) */
+button.menu-groupe { width: calc(100% - 16px); padding: 4px 0; text-align: left; cursor: pointer; background: none; border: 0; border-radius: 4px; }
+button.menu-groupe:hover { color: var(--encre); }
+button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.menu-groupe-titre { flex: 1; min-width: 0; }
+.menu-chevron { flex: none; width: 7px; height: 7px; margin-right: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .15s ease; }
+.menu-groupe.plie .menu-chevron { transform: rotate(-45deg); }
+.menu-groupe.contient-active { color: var(--groupe); }
+.tiroir-liste { display: flex; flex-direction: column; gap: 2px; }
+@media (min-width: 900px) {
+  .menu-replie .menu-chevron { display: none; }
+  .menu-replie button.menu-groupe { width: 100%; justify-content: center; }
+}

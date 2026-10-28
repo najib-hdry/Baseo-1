@@ -21,9 +21,9 @@ import { creerEcranTableauDeBord } from './tableau_bord.js'
 const GROUPES = [
   { cle: 'pilotage', titre: 'Pilotage', couleur: '#00A470' },
   { cle: 'chantiers', titre: 'Chantiers', couleur: '#007EBD' },
-  { cle: 'partenaires', titre: 'Partenaires', couleur: '#7E9A12' },
   { cle: 'rh', titre: 'Ressources humaines', couleur: '#946AAB' },
   { cle: 'stocks', titre: 'Stocks', couleur: '#C9861A' },
+  { cle: 'partenaires', titre: 'Partenaires', couleur: '#7E9A12' },
 ]
 // `groupe` : groupe du menu ; `admin` : page visible seulement par le profil Admin ;
 // `parent` : sous-page, affichée décalée sous sa page. La première page visible s'ouvre au démarrage.
@@ -36,9 +36,9 @@ const PAGES = [
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance', groupe: 'chantiers' },
   { cle: 'entreprises', libelle: 'Entreprises', icone: 'entreprise', groupe: 'partenaires', admin: true },
   { cle: 'sous_traitants', libelle: 'Sous-traitants', icone: 'sous_traitant', groupe: 'partenaires', admin: true },
+  { cle: 'utilisateurs', libelle: 'Utilisateurs', icone: 'utilisateurs', groupe: 'rh', admin: true },
   { cle: 'postes', libelle: 'Postes', icone: 'poste', groupe: 'rh', admin: true },
   { cle: 'candidats', libelle: 'Candidats', icone: 'occupes', groupe: 'rh', admin: true },
-  { cle: 'utilisateurs', libelle: 'Utilisateurs', icone: 'utilisateurs', groupe: 'rh', admin: true },
   { cle: 'emargements', libelle: 'Émargements', icone: 'emargements', groupe: 'rh', admin: true },
   { cle: 'conges', libelle: 'Congés', icone: 'conges', groupe: 'rh', admin: true },
   { cle: 'acomptes', libelle: 'Acomptes', icone: 'acomptes', groupe: 'rh', admin: true },
@@ -82,19 +82,36 @@ const titrePage = h('div', { className: 'entete-titre' })
 
 // Liens des pages (communs au tiroir du téléphone et au menu latéral de l'ordinateur) ;
 // `profil` : le tiroir affiche la personne connectée en tête, le menu latéral dans sa carte du bas
-const liensMenu = (avant = () => {}, profil = true) => [
+// Groupes pliés par l'utilisateur (clic sur le titre du groupe), gardés dans ce navigateur
+const CLE_GROUPES_PLIES = 'id-pilote:groupes-plies'
+const groupesPlies = new Set((() => { try { return JSON.parse(localStorage.getItem(CLE_GROUPES_PLIES)) ?? [] } catch { return [] } })())
+function basculerGroupe(cle) {
+  if (groupesPlies.has(cle)) groupesPlies.delete(cle); else groupesPlies.add(cle)
+  try { localStorage.setItem(CLE_GROUPES_PLIES, JSON.stringify([...groupesPlies])) } catch {}
+}
+
+// `redessiner()` : redessine ce menu après avoir plié ou déplié un groupe
+const liensMenu = (avant = () => {}, profil = true, redessiner = () => {}) => [
   profil && donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
-  // Un titre par groupe qui a au moins une page visible, puis ses pages ; la couleur du groupe passe par --groupe
+  // Un titre par groupe qui a au moins une page visible (cliquable : plie / déplie), puis ses pages si le groupe est déplié ;
+  // la couleur du groupe passe par --groupe ; un groupe plié qui contient la page ouverte garde son titre en couleur
   GROUPES.map((g) => {
     const pages = pagesVisibles().filter((p) => groupeDe(p) === g)
-    return pages.length === 0 ? [] : [
-      h('div', { className: 'menu-groupe', style: { '--groupe': g.couleur } }, g.titre),
-      pages.map((p) => h('button', {
+    if (pages.length === 0) return []
+    const plie = groupesPlies.has(g.cle)
+    const contientActive = pages.some((p) => p.cle === pageCourante())
+    return [
+      h('button', { className: `menu-groupe${plie ? ' plie' : ''}${plie && contientActive ? ' contient-active' : ''}`, type: 'button',
+        style: { '--groupe': g.couleur }, 'aria-expanded': String(!plie), title: `${plie ? 'Déplier' : 'Replier'} ${g.titre}`,
+        onClick: () => { basculerGroupe(g.cle); redessiner() } },
+      h('span', { className: 'menu-groupe-titre' }, g.titre), h('span', { className: 'menu-chevron', 'aria-hidden': 'true' })),
+      plie ? [] : pages.map((p) => h('button', {
         className: `tiroir-lien${p.parent ? ' sous-lien' : ''}${p.cle === pageCourante() ? ' active' : ''}`,
         style: { '--groupe': g.couleur },
         'aria-current': p.cle === pageCourante() ? 'page' : null,
+        title: p.libelle,
         onClick: () => { avant(); allerA(p.cle) },
-      }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle)),
+      }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), h('span', { className: 'tiroir-libelle' }, p.libelle))),
     ]
   }),
 ]
@@ -106,15 +123,28 @@ function ouvrirMenu() {
     window.removeEventListener('keydown', touche)
   }
   const touche = (e) => e.key === 'Escape' && fermer()
+  const liste = h('div', { className: 'tiroir-liste' })
   const voile = h('div', { className: 'voile voile-tiroir', onClick: fermer },
     h('nav', { className: 'tiroir', 'aria-label': 'Mes pages', onClick: (e) => e.stopPropagation() },
       h('div', { className: 'tiroir-haut' },
         h('span', { className: 'tiroir-titre' }, 'Mes pages'),
         h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: fermer }, '✕')),
-      liensMenu(fermer)))
+      liste))
+  const dessiner = () => liste.replaceChildren(...liensMenu(fermer, true, dessiner).flat(Infinity).filter(Boolean))
+  dessiner()
   document.body.append(voile)
   window.addEventListener('keydown', touche)
 }
+
+// Ordinateur : le bouton ☰ replie le menu latéral en une colonne d'icônes (choix gardé dans ce navigateur)
+const CLE_MENU_REPLIE = 'id-pilote:menu-replie'
+const ecranLarge = () => window.matchMedia('(min-width: 900px)').matches
+function basculerMenu() {
+  if (!ecranLarge()) return ouvrirMenu()
+  const replie = document.body.classList.toggle('menu-replie')
+  try { localStorage.setItem(CLE_MENU_REPLIE, replie ? '1' : '') } catch {}
+}
+try { if (localStorage.getItem(CLE_MENU_REPLIE)) document.body.classList.add('menu-replie') } catch {}
 
 // Ordinateur : menu latéral toujours ouvert (le CSS l'affiche à partir de 900 px et masque alors le bouton ☰) :
 // logo, pages, puis la carte de la personne connectée
@@ -123,7 +153,7 @@ const menuLateral = h('nav', { className: 'menu-lateral', 'aria-label': 'Mes pag
 // et la page active est ramenée dans la partie visible (sans faire défiler le reste de l'écran)
 function dessinerMenuLateral() {
   const position = menuLateral.querySelector('.menu-liens')?.scrollTop ?? 0
-  const liste = h('div', { className: 'menu-liens' }, liensMenu(undefined, false))
+  const liste = h('div', { className: 'menu-liens' }, liensMenu(undefined, false, dessinerMenuLateral))
   menuLateral.replaceChildren(
     h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des chantiers')),
     liste,
@@ -141,7 +171,7 @@ function dessinerMenuLateral() {
 }
 
 const entete = h('header', { className: 'entete' },
-  h('button', { className: 'burger', 'aria-label': 'Menu', onClick: ouvrirMenu },
+  h('button', { className: 'burger', 'aria-label': 'Menu', title: 'Replier ou déplier le menu', onClick: basculerMenu },
     (() => {
       const span = document.createElement('span')
       span.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
