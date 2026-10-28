@@ -839,7 +839,7 @@ h1, h2, h3, .stat-valeur, .tb-valeur, .anneau-taux { font-family: 'Titillium Web
 .tiroir-icone { color: var(--groupe, var(--encre)); background: transparent; }
 button.tiroir-lien { font-weight: 500; }
 .tiroir-lien:hover { background: #F1F3EF; }
-.tiroir-lien.active, button.tiroir-lien.active { color: var(--marque-fonce); font-weight: 700; background: #E6F5EE; box-shadow: inset 4px 0 0 var(--groupe, var(--accent)); }
+.tiroir-lien.active, button.tiroir-lien.active { color: var(--marque-fonce); font-weight: 700; background: #E6F5EE; box-shadow: inset 0 0 0 2px var(--groupe, var(--accent)); }
 .tiroir-lien.active .tiroir-icone { background: transparent; }
 .tiroir-lien.sous-lien { width: calc(100% - 22px); margin-left: 22px; }
 
@@ -848,11 +848,11 @@ button.tiroir-lien { font-weight: 500; }
   .menu-lateral { padding: 0 10px 12px; color: var(--encre); background: #fff; border: 1px solid var(--trait-clair); border-radius: var(--rayon); }
   .menu-logo { width: auto; margin: 0 -10px 4px; padding: 20px 18px 14px; border-bottom: 4px solid var(--jaune); }
   .menu-sous-titre { display: block; margin-top: 4px; font-size: .78rem; color: var(--encre-douce); }
-  .menu-liens { gap: 1px; scrollbar-color: #C9CDC4 transparent; }
+  .menu-liens { gap: 1px; padding-bottom: 8px; scrollbar-color: #C9CDC4 transparent; }
   .menu-lateral .tiroir-lien { min-height: 32px; padding: 3px 10px; font-size: .92rem; line-height: 1.2; color: #444; border: 0; border-radius: var(--rayon); }
   .menu-lateral .tiroir-icone { width: 22px; height: 22px; color: var(--groupe); background: transparent; }
   .menu-lateral .tiroir-lien:hover { background: #F1F3EF; }
-  .menu-lateral .tiroir-lien.active { color: var(--marque-fonce); background: #E6F5EE; border: 0; box-shadow: inset 4px 0 0 var(--groupe, var(--accent)); }
+  .menu-lateral .tiroir-lien.active { color: var(--marque-fonce); background: #E6F5EE; border: 0; box-shadow: inset 0 0 0 2px var(--groupe, var(--accent)); }
   .menu-lateral .tiroir-lien.active .tiroir-icone { color: var(--groupe); }
   .menu-lateral .tiroir-lien.sous-lien { min-height: 32px; }
   .menu-lateral .menu-groupe { margin: 10px 8px 2px; }

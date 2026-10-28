@@ -119,13 +119,26 @@ function ouvrirMenu() {
 // Ordinateur : menu latéral toujours ouvert (le CSS l'affiche à partir de 900 px et masque alors le bouton ☰) :
 // logo, pages, puis la carte de la personne connectée
 const menuLateral = h('nav', { className: 'menu-lateral', 'aria-label': 'Mes pages' })
-const dessinerMenuLateral = () => menuLateral.replaceChildren(
-  h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des chantiers')),
-  h('div', { className: 'menu-liens' }, liensMenu(undefined, false)),
-  ...(donnees?.moi ? [h('div', { className: 'menu-utilisateur' },
-    h('span', { className: 'menu-avatar' }, icone('occupes', 22)),
-    h('span', { className: 'menu-utilisateur-texte' }, h('strong', null, donnees.moi.nom || donnees.moi.profil),
-      donnees.moi.nom && h('span', null, donnees.moi.profil)))] : []))
+// Redessiné à chaque changement de page : sur un petit écran, la liste des pages garde sa position de défilement
+// et la page active est ramenée dans la partie visible (sans faire défiler le reste de l'écran)
+function dessinerMenuLateral() {
+  const position = menuLateral.querySelector('.menu-liens')?.scrollTop ?? 0
+  const liste = h('div', { className: 'menu-liens' }, liensMenu(undefined, false))
+  menuLateral.replaceChildren(
+    h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des chantiers')),
+    liste,
+    ...(donnees?.moi ? [h('div', { className: 'menu-utilisateur' },
+      h('span', { className: 'menu-avatar' }, icone('occupes', 22)),
+      h('span', { className: 'menu-utilisateur-texte' }, h('strong', null, donnees.moi.nom || donnees.moi.profil),
+        donnees.moi.nom && h('span', null, donnees.moi.profil)))] : []))
+  liste.scrollTop = position
+  const actif = liste.querySelector('.tiroir-lien.active')
+  if (!actif) return
+  const zone = liste.getBoundingClientRect()
+  const lien = actif.getBoundingClientRect()
+  if (lien.top < zone.top) liste.scrollTop -= zone.top - lien.top + 8
+  else if (lien.bottom > zone.bottom) liste.scrollTop += lien.bottom - zone.bottom + 8
+}
 
 const entete = h('header', { className: 'entete' },
   h('button', { className: 'burger', 'aria-label': 'Menu', onClick: ouvrirMenu },
