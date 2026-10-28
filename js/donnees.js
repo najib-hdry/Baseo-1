@@ -685,28 +685,29 @@ export const enregistrer = (table, champs) => action([['AddRecord', table, null,
 export const modifierLigne = (table, ligneId, champs) => action([['UpdateRecord', table, ligneId, champs]])
 export const supprimerLignes = (table, ids) => action([['BulkRemoveRecord', table, ids]])
 /**
- * Articles du catalogue mis dans le stock `stockId`, en un seul envoi. `choix` : [{ reference, quantite }].
- * - Article absent du stock : un élément est créé (source, type, article, photo du catalogue ; quantité entrée = quantite).
- * - Article déjà dans le stock : sa quantité entrée augmente (jamais de doublon).
- * Ensuite, la quantité temporaire du catalogue (Quantité initiale) est remise à 0 pour tous les articles.
+ * Articles du catalogue mis dans le stock `stockId`, en un seul envoi. `choix` : [{ reference, quantite, seuil }].
+ * - Article absent du stock : un élément est créé (source, type, article, photo du catalogue ; quantité entrée = quantite ; seuil).
+ * - Article déjà dans le stock : sa quantité entrée augmente (jamais de doublon), son seuil est remplacé s'il est donné.
+ * Ensuite, les colonnes temporaires du catalogue (Quantité initiale, Quantité seuil) sont remises à 0 pour tous les articles.
  */
 export function ajouterElementsStock(d, stockId, choix) {
   const existants = new Map((d.Stock_Elements ?? []).filter((e) => e.Stock === stockId && e.Descriptif).map((e) => [e.Descriptif, e]))
   const misesAJour = []
   const ajouts = []
-  for (const { reference: r, quantite } of choix) {
+  for (const { reference: r, quantite, seuil } of choix) {
     const existant = existants.get(r.id)
     if (existant) {
-      if (quantite) misesAJour.push(['UpdateRecord', 'Stock_Elements', existant.id, { Quantite_entree: (existant.Quantite_entree || 0) + quantite }])
+      const champs = { ...(quantite ? { Quantite_entree: (existant.Quantite_entree || 0) + quantite } : {}), ...(seuil ? { Quantite_seuil: seuil } : {}) }
+      if (Object.keys(champs).length) misesAJour.push(['UpdateRecord', 'Stock_Elements', existant.id, champs])
     } else {
       const photos = idsDeListe(r.Photo)
       ajouts.push({ Stock: stockId, Source: r.Source || 0, Type: r.Type || 0, Descriptif: r.id, Photo: photos.length ? ['L', ...photos] : null,
-        Quantite_entree: quantite || 0, Quantite_sortie: 0 })
+        Quantite_entree: quantite || 0, Quantite_sortie: 0, Quantite_seuil: seuil || 0 })
     }
   }
-  const aVider = d.Stock_Reference.filter((r) => r.Quantite_initiale).map((r) => r.id)
+  const aVider = d.Stock_Reference.filter((r) => r.Quantite_initiale || r.Quantite_seuil).map((r) => r.id)
   return action([...misesAJour, ...(ajouts.length ? [ajoutGroupeLignes('Stock_Elements', ajouts)] : []),
-    ...(aVider.length ? [['BulkUpdateRecord', 'Stock_Reference', aVider, { Quantite_initiale: aVider.map(() => 0) }]] : [])])
+    ...(aVider.length ? [['BulkUpdateRecord', 'Stock_Reference', aVider, { Quantite_initiale: aVider.map(() => 0), Quantite_seuil: aVider.map(() => 0) }]] : [])])
 }
 
 // Nouvelle ligne (`id` null) ou modification

@@ -5,7 +5,7 @@ import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, red
 import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock } from './donnees.js'
 
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Articles', '']
-const TITRES_CHOIX = ['', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Déjà dans le stock', 'Quantité']
+const TITRES_CHOIX = ['', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Déjà dans le stock', 'Quantité', 'Seuil']
 const TITRES_CATALOGUE = ['Photo', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Commentaire', '']
 
 // Écran affiché dans `racine` ; `recharger()` relit les données après une écriture ; `vue` : 'stocks' ou 'catalogue'
@@ -151,12 +151,14 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
 
   /**
    * Grande fenêtre : le catalogue avec une case et une quantité par article, pour remplir le stock `s`.
-   * La quantité part de la colonne temporaire « Quantité initiale » du catalogue ; saisir une quantité coche l'article.
-   * À la validation, les éléments du stock sont créés (ou augmentés s'ils y sont déjà) et les quantités temporaires remises à 0.
+   * Quantité et seuil partent des colonnes temporaires « Quantité initiale » et « Quantité seuil » du catalogue ;
+   * saisir une quantité ou un seuil coche l'article. À la validation, les éléments du stock sont créés (ou mis à jour
+   * s'ils y sont déjà) et les colonnes temporaires du catalogue remises à 0.
    */
   function ouvrirChoixArticles(s) {
     const quantites = new Map(d.Stock_Reference.map((r) => [r.id, r.Quantite_initiale || 0]))
-    const choisis = new Set(d.Stock_Reference.filter((r) => r.Quantite_initiale > 0).map((r) => r.id))
+    const seuils = new Map(d.Stock_Reference.map((r) => [r.id, r.Quantite_seuil || 0]))
+    const choisis = new Set(d.Stock_Reference.filter((r) => r.Quantite_initiale > 0 || r.Quantite_seuil > 0).map((r) => r.id))
     const dansLeStock = new Map(elementsDe(s).map((e) => [e.Descriptif, (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)]))
     let filtreTexte = ''
     let filtreSrc = 0
@@ -167,7 +169,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       erreur.hidden = true
       valider.disabled = true
       try {
-        const choix = d.Stock_Reference.filter((r) => choisis.has(r.id)).map((r) => ({ reference: r, quantite: quantites.get(r.id) || 0 }))
+        const choix = d.Stock_Reference.filter((r) => choisis.has(r.id)).map((r) => ({ reference: r, quantite: quantites.get(r.id) || 0, seuil: seuils.get(r.id) || 0 }))
         await ajouterElementsStock(d, s.id, choix)
         fermer()
         await recharger()
@@ -177,6 +179,14 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         valider.disabled = false
       }
     } })
+    // Case de saisie d'un nombre (quantité ou seuil) ; un nombre saisi coche l'article
+    const saisie = (valeurs, r, libelle) => h('td', null, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:100px',
+      value: valeurs.get(r.id) || '', 'aria-label': libelle, onInput: (e) => {
+        const v = Number(e.target.value) || 0
+        valeurs.set(r.id, v)
+        if (v > 0 && !choisis.has(r.id)) { choisis.add(r.id); e.target.closest('tr').querySelector('input[type=checkbox]').checked = true }
+        majResume()
+      } }))
     const majResume = () => {
       const n = choisis.size
       const total = [...choisis].reduce((t, id) => t + (quantites.get(id) || 0), 0)
@@ -190,7 +200,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         .filter((r) => !filtreSrc || r.Source === filtreSrc)
         .filter((r) => !filtre || [r.Descriptif, r.Format_ou_taille, type(r), source(r)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || String(a.Descriptif).localeCompare(String(b.Descriptif), 'fr', { numeric: true }))
-      corps.replaceChildren(...(liste.length === 0 ? ligneVide(7, 'Aucun article ne correspond à la recherche ou à la source choisie.')
+      corps.replaceChildren(...(liste.length === 0 ? ligneVide(8, 'Aucun article ne correspond à la recherche ou à la source choisie.')
         : liste.map((r) => {
           const coche = h('input', { type: 'checkbox', checked: choisis.has(r.id), 'aria-label': `Choisir ${r.Descriptif}`, onChange: (e) => {
             if (e.target.checked) choisis.add(r.id); else choisis.delete(r.id)
@@ -204,13 +214,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
             h('td', { className: 'tableau-nom' }, r.Descriptif || '—'),
             h('td', null, r.Format_ou_taille ?? ''),
             h('td', { className: 'tableau-nombre' }, deja == null ? '—' : String(deja)),
-            h('td', null, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:110px',
-              value: quantites.get(r.id) || '', 'aria-label': `Quantité de ${r.Descriptif}`, onInput: (e) => {
-                const q = Number(e.target.value) || 0
-                quantites.set(r.id, q)
-                if (q > 0 && !choisis.has(r.id)) { choisis.add(r.id); coche.checked = true }
-                majResume()
-              } })))
+            saisie(quantites, r, `Quantité de ${r.Descriptif}`),
+            saisie(seuils, r, `Seuil de ${r.Descriptif}`))
         })))
       etiqueterLignes(corps, TITRES_CHOIX)
     }
@@ -219,7 +224,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
 
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
     const { fermer, section } = ouvrirPanneau(`Articles du stock « ${nomStock(s)} »`, [
-      h('p', null, 'Coche les articles de ce stock et saisis leur quantité de départ. La quantité temporaire du catalogue est reprise ici ; elle est remise à 0 après l’ajout.'),
+      h('p', null, 'Coche les articles de ce stock et saisis leur quantité de départ et leur seuil. Les quantités temporaires du catalogue (initiale et seuil) sont reprises ici ; elles sont remises à 0 après l’ajout.'),
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (descriptif, type, format…)', 'aria-label': 'Rechercher un article',
           onInput: (e) => { filtreTexte = e.target.value; dessiner() } }),
