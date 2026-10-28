@@ -136,9 +136,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     h('div', { className: 'champ-groupe' }, 'Chantiers', choixChantiers.element),
     h('p', { className: 'sous-texte' }, 'L’email doit être celui du compte Grist de la personne : c’est lui qui donne son rôle et ses droits.'),
     erreur, valider,
-    u && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); ouvrirSuppression(u) } }, 'Supprimer cet utilisateur'))
+    u && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(u)) }, 'Supprimer cet utilisateur'))
 
-    const { fermer, masquer } = ouvrirPanneau(u ? nom(u) : 'Nouvel utilisateur', formulaire)
+    const { fermer, ouvrirDepuis } = ouvrirPanneau(u ? nom(u) : 'Nouvel utilisateur', formulaire)
   }
 
   // ---- Fiche salarié (lecture) : onglets « Fiche salarié » (candidat lié à l'embauche) et « Compte » ----
@@ -174,7 +174,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
             ['Pass IAE', passIae],
             ['RQTH', c.RQTH || '—'],
           ]),
-          h('button', { className: 'bouton bouton-principal bouton-compact fiche-salarie-modifier', onClick: () => { masquer(); modifierCandidat(c.id) } }, 'Modifier les infos')))
+          h('button', { className: 'bouton bouton-principal bouton-compact fiche-salarie-modifier', onClick: () => ouvrirDepuis(() => modifierCandidat(c.id)) }, 'Modifier les infos')))
     }
 
     // Tableau d'une page de suivi (émargements, congés, acomptes) limité à ce salarié ; après un enregistrement,
@@ -197,7 +197,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         ['Chantiers', chantiers(u) || '—'], ['Actif', u.Actif ? 'Oui' : 'Non'],
       ]),
       h('div', { className: 'fiche-actions' },
-        h('button', { className: 'bouton', onClick: () => { masquer(); ouvrirFiche(u) } }, 'Modifier le compte')))
+        h('button', { className: 'bouton', onClick: () => ouvrirDepuis(() => ouvrirFiche(u)) }, 'Modifier le compte')))
 
     // Changer d'onglet ne redessine que le contenu
     const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail],
@@ -219,7 +219,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     // Compte sans prénom ni nom : nom du candidat lié, sinon email
     const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)),
       nomContact(u) || (c && nomContact(c)) || u.Email || 'Sans nom')
-    const { fermer, masquer, section } = ouvrirPanneau(titre, [barre, contenu])
+    const { fermer, ouvrirDepuis, section } = ouvrirPanneau(titre, [barre, contenu])
     section.classList.add('panneau-large', 'panneau-fiche')
   }
 

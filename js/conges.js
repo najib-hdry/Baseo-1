@@ -168,9 +168,9 @@ export function creerEcranConges(racine, recharger, options = {}) {
     h('div', { className: 'grille-2' }, blocDebut, blocFin, blocMoment),
     c && h('p', { className: 'sous-texte' }, `Demande créée le ${congeCreeLe(c.Cree_le)}.`),
     erreur, valider,
-    c && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); ouvrirSuppression(c) } }, 'Supprimer cette demande'))
+    c && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(c)) }, 'Supprimer cette demande'))
 
-    const { fermer, masquer } = ouvrirPanneau(c ? `Demande de congé · ${salarie(c)}` : 'Nouvelle demande de congé', formulaire)
+    const { fermer, ouvrirDepuis } = ouvrirPanneau(c ? `Demande de congé · ${salarie(c)}` : 'Nouvelle demande de congé', formulaire)
   }
 
   // ---- Suppression ----

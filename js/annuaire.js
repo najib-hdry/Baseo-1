@@ -143,9 +143,9 @@ export function creerEcranAnnuaire(racine, recharger, config) {
     } },
     config.champs.map(([col, libelle, attributs]) => h('label', { className: 'champ-groupe' }, libelle, saisie(col, attributs))),
     erreur, valider,
-    r && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); ouvrirSuppression(r) } }, `Supprimer ${config.ce}`))
+    r && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(r)) }, `Supprimer ${config.ce}`))
 
-    const { fermer, masquer } = ouvrirPanneau(r ? r.Nom || config.unite : config.nouveau, formulaire)
+    const { fermer, ouvrirDepuis } = ouvrirPanneau(r ? r.Nom || config.unite : config.nouveau, formulaire)
   }
 
   // ---- Suppression ----

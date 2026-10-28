@@ -177,7 +177,8 @@ h2 { font-size: 1.3rem; }
 }
 @keyframes apparait { from { transform: scale(.96); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .panneau { animation: none; } }
-@media (prefers-reduced-motion: reduce) { .panneau { animation: none; } }
+/* La fenêtre reçoit le curseur clavier quand le bouton qui avait ouvert une autre fenêtre n'existe plus : pas de cadre */
+.panneau:focus { outline: none; }
 
 .panneau p { margin: 0; }
 .panneau .formulaire { margin-top: 0; }

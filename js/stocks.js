@@ -148,10 +148,10 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       h('div', { className: 'cases-chantiers' }, [...d.Chantiers].sort(parNom).map((c) => caseACocher('Chantiers', c.id, c.Nom || 'Sans nom', dessinerBases)))),
     h('fieldset', { className: 'groupe' }, h('legend', null, 'Bases vie où le stock est rangé'), zoneBases),
     erreur, valider,
-    s && h('button', { className: 'bouton', type: 'button', onClick: () => { masquer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
-    s && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); supprimerStock(s) } }, 'Supprimer ce stock'))
+    s && h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s)) }, 'Ajouter des articles du catalogue'),
+    s && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => supprimerStock(s)) }, 'Supprimer ce stock'))
 
-    const { fermer, masquer, section } = ouvrirPanneau(s ? nomStock(s) : 'Nouveau stock', formulaire)
+    const { fermer, ouvrirDepuis, section } = ouvrirPanneau(s ? nomStock(s) : 'Nouveau stock', formulaire)
     section.classList.add('panneau-large')
   }
 
@@ -160,8 +160,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
    * Quantité et seuil partent des colonnes temporaires « Quantité initiale » et « Quantité seuil » du catalogue ;
    * saisir une quantité ou un seuil coche l'article. À la validation, les éléments du stock sont créés (ou mis à jour
    * s'ils y sont déjà) et les colonnes temporaires du catalogue remises à 0.
+   * `apres()` : après l'enregistrement (ex. rouvrir la fenêtre « Articles » à jour).
    */
-  function ouvrirChoixArticles(s) {
+  function ouvrirChoixArticles(s, apres = null) {
     const quantites = new Map(d.Stock_Reference.map((r) => [r.id, r.Quantite_initiale || 0]))
     const seuils = new Map(d.Stock_Reference.map((r) => [r.id, r.Quantite_seuil || 0]))
     const choisis = new Set(d.Stock_Reference.filter((r) => r.Quantite_initiale > 0 || r.Quantite_seuil > 0).map((r) => r.id))
@@ -179,6 +180,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         await ajouterElementsStock(d, s.id, choix)
         fermer()
         await recharger()
+        apres?.()
       } catch (err) {
         erreur.textContent = err.message || 'L’enregistrement a échoué.'
         erreur.hidden = false
@@ -251,6 +253,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
 
   // Grande fenêtre : le tableau des articles du stock `s` (Stock_Elements), avec recherche, filtre par source et « à commander »
   function ouvrirArticles(s) {
+    // Après une entrée / sortie ou un ajout d'articles : la fenêtre se rouvre avec les quantités à jour
+    const rouvrirArticles = () => { const aJour = d.parId.Stock.get(s.id); if (aJour) ouvrirArticles(aJour) }
     if (!lien) lienPhotos().then((l) => { lien = l; dessiner() }).catch(() => {})
     const actuelle = (e) => (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
     const enAlerte = (e) => Boolean(e.Quantite_seuil) && actuelle(e) <= e.Quantite_seuil
@@ -290,7 +294,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     dessiner()
 
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
-    const { annuler, masquer, section } = ouvrirPanneau(`Articles — ${nomStock(s)}`, [
+    const { annuler, ouvrirDepuis, section } = ouvrirPanneau(`Articles — ${nomStock(s)}`, [
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (article, type, commentaire…)', 'aria-label': 'Rechercher un article',
           onInput: (ev) => { filtreTexte = ev.target.value; dessiner() } }),
@@ -302,8 +306,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       h('div', { className: 'tableau-defilant' },
         h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', null, t)))), corps)),
       h('div', { className: 'fiche-boutons' },
-        h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => { masquer(); ouvrirEntreesSorties(s) } }, 'Entrées / sorties'),
-        h('button', { className: 'bouton', type: 'button', onClick: () => { masquer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
+        h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirEntreesSorties(s, rouvrirArticles)) }, 'Entrées / sorties'),
+        h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles du catalogue'),
         h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Fermer')),
     ])
     section.classList.add('panneau-large', 'panneau-fiche')
@@ -312,8 +316,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
   /**
    * Grande fenêtre : tous les articles du stock `s`, avec deux cases Entrée et Sortie par ligne.
    * On remplit plusieurs lignes, puis un seul « Valider » ajoute les quantités aux totaux du stock.
+   * `apres()` : après l'enregistrement (ex. rouvrir la fenêtre « Articles » à jour).
    */
-  function ouvrirEntreesSorties(s) {
+  function ouvrirEntreesSorties(s, apres = null) {
     const elements = elementsDe(s).map((e) => ({ ...e, libelle: libelleElement(e) }))
       .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || a.libelle.localeCompare(b.libelle, 'fr', { numeric: true }))
     const saisies = new Map(elements.map((e) => [e.id, { element: e, entree: 0, sortie: 0 }]))
@@ -330,6 +335,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         await entreesSortiesStock([...saisies.values()])
         fermer()
         await recharger()
+        apres?.()
       } catch (err) {
         erreur.textContent = err.message || 'L’enregistrement a échoué.'
         erreur.hidden = false
@@ -489,9 +495,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     h('div', { className: 'champ-groupe' }, 'Photo',
       zoneFichier((f) => { nouvellePhoto = f }, { deja: Boolean(photo), lien: photo && lien ? lien(photo) : null, accept: 'image/*' })),
     erreur, valider,
-    r && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); supprimerArticle(r) } }, 'Supprimer cet article'))
+    r && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => supprimerArticle(r)) }, 'Supprimer cet article'))
 
-    const { fermer, masquer, section } = ouvrirPanneau(r ? r.Descriptif || 'Article' : 'Nouvel article', formulaire)
+    const { fermer, ouvrirDepuis, section } = ouvrirPanneau(r ? r.Descriptif || 'Article' : 'Nouvel article', formulaire)
     section.classList.add('panneau-large')
   }
 

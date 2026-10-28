@@ -241,8 +241,8 @@ export async function reduirePhoto(fichier) {
   }
 }
 
-// Fenêtres ouvertes, la dernière au-dessus ; `enAttente` : fenêtre qui a appelé masquer() et qui devient
-// le parent de la prochaine fenêtre ouverte (elle est cachée derrière, pas fermée)
+// Fenêtres ouvertes, la dernière au-dessus ; `enAttente` : fenêtre qui est en train d'en ouvrir une autre
+// par ouvrirDepuis() : la prochaine fenêtre ouverte devient son enfant (une seule ouverture à la fois)
 const pilePanneaux = []
 let enAttente = null
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') pilePanneaux.at(-1)?.annuler() })
@@ -251,34 +251,68 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape') pilePanneaux
  * Fenêtre modale : voile, titre, bouton ✕, fermeture par Échap. Renvoie :
  * - annuler() : ✕, Échap, clic à côté, « Annuler » : ferme cette fenêtre et fait réapparaître son parent ;
  * - fermer() : après un enregistrement ou une suppression : ferme aussi le parent, dont les données ont changé ;
- * - masquer() : à appeler juste avant d'ouvrir une autre fenêtre depuis celle-ci (« Modifier », « Supprimer »…) :
- *   celle-ci attend derrière la nouvelle au lieu d'être fermée.
+ * - ouvrirDepuis(ouvrir) : ouvre une autre fenêtre depuis celle-ci (« Modifier », « Supprimer »…) ; `ouvrir` crée
+ *   la fenêtre, éventuellement après une attente (lecture Grist). Celle-ci reste affichée mais sans réaction
+ *   pendant l'attente, puis attend cachée derrière la nouvelle ; si rien ne s'ouvre, elle redevient normale.
  */
 export function ouvrirPanneau(titre, contenu) {
   const parent = enAttente
   enAttente = null
   if (parent) parent.voile.hidden = true
+  let attente = false // ouverture d'un enfant en cours : ✕, Échap et clic à côté sont ignorés
+  // Bouton d'enregistrement cliqué : tant qu'il reste désactivé, l'enregistrement est en cours et la fenêtre
+  // ne s'annule pas (sinon le parent réapparaîtrait puis serait fermé à la fin de l'enregistrement).
+  // Un bouton retiré de la fenêtre (partie redessinée après l'enregistrement) ne compte plus.
+  let envoye = null
+  const enregistrementEnCours = () => Boolean(envoye?.disabled && section.contains(envoye))
   const retirer = () => {
     voile.remove()
     const i = pilePanneaux.indexOf(panneau)
     if (i >= 0) pilePanneaux.splice(i, 1)
   }
   const fermer = () => { retirer(); parent?.fermer() }
-  const annuler = () => { retirer(); if (parent) parent.voile.hidden = false }
-  const masquer = () => {
-    enAttente = panneau
-    setTimeout(() => { if (enAttente === panneau) enAttente = null }, 10000) // aucune fenêtre ouverte entre-temps : on oublie
+  const annuler = () => {
+    if (attente || enregistrementEnCours()) return
+    retirer()
+    if (parent) {
+      parent.voile.hidden = false
+      parent.rendreFocus()
+    }
   }
-  const section = h('section', { className: 'panneau', role: 'dialog', 'aria-modal': 'true', onClick: (e) => e.stopPropagation() },
+  // Curseur clavier rendu au bouton qui a ouvert l'enfant (s'il est toujours là), sinon à la fenêtre elle-même
+  let retourFocus = null
+  const rendreFocus = () => (retourFocus?.isConnected && section.contains(retourFocus) ? retourFocus : section).focus()
+  const ouvrirDepuis = async (ouvrir) => {
+    if (enAttente) return // une autre ouverture est déjà en cours (double clic)
+    retourFocus = document.activeElement // avant `inert`, qui retire le curseur de la fenêtre
+    attente = true
+    enAttente = panneau
+    section.inert = true // contenu sans réaction ; le voile, lui, continue de bloquer la page en dessous
+    try {
+      await ouvrir()
+    } finally {
+      const rienOuvert = enAttente === panneau
+      if (rienOuvert) enAttente = null
+      attente = false
+      section.inert = false
+      if (rienOuvert) rendreFocus()
+    }
+  }
+  const section = h('section', { className: 'panneau', role: 'dialog', 'aria-modal': 'true', tabIndex: -1, onClick: (e) => e.stopPropagation() },
     h('div', { className: 'panneau-haut' },
       h('h2', null, titre),
       h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: annuler }, '✕')),
     contenu)
+  // Repère du bouton d'enregistrement : formulaire envoyé, ou bouton principal sans formulaire (« Valider »…) ;
+  // une saisie l'efface (un bouton grisé parce que le formulaire est incomplet n'est pas un enregistrement)
+  section.addEventListener('submit', (e) => { envoye = e.submitter ?? e.target.querySelector('button[type=submit]') }, true)
+  section.addEventListener('click', (e) => { const b = e.target.closest?.('button.bouton-principal[type=button]'); if (b) envoye = b }, true)
+  section.addEventListener('input', () => { envoye = null }, true)
   const voile = h('div', { className: 'voile', onClick: annuler }, section)
-  const panneau = { voile, fermer, annuler }
+  const panneau = { voile, fermer, annuler, rendreFocus }
   pilePanneaux.push(panneau)
   document.body.append(voile)
-  return { fermer, annuler, masquer, section }
+  return { fermer, annuler, ouvrirDepuis, section }
 }
 
 // Recopie le titre de chaque colonne sur les cellules (data-label) : sur un écran étroit,

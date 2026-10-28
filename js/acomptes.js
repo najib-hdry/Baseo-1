@@ -123,9 +123,9 @@ export function creerEcranAcomptes(racine, recharger, options = {}) {
           STATUTS_ACOMPTE.map((s) => h('option', { value: s, selected: s === champs.Statut }, s))))),
     a && h('p', { className: 'sous-texte' }, `Demande créée le ${creeeLe(a.Cree_le)}.`),
     erreur, valider,
-    a && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); ouvrirSuppression(a) } }, 'Supprimer cette demande'))
+    a && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(a)) }, 'Supprimer cette demande'))
 
-    const { fermer, masquer } = ouvrirPanneau(a ? `Demande d’acompte · ${salarie(a)}` : 'Nouvelle demande d’acompte', formulaire)
+    const { fermer, ouvrirDepuis } = ouvrirPanneau(a ? `Demande d’acompte · ${salarie(a)}` : 'Nouvelle demande d’acompte', formulaire)
   }
 
   // ---- Suppression ----
