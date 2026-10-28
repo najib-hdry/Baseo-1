@@ -2,9 +2,11 @@
 // - « Gestion des stocks » (vue 'stocks') : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche, suppression ;
 // - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto } from './outils.js'
-import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock } from './donnees.js'
+import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock } from './donnees.js'
 
-const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Articles', '']
+const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
+const TITRES_ARTICLES = ['Photo', 'Source', 'Type', 'Article', 'Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Alerte', 'Commentaire']
+const TITRES_ES = ['Source', 'Type', 'Article', 'Actuelle', 'Seuil', 'Entrée', 'Sortie', 'Après']
 const TITRES_CHOIX = ['', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Déjà dans le stock', 'Quantité', 'Seuil']
 const TITRES_CATALOGUE = ['Photo', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Commentaire', '']
 
@@ -83,8 +85,12 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
             h('td', { className: 'tableau-nom' }, s.Nom || '—'),
             h('td', null, nomsChantiers(s) || '—'),
             h('td', null, nomsBases(s) || '—'),
-            h('td', { className: 'tableau-nombre' }, String(elementsDe(s).length)),
-            actions(() => ouvrirFicheStock(s), () => supprimerStock(s))))))
+            h('td', null, h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirArticles(s) } },
+              `Voir les articles (${elementsDe(s).length})`)),
+            h('td', { className: 'tableau-actions' },
+              h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirEntreesSorties(s) } }, 'Entrées / sorties'),
+              h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheStock(s) } }, 'Modifier'),
+              h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); supprimerStock(s) } }, 'Supprimer'))))))
       })
   }
 
@@ -236,6 +242,155 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       resume, erreur,
       h('div', { className: 'fiche-boutons' }, valider,
         h('button', { className: 'bouton', type: 'button', onClick: () => fermer() }, 'Plus tard')),
+    ])
+    section.classList.add('panneau-large', 'panneau-fiche')
+  }
+
+  // Libellé d'un élément de stock : celui de son article du catalogue (descriptif — format)
+  const libelleElement = (e) => d.parId.Stock_Reference.get(e.Descriptif)?.Libelle || d.parId.Stock_Reference.get(e.Descriptif)?.Descriptif || 'Article sans nom'
+
+  // Grande fenêtre : le tableau des articles du stock `s` (Stock_Elements), avec recherche, filtre par source et « à commander »
+  function ouvrirArticles(s) {
+    if (!lien) lienPhotos().then((l) => { lien = l; dessiner() }).catch(() => {})
+    const actuelle = (e) => (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
+    const enAlerte = (e) => Boolean(e.Quantite_seuil) && actuelle(e) <= e.Quantite_seuil
+    const elements = elementsDe(s).map((e) => ({ ...e, libelle: libelleElement(e) }))
+      .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || a.libelle.localeCompare(b.libelle, 'fr', { numeric: true }))
+    let filtreTexte = ''
+    let filtreSrc = 0
+    let seulementAlertes = false
+    const corps = h('tbody')
+    const compteur = h('p', { className: 'sous-texte' })
+    function dessiner() {
+      const filtre = filtreTexte.trim().toLowerCase()
+      const liste = elements
+        .filter((e) => !filtreSrc || e.Source === filtreSrc)
+        .filter((e) => !seulementAlertes || enAlerte(e))
+        .filter((e) => !filtre || [e.libelle, type(e), source(e), e.Commentaire].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
+      const alertes = elements.filter(enAlerte).length
+      compteur.textContent = `${liste.length} article${liste.length > 1 ? 's' : ''}${alertes ? ` · ${alertes} à commander` : ''}`
+      corps.replaceChildren(...(liste.length === 0
+        ? ligneVide(10, elements.length === 0 ? 'Ce stock n’a pas encore d’articles : ajoute-les depuis sa fiche (« Ajouter des articles du catalogue »).' : 'Aucun article ne correspond à la recherche ou aux filtres.')
+        : liste.map((e) => {
+          const photo = idsDeListe(e.Photo)[0]
+          return h('tr', null,
+            h('td', null, photo && lien ? h('img', { className: 'tableau-photo', src: lien(photo), alt: '', loading: 'lazy' }) : ''),
+            h('td', null, source(e)),
+            h('td', null, type(e)),
+            h('td', { className: 'tableau-nom' }, e.libelle),
+            h('td', { className: 'tableau-nombre' }, String(e.Quantite_entree || 0)),
+            h('td', { className: 'tableau-nombre' }, String(e.Quantite_sortie || 0)),
+            h('td', { className: 'tableau-nombre' }, h('strong', null, String(actuelle(e)))),
+            h('td', { className: 'tableau-nombre' }, e.Quantite_seuil ? String(e.Quantite_seuil) : ''),
+            h('td', null, enAlerte(e) ? h('span', { className: 'badge badge-ouvert' }, 'À commander') : ''),
+            h('td', null, h('span', { className: 'cellule-description' }, e.Commentaire ?? '')))
+        })))
+      etiqueterLignes(corps, TITRES_ARTICLES)
+    }
+    dessiner()
+
+    const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
+    const { fermer, section } = ouvrirPanneau(`Articles — ${nomStock(s)}`, [
+      h('div', { className: 'barre-outils' },
+        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (article, type, commentaire…)', 'aria-label': 'Rechercher un article',
+          onInput: (ev) => { filtreTexte = ev.target.value; dessiner() } }),
+        h('select', { className: 'champ champ-compact champ-statut', 'aria-label': 'Filtrer par source', onChange: (ev) => { filtreSrc = Number(ev.target.value); dessiner() } },
+          h('option', { value: '0' }, 'Toutes les sources'),
+          sources.map((src) => h('option', { value: String(src.id) }, src.Source))),
+        h('label', { className: 'case' }, h('input', { type: 'checkbox', onChange: (ev) => { seulementAlertes = ev.target.checked; dessiner() } }), 'Seulement à commander')),
+      compteur,
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', null, t)))), corps)),
+      h('div', { className: 'fiche-boutons' },
+        h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => { fermer(); ouvrirEntreesSorties(s) } }, 'Entrées / sorties'),
+        h('button', { className: 'bouton', type: 'button', onClick: () => { fermer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
+        h('button', { className: 'bouton', type: 'button', onClick: () => fermer() }, 'Fermer')),
+    ])
+    section.classList.add('panneau-large', 'panneau-fiche')
+  }
+
+  /**
+   * Grande fenêtre : tous les articles du stock `s`, avec deux cases Entrée et Sortie par ligne.
+   * On remplit plusieurs lignes, puis un seul « Valider » ajoute les quantités aux totaux du stock.
+   */
+  function ouvrirEntreesSorties(s) {
+    const elements = elementsDe(s).map((e) => ({ ...e, libelle: libelleElement(e) }))
+      .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || a.libelle.localeCompare(b.libelle, 'fr', { numeric: true }))
+    const saisies = new Map(elements.map((e) => [e.id, { element: e, entree: 0, sortie: 0 }]))
+    const actuelle = (e) => (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
+    let filtreTexte = ''
+    let filtreSrc = 0
+    const corps = h('tbody')
+    const resume = h('p', { className: 'sous-texte' })
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'button', onClick: async () => {
+      erreur.hidden = true
+      valider.disabled = true
+      try {
+        await entreesSortiesStock([...saisies.values()])
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+      }
+    } })
+    const majResume = () => {
+      const remplies = [...saisies.values()].filter((x) => x.entree || x.sortie)
+      const entrees = remplies.reduce((t, x) => t + x.entree, 0)
+      const sorties = remplies.reduce((t, x) => t + x.sortie, 0)
+      resume.textContent = remplies.length ? `${remplies.length} article${remplies.length > 1 ? 's' : ''} : ${entrees} en entrée, ${sorties} en sortie.` : 'Aucune entrée ni sortie saisie.'
+      valider.textContent = remplies.length ? `Valider ${remplies.length} ligne${remplies.length > 1 ? 's' : ''}` : 'Valider'
+      valider.disabled = remplies.length === 0
+    }
+    const dessiner = () => {
+      const filtre = filtreTexte.trim().toLowerCase()
+      const liste = elements
+        .filter((e) => !filtreSrc || e.Source === filtreSrc)
+        .filter((e) => !filtre || [e.libelle, type(e), source(e)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
+      corps.replaceChildren(...(liste.length === 0
+        ? ligneVide(8, elements.length === 0 ? 'Ce stock n’a pas encore d’articles : ajoute-les depuis sa fiche (« Ajouter des articles du catalogue »).' : 'Aucun article ne correspond à la recherche ou à la source choisie.')
+        : liste.map((e) => {
+          const saisie = saisies.get(e.id)
+          const apres = h('td', { className: 'tableau-nombre' })
+          const majApres = () => {
+            const v = actuelle(e) + saisie.entree - saisie.sortie
+            apres.textContent = saisie.entree || saisie.sortie ? String(v) : ''
+            apres.style.color = v < 0 ? 'var(--hs)' : ''
+          }
+          majApres()
+          const caseNombre = (cle, libelleCase) => h('td', null, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:90px',
+            value: saisie[cle] || '', 'aria-label': libelleCase, onInput: (ev) => { saisie[cle] = Math.max(0, Number(ev.target.value) || 0); majApres(); majResume() } }))
+          const enAlerte = e.Quantite_seuil && actuelle(e) <= e.Quantite_seuil
+          return h('tr', null,
+            h('td', null, source(e)),
+            h('td', null, type(e)),
+            h('td', { className: 'tableau-nom' }, e.libelle),
+            h('td', { className: 'tableau-nombre' }, String(actuelle(e)), enAlerte && h('span', { title: 'À commander' }, ' ⚠️')),
+            h('td', { className: 'tableau-nombre' }, e.Quantite_seuil ? String(e.Quantite_seuil) : ''),
+            caseNombre('entree', `Entrée de ${e.libelle}`),
+            caseNombre('sortie', `Sortie de ${e.libelle}`),
+            apres)
+        })))
+      etiqueterLignes(corps, TITRES_ES)
+    }
+    dessiner()
+    majResume()
+
+    const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
+    const { fermer, section } = ouvrirPanneau(`Entrées / sorties — ${nomStock(s)}`, [
+      h('p', null, 'Saisis les quantités qui entrent ou qui sortent, sur autant de lignes que tu veux, puis valide une seule fois. Elles s’ajoutent aux totaux du stock.'),
+      h('div', { className: 'barre-outils' },
+        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (article, type…)', 'aria-label': 'Rechercher un article',
+          onInput: (ev) => { filtreTexte = ev.target.value; dessiner() } }),
+        h('select', { className: 'champ champ-compact champ-statut', 'aria-label': 'Filtrer par source', onChange: (ev) => { filtreSrc = Number(ev.target.value); dessiner() } },
+          h('option', { value: '0' }, 'Toutes les sources'),
+          sources.map((src) => h('option', { value: String(src.id) }, src.Source)))),
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ES.map((t) => h('th', null, t)))), corps)),
+      resume, erreur,
+      h('div', { className: 'fiche-boutons' }, valider, h('button', { className: 'bouton', type: 'button', onClick: () => fermer() }, 'Annuler')),
     ])
     section.classList.add('panneau-large', 'panneau-fiche')
   }

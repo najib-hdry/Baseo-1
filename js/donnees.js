@@ -710,6 +710,24 @@ export function ajouterElementsStock(d, stockId, choix) {
     ...(aVider.length ? [['BulkUpdateRecord', 'Stock_Reference', aVider, { Quantite_initiale: aVider.map(() => 0), Quantite_seuil: aVider.map(() => 0) }]] : [])])
 }
 
+/**
+ * Entrées et sorties de plusieurs articles d'un stock, en un seul envoi : `saisies` = [{ element, entree, sortie }].
+ * Les quantités s'ajoutent aux totaux (Quantité entrée, Quantité sortie) ; refus si une sortie dépasse ce qu'il y a.
+ */
+export function entreesSortiesStock(saisies) {
+  const lignes = saisies.filter((s) => s.entree || s.sortie)
+  for (const { element: e, entree, sortie } of lignes) {
+    const actuelle = (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
+    if (entree < 0 || sortie < 0) throw new Error('Les quantités doivent être positives.')
+    if (sortie > actuelle + entree) throw new Error(`Sortie trop grande pour « ${e.libelle} » : il n’y en a que ${actuelle + entree}.`)
+  }
+  if (lignes.length === 0) return Promise.resolve()
+  return action([['BulkUpdateRecord', 'Stock_Elements', lignes.map((s) => s.element.id), {
+    Quantite_entree: lignes.map((s) => (s.element.Quantite_entree || 0) + s.entree),
+    Quantite_sortie: lignes.map((s) => (s.element.Quantite_sortie || 0) + s.sortie),
+  }]])
+}
+
 // Nouvelle ligne (`id` null) ou modification
 export const enregistrerLigne = (table, id, champs) => action([id == null ? ['AddRecord', table, null, champs] : ['UpdateRecord', table, id, champs]])
 // Validation en masse des émargements `ids`
