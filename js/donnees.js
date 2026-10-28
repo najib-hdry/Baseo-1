@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -684,6 +684,31 @@ export const enregistrer = (table, champs) => action([['AddRecord', table, null,
 // Modifie une ligne d'un contrôle nettoyage ou d'une maintenance (`champs` au format Grist)
 export const modifierLigne = (table, ligneId, champs) => action([['UpdateRecord', table, ligneId, champs]])
 export const supprimerLignes = (table, ids) => action([['BulkRemoveRecord', table, ids]])
+/**
+ * Articles du catalogue mis dans le stock `stockId`, en un seul envoi. `choix` : [{ reference, quantite }].
+ * - Article absent du stock : un élément est créé (source, type, article, photo du catalogue ; quantité entrée = quantite).
+ * - Article déjà dans le stock : sa quantité entrée augmente (jamais de doublon).
+ * Ensuite, la quantité temporaire du catalogue (Quantité initiale) est remise à 0 pour tous les articles.
+ */
+export function ajouterElementsStock(d, stockId, choix) {
+  const existants = new Map((d.Stock_Elements ?? []).filter((e) => e.Stock === stockId && e.Descriptif).map((e) => [e.Descriptif, e]))
+  const misesAJour = []
+  const ajouts = []
+  for (const { reference: r, quantite } of choix) {
+    const existant = existants.get(r.id)
+    if (existant) {
+      if (quantite) misesAJour.push(['UpdateRecord', 'Stock_Elements', existant.id, { Quantite_entree: (existant.Quantite_entree || 0) + quantite }])
+    } else {
+      const photos = idsDeListe(r.Photo)
+      ajouts.push({ Stock: stockId, Source: r.Source || 0, Type: r.Type || 0, Descriptif: r.id, Photo: photos.length ? ['L', ...photos] : null,
+        Quantite_entree: quantite || 0, Quantite_sortie: 0 })
+    }
+  }
+  const aVider = d.Stock_Reference.filter((r) => r.Quantite_initiale).map((r) => r.id)
+  return action([...misesAJour, ...(ajouts.length ? [ajoutGroupeLignes('Stock_Elements', ajouts)] : []),
+    ...(aVider.length ? [['BulkUpdateRecord', 'Stock_Reference', aVider, { Quantite_initiale: aVider.map(() => 0) }]] : [])])
+}
+
 // Nouvelle ligne (`id` null) ou modification
 export const enregistrerLigne = (table, id, champs) => action([id == null ? ['AddRecord', table, null, champs] : ['UpdateRecord', table, id, champs]])
 // Validation en masse des émargements `ids`

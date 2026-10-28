@@ -361,6 +361,8 @@ body { background: var(--fond); }
 /* Application : en-tête collé en haut du widget, menu en boutons */
 button.tiroir-lien { width: 100%; font: inherit; font-weight: 600; text-align: left; cursor: pointer; background: none; border: none; }
 button.tiroir-lien.active { background: var(--signal); }
+/* Sous-page du menu (ex. Catalogue sous Gestion des stocks) : décalée, plus basse */
+.tiroir-lien.sous-lien { width: calc(100% - 24px); margin-left: 24px; min-height: 40px; font-size: .92rem; }
 
 /* Un élément masqué reste masqué même si sa classe lui donne un display */
 [hidden] { display: none !important; }
@@ -703,6 +705,7 @@ body.synchro .entete::after {
     scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .6) transparent; }
   .menu-lateral .tiroir-lien { flex: none; min-height: 50px; padding: 6px 12px; line-height: 1.25; color: #fff; border: 1px solid transparent; }
   .menu-lateral .tiroir-icone { width: 26px; color: #fff; background: transparent; }
+  .menu-lateral .tiroir-lien.sous-lien { min-height: 40px; }
   .menu-lateral .tiroir-lien:hover { background: rgba(255, 255, 255, .1); }
   .menu-lateral .tiroir-lien.active { color: var(--baseo-fonce); background: #fff; border-color: var(--baseo-bordure); }
   .menu-lateral .tiroir-lien.active .tiroir-icone { color: var(--baseo-turquoise); background: transparent; }

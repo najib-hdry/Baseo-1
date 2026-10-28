@@ -16,7 +16,8 @@ import { creerEcranAcomptes } from './acomptes.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranStocks } from './stocks.js'
 
-// `admin` : page visible seulement par le profil Admin. La première page visible s'ouvre au démarrage.
+// `admin` : page visible seulement par le profil Admin ; `parent` : sous-page, affichée décalée sous sa page.
+// La première page visible s'ouvre au démarrage.
 const PAGES = [
   { cle: 'chantiers', libelle: 'Gestion des chantiers', icone: 'grue', admin: true },
   { cle: 'casiers', libelle: 'Gestion des casiers', icone: 'total' },
@@ -32,6 +33,7 @@ const PAGES = [
   { cle: 'acomptes', libelle: 'Suivi des demandes d’acompte', icone: 'acomptes', admin: true },
   { cle: 'conges', libelle: 'Suivi des demandes de congé', icone: 'conges', admin: true },
   { cle: 'stocks', libelle: 'Gestion des stocks', icone: 'stock', admin: true },
+  { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', admin: true, parent: 'stocks' },
 ]
 const pagesVisibles = () => PAGES.filter((p) => !p.admin || estAdmin(donnees))
 
@@ -50,7 +52,8 @@ const ecrans = {
   emargements: creerEcranEmargements(zones.emargements, () => recharger()),
   acomptes: creerEcranAcomptes(zones.acomptes, () => recharger()),
   conges: creerEcranConges(zones.conges, () => recharger()),
-  stocks: creerEcranStocks(zones.stocks, () => recharger()),
+  stocks: creerEcranStocks(zones.stocks, () => recharger(), 'stocks'),
+  catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
@@ -69,7 +72,7 @@ const titrePage = h('div', { className: 'entete-titre' })
 const liensMenu = (avant = () => {}, profil = true) => [
   profil && donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
   pagesVisibles().map((p) => h('button', {
-    className: `tiroir-lien${p.cle === pageCourante() ? ' active' : ''}`,
+    className: `tiroir-lien${p.parent ? ' sous-lien' : ''}${p.cle === pageCourante() ? ' active' : ''}`,
     'aria-current': p.cle === pageCourante() ? 'page' : null,
     onClick: () => { avant(); allerA(p.cle) },
   }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), p.libelle)),

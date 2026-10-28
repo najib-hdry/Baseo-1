@@ -1,17 +1,16 @@
-// Écran « Gestion des stocks » (admin), en deux onglets :
-// - Stocks : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche de création / modification, suppression ;
-// - Catalogue : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
+// Écrans des stocks (admin), deux pages du menu :
+// - « Gestion des stocks » (vue 'stocks') : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche, suppression ;
+// - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto } from './outils.js'
-import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto } from './donnees.js'
+import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock } from './donnees.js'
 
-const TITRES_STOCKS = ['N°', 'Chantiers', 'Bases vie', '']
+const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Articles', '']
+const TITRES_CHOIX = ['', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Déjà dans le stock', 'Quantité']
 const TITRES_CATALOGUE = ['Photo', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Commentaire', '']
-const ONGLETS_STOCKS = [['stocks', 'Stocks'], ['catalogue', 'Catalogue']]
 
-// Écran affiché dans `racine` ; `recharger()` relit les données après une écriture
-export function creerEcranStocks(racine, recharger) {
+// Écran affiché dans `racine` ; `recharger()` relit les données après une écriture ; `vue` : 'stocks' ou 'catalogue'
+export function creerEcranStocks(racine, recharger, vue = 'stocks') {
   let d = null
-  let onglet = 'stocks'
   let recherche = ''
   let filtreSource = 0 // 0 : toutes les sources
   let lien = null // adresse temporaire d'une photo (pièce jointe Grist)
@@ -21,6 +20,8 @@ export function creerEcranStocks(racine, recharger) {
   // Base vie suivie de son chantier : deux chantiers peuvent avoir une « BV1 »
   const nomsBases = (s) => idsDeListe(s.Base_vie).map((id) => d.parId.Bases_vie.get(id)).filter(Boolean)
     .map((b) => `${b.Nom}${b.Chantier ? ` (${d.parId.Chantiers.get(b.Chantier)?.Nom ?? ''})` : ''}`).join(', ')
+  const nomStock = (s) => s.Nom || `Stock n° ${s.id}`
+  const elementsDe = (s) => (d.Stock_Elements ?? []).filter((e) => e.Stock === s.id)
   const source = (r) => d.parId.Stock_Source.get(r.Source)?.Source ?? ''
   const type = (r) => d.parId.Stock_Type.get(r.Type)?.Type ?? ''
 
@@ -30,16 +31,12 @@ export function creerEcranStocks(racine, recharger) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
     }
-    const table = onglet === 'stocks' ? 'Stock' : 'Stock_Reference'
-    const barre = h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Gestion des stocks' },
-      ONGLETS_STOCKS.map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(cle === onglet),
-        onClick: () => { onglet = cle; recherche = ''; rendre() } }, `${libelle} (${d[cle === 'stocks' ? 'Stock' : 'Stock_Reference']?.length ?? 0})`)))
+    const table = vue === 'stocks' ? 'Stock' : 'Stock_Reference'
     if (d.absentes.has(table)) {
-      racine.replaceChildren(h('section', { className: 'carte-tableau' }, barre,
-        h('p', { className: 'message' }, `Ce document n’a pas de table ${table}.`)))
+      racine.replaceChildren(h('p', { className: 'message' }, `Ce document n’a pas de table ${table}.`))
       return
     }
-    racine.replaceChildren(h('section', { className: 'carte-tableau' }, barre, ...(onglet === 'stocks' ? contenuStocks() : contenuCatalogue())))
+    racine.replaceChildren(h('section', { className: 'carte-tableau' }, ...(vue === 'stocks' ? contenuStocks() : contenuCatalogue())))
   }
 
   // Recherche, bouton d'ajout, compteur et tableau ; `dessiner(corps, compteur)` remplit les lignes
@@ -69,29 +66,31 @@ export function creerEcranStocks(racine, recharger) {
   // ---- Onglet Stocks ----
 
   function contenuStocks() {
-    return tableau(TITRES_STOCKS, 'Rechercher (chantier, base vie…)', () => [],
+    return tableau(TITRES_STOCKS, 'Rechercher (nom, chantier, base vie…)', () => [],
       h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFicheStock(null) }, '＋ Nouveau stock'),
       (corps, compteur) => {
         const filtre = recherche.trim().toLowerCase()
         const liste = d.Stock
-          .filter((s) => !filtre || [nomsChantiers(s), nomsBases(s)].some((v) => v.toLowerCase().includes(filtre)))
-          .sort((a, b) => nomsChantiers(a).localeCompare(nomsChantiers(b)) || a.id - b.id)
+          .filter((s) => !filtre || [s.Nom ?? '', nomsChantiers(s), nomsBases(s)].some((v) => v.toLowerCase().includes(filtre)))
+          .sort((a, b) => String(a.Nom ?? '').localeCompare(String(b.Nom ?? ''), 'fr', { numeric: true }) || nomsChantiers(a).localeCompare(nomsChantiers(b)) || a.id - b.id)
         compteur.textContent = `${liste.length} stock${liste.length > 1 ? 's' : ''}`
         corps.replaceChildren(...(liste.length === 0
-          ? ligneVide(4, d.Stock.length === 0
+          ? ligneVide(6, d.Stock.length === 0
             ? 'Aucun stock pour l’instant. Crée le premier avec « ＋ Nouveau stock » : chaque ligne aura ensuite ses boutons Modifier et Supprimer.'
             : 'Aucun stock ne correspond à la recherche.')
           : liste.map((s) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFicheStock(s) },
-            h('td', { className: 'tableau-nom' }, String(s.id)),
+            h('td', null, String(s.id)),
+            h('td', { className: 'tableau-nom' }, s.Nom || '—'),
             h('td', null, nomsChantiers(s) || '—'),
             h('td', null, nomsBases(s) || '—'),
+            h('td', { className: 'tableau-nombre' }, String(elementsDe(s).length)),
             actions(() => ouvrirFicheStock(s), () => supprimerStock(s))))))
       })
   }
 
   // Fiche d'un stock : création (`s` null) ou modification
   function ouvrirFicheStock(s) {
-    const champs = { Chantiers: idsDeListe(s?.Chantiers), Base_vie: idsDeListe(s?.Base_vie) }
+    const champs = { Nom: s?.Nom ?? '', Chantiers: idsDeListe(s?.Chantiers), Base_vie: idsDeListe(s?.Base_vie) }
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, s ? 'Enregistrer' : 'Créer le stock')
     const caseACocher = (liste, id, libelle, apres) => h('label', { className: 'case' },
@@ -116,15 +115,60 @@ export function creerEcranStocks(racine, recharger) {
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (ev) => {
       ev.preventDefault()
       erreur.hidden = true
-      if (champs.Chantiers.length === 0) {
-        erreur.textContent = 'Coche au moins un chantier.'
+      const probleme = !champs.Nom.trim() ? 'Le nom du stock est obligatoire.' : champs.Chantiers.length === 0 ? 'Coche au moins un chantier.' : null
+      if (probleme) {
+        erreur.textContent = probleme
         erreur.hidden = false
         return
       }
       valider.disabled = true
       try {
         const liste = (ids) => (ids.length > 0 ? ['L', ...ids] : null)
-        await enregistrerLigne('Stock', s?.id ?? null, { Chantiers: liste(champs.Chantiers), Base_vie: liste(champs.Base_vie) })
+        const reponse = await enregistrerLigne('Stock', s?.id ?? null, { Nom: champs.Nom.trim(), Chantiers: liste(champs.Chantiers), Base_vie: liste(champs.Base_vie) })
+        fermer()
+        await recharger()
+        // Nouveau stock : on choisit tout de suite ses articles dans le catalogue
+        const nouveau = s ? null : d.parId.Stock.get(reponse?.retValues?.[0])
+        if (nouveau) ouvrirChoixArticles(nouveau)
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+      }
+    } },
+    h('label', { className: 'champ-groupe' }, 'Nom du stock *',
+      h('input', { className: 'champ', autocomplete: 'off', required: true, placeholder: 'Réserve Nord, Stock Tour A…', value: champs.Nom, onInput: (e) => { champs.Nom = e.target.value } })),
+    h('fieldset', { className: 'groupe' }, h('legend', null, 'Chantiers servis par ce stock'),
+      h('div', { className: 'cases-chantiers' }, [...d.Chantiers].sort(parNom).map((c) => caseACocher('Chantiers', c.id, c.Nom || 'Sans nom', dessinerBases)))),
+    h('fieldset', { className: 'groupe' }, h('legend', null, 'Bases vie où le stock est rangé'), zoneBases),
+    erreur, valider,
+    s && h('button', { className: 'bouton', type: 'button', onClick: () => { fermer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
+    s && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { fermer(); supprimerStock(s) } }, 'Supprimer ce stock'))
+
+    const { fermer, section } = ouvrirPanneau(s ? nomStock(s) : 'Nouveau stock', formulaire)
+    section.classList.add('panneau-large')
+  }
+
+  /**
+   * Grande fenêtre : le catalogue avec une case et une quantité par article, pour remplir le stock `s`.
+   * La quantité part de la colonne temporaire « Quantité initiale » du catalogue ; saisir une quantité coche l'article.
+   * À la validation, les éléments du stock sont créés (ou augmentés s'ils y sont déjà) et les quantités temporaires remises à 0.
+   */
+  function ouvrirChoixArticles(s) {
+    const quantites = new Map(d.Stock_Reference.map((r) => [r.id, r.Quantite_initiale || 0]))
+    const choisis = new Set(d.Stock_Reference.filter((r) => r.Quantite_initiale > 0).map((r) => r.id))
+    const dansLeStock = new Map(elementsDe(s).map((e) => [e.Descriptif, (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)]))
+    let filtreTexte = ''
+    let filtreSrc = 0
+    const corps = h('tbody')
+    const resume = h('p', { className: 'sous-texte' })
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'button', onClick: async () => {
+      erreur.hidden = true
+      valider.disabled = true
+      try {
+        const choix = d.Stock_Reference.filter((r) => choisis.has(r.id)).map((r) => ({ reference: r, quantite: quantites.get(r.id) || 0 }))
+        await ajouterElementsStock(d, s.id, choix)
         fermer()
         await recharger()
       } catch (err) {
@@ -132,19 +176,67 @@ export function creerEcranStocks(racine, recharger) {
         erreur.hidden = false
         valider.disabled = false
       }
-    } },
-    h('fieldset', { className: 'groupe' }, h('legend', null, 'Chantiers servis par ce stock'),
-      h('div', { className: 'cases-chantiers' }, [...d.Chantiers].sort(parNom).map((c) => caseACocher('Chantiers', c.id, c.Nom || 'Sans nom', dessinerBases)))),
-    h('fieldset', { className: 'groupe' }, h('legend', null, 'Bases vie où le stock est rangé'), zoneBases),
-    erreur, valider,
-    s && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { fermer(); supprimerStock(s) } }, 'Supprimer ce stock'))
+    } })
+    const majResume = () => {
+      const n = choisis.size
+      const total = [...choisis].reduce((t, id) => t + (quantites.get(id) || 0), 0)
+      resume.textContent = n ? `${n} article${n > 1 ? 's' : ''} choisi${n > 1 ? 's' : ''}, ${total} au total.` : 'Aucun article choisi.'
+      valider.textContent = n ? `Ajouter ${n} article${n > 1 ? 's' : ''} au stock` : 'Ajouter au stock'
+      valider.disabled = n === 0
+    }
+    const dessiner = () => {
+      const filtre = filtreTexte.trim().toLowerCase()
+      const liste = d.Stock_Reference
+        .filter((r) => !filtreSrc || r.Source === filtreSrc)
+        .filter((r) => !filtre || [r.Descriptif, r.Format_ou_taille, type(r), source(r)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
+        .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || String(a.Descriptif).localeCompare(String(b.Descriptif), 'fr', { numeric: true }))
+      corps.replaceChildren(...(liste.length === 0 ? ligneVide(7, 'Aucun article ne correspond à la recherche ou à la source choisie.')
+        : liste.map((r) => {
+          const coche = h('input', { type: 'checkbox', checked: choisis.has(r.id), 'aria-label': `Choisir ${r.Descriptif}`, onChange: (e) => {
+            if (e.target.checked) choisis.add(r.id); else choisis.delete(r.id)
+            majResume()
+          } })
+          const deja = dansLeStock.get(r.id)
+          return h('tr', null,
+            h('td', null, coche),
+            h('td', null, source(r)),
+            h('td', null, type(r)),
+            h('td', { className: 'tableau-nom' }, r.Descriptif || '—'),
+            h('td', null, r.Format_ou_taille ?? ''),
+            h('td', { className: 'tableau-nombre' }, deja == null ? '—' : String(deja)),
+            h('td', null, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:110px',
+              value: quantites.get(r.id) || '', 'aria-label': `Quantité de ${r.Descriptif}`, onInput: (e) => {
+                const q = Number(e.target.value) || 0
+                quantites.set(r.id, q)
+                if (q > 0 && !choisis.has(r.id)) { choisis.add(r.id); coche.checked = true }
+                majResume()
+              } })))
+        })))
+      etiqueterLignes(corps, TITRES_CHOIX)
+    }
+    dessiner()
+    majResume()
 
-    const { fermer, section } = ouvrirPanneau(s ? `Stock n° ${s.id}` : 'Nouveau stock', formulaire)
-    section.classList.add('panneau-large')
+    const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
+    const { fermer, section } = ouvrirPanneau(`Articles du stock « ${nomStock(s)} »`, [
+      h('p', null, 'Coche les articles de ce stock et saisis leur quantité de départ. La quantité temporaire du catalogue est reprise ici ; elle est remise à 0 après l’ajout.'),
+      h('div', { className: 'barre-outils' },
+        h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (descriptif, type, format…)', 'aria-label': 'Rechercher un article',
+          onInput: (e) => { filtreTexte = e.target.value; dessiner() } }),
+        h('select', { className: 'champ champ-compact champ-statut', 'aria-label': 'Filtrer par source', onChange: (e) => { filtreSrc = Number(e.target.value); dessiner() } },
+          h('option', { value: '0' }, 'Toutes les sources'),
+          sources.map((src) => h('option', { value: String(src.id) }, src.Source)))),
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_CHOIX.map((t) => h('th', null, t)))), corps)),
+      resume, erreur,
+      h('div', { className: 'fiche-boutons' }, valider,
+        h('button', { className: 'bouton', type: 'button', onClick: () => fermer() }, 'Plus tard')),
+    ])
+    section.classList.add('panneau-large', 'panneau-fiche')
   }
 
   function supprimerStock(s) {
-    fenetreSuppression(`Supprimer le stock n° ${s.id} ?`,
+    fenetreSuppression(`Supprimer « ${nomStock(s)} » ?`,
       [h('p', null, `Chantiers : ${nomsChantiers(s) || '—'}. Bases vie : ${nomsBases(s) || '—'}.`)],
       [['Supprimer définitivement', 'bouton-danger', () => supprimerLignes('Stock', [s.id])]], recharger)
   }
@@ -152,7 +244,7 @@ export function creerEcranStocks(racine, recharger) {
   // ---- Onglet Catalogue ----
 
   function contenuCatalogue() {
-    if (!lien) lienPhotos().then((l) => { lien = l; if (onglet === 'catalogue') rendre() }).catch(() => {})
+    if (!lien) lienPhotos().then((l) => { lien = l; rendre() }).catch(() => {})
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
     return tableau(TITRES_CATALOGUE, 'Rechercher (descriptif, type, format…)',
       (redessiner) => [h('select', { className: 'champ champ-compact champ-statut', 'aria-label': 'Filtrer par source',
@@ -255,7 +347,6 @@ export function creerEcranStocks(racine, recharger) {
       rendre()
     },
     accueil() {
-      onglet = 'stocks'
       recherche = ''
       filtreSource = 0
       rendre()
