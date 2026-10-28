@@ -335,13 +335,13 @@ export function creerEcranCandidats(racine, recharger) {
     const contenu = blocsCandidatLecture(d, c, lien)
     const naissance = depuisGrist(c.Date_naissance)
     const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), nom(c))
-    const { fermer, section } = ouvrirPanneau(titre, [
+    const { fermer, masquer, section } = ouvrirPanneau(titre, [
       h('div', { className: 'fiche-entete' },
         h('div', { className: 'carte-titre sous-texte' }, [naissance && `${enFrancais(naissance)} · ${age(naissance)} ans`, poste(c)].filter(Boolean).join(' · ') || ' '),
-        c.Statut === STATUT_ACCEPTE && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: () => { fermer(); ouvrirFicheEmbauche(c) } }, 'Fiche d’embauche'),
-        h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirFicheEntretien(c) } }, 'Fiche d’entretien'),
-        h('button', { className: 'bouton bouton-compact', onClick: () => { fermer(); ouvrirFormulaire(c) } }, 'Modifier'),
-        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { fermer(); ouvrirSuppression(c) } }, 'Supprimer')),
+        c.Statut === STATUT_ACCEPTE && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: () => { masquer(); ouvrirFicheEmbauche(c) } }, 'Fiche d’embauche'),
+        h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { masquer(); ouvrirFicheEntretien(c) } }, 'Fiche d’entretien'),
+        h('button', { className: 'bouton bouton-compact', onClick: () => { masquer(); ouvrirFormulaire(c) } }, 'Modifier'),
+        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: () => { masquer(); ouvrirSuppression(c) } }, 'Supprimer')),
       contenu,
     ])
     section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')

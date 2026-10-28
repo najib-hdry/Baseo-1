@@ -256,14 +256,14 @@ export function creerEcranIncidents(racine, recharger) {
       ['Signalé par', i.Signale_par || '—'],
       ['Résolu le', resolu ? enFrancais(resolu) : '—'],
     ]
-    const { fermer, section } = ouvrirPanneau(`Incident · ${i.Categorie ?? ''}`, [
+    const { fermer, masquer, section } = ouvrirPanneau(`Incident · ${i.Categorie ?? ''}`, [
       h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
       h('h3', { className: 'titre-section' }, `Photos (${ids.length})`),
       galeriePhotos(ids, lien),
       erreur,
       h('div', { className: 'fiche-boutons' }, ...boutons,
-        peutGerer(d) && h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirModification(i, lieu, lien) } }, 'Modifier'),
-        estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => { fermer(); ouvrirSuppression(i, lieu) } }, 'Supprimer')),
+        peutGerer(d) && h('button', { className: 'bouton', onClick: () => { masquer(); ouvrirModification(i, lieu, lien) } }, 'Modifier'),
+        estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => { masquer(); ouvrirSuppression(i, lieu) } }, 'Supprimer')),
     ])
     section.classList.add('panneau-large')
   }

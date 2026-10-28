@@ -228,9 +228,9 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
       h('div', { className: 'grille-2' }, blocSup, blocDureeSup)),
     coche('Valider l’émargement', 'Emargement_valide'),
     erreur, valider,
-    h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { fermer(); ouvrirSuppression([e]) } }, 'Supprimer cet émargement'))
+    h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); ouvrirSuppression([e]) } }, 'Supprimer cet émargement'))
 
-    const { fermer, section } = ouvrirPanneau(`${e.Arrivee_Depart || 'Émargement'} · ${nomSalarie(e)}`, formulaire)
+    const { fermer, masquer, section } = ouvrirPanneau(`${e.Arrivee_Depart || 'Émargement'} · ${nomSalarie(e)}`, formulaire)
     section.classList.add('panneau-large')
   }
 

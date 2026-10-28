@@ -126,9 +126,9 @@ export function creerEcranPostes(racine, recharger) {
     cases,
     groupe('Mission', h('textarea', { className: 'champ champ-texte', value: champs.Mission, onInput: (e) => { champs.Mission = e.target.value } })),
     erreur, valider,
-    p && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { fermer(); ouvrirSuppression(p) } }, 'Supprimer ce poste'))
+    p && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); ouvrirSuppression(p) } }, 'Supprimer ce poste'))
 
-    const { fermer, section } = ouvrirPanneau(p ? p.Titre || 'Poste' : 'Nouveau poste', formulaire)
+    const { fermer, masquer, section } = ouvrirPanneau(p ? p.Titre || 'Poste' : 'Nouveau poste', formulaire)
     section.classList.add('panneau-large')
   }
 

@@ -82,20 +82,21 @@ export function creerEcranAdmin(racine, recharger) {
         onClick: () => afficherOnglet(k) }, libelle)))
       contenu.replaceChildren(...[
         cle === 'composants' && h('div', { className: 'fiche-actions' },
-          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirComposants(c) } }, 'Modifier les composants')),
+          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { masquer(); ouvrirComposants(c) } }, 'Modifier les composants')),
         cle === 'equipe' && !d.absentes.has('Utilisateurs') && h('div', { className: 'fiche-actions' },
-          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirEquipe(c) } }, 'Gérer les salariés')),
+          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { masquer(); ouvrirEquipe(c) } }, 'Gérer les salariés')),
         PARTENAIRES[cle] && !d.absentes.has(PARTENAIRES[cle].table) && h('div', { className: 'fiche-actions' },
-          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { fermer(); ouvrirPartenaires(c, PARTENAIRES[cle]) } },
+          h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => { masquer(); ouvrirPartenaires(c, PARTENAIRES[cle]) } },
             `Gérer les ${PARTENAIRES[cle].titre.toLowerCase()}`)),
         contenuFiche(d, c, cle),
       ].flat().filter(Boolean))
     }
-    // « Modifier les composants » / « Gérer les salariés » ferment la fiche, qui se rouvre ensuite avec des données à jour
-    let fermer = () => {}
+    // « Modifier les composants » / « Gérer les salariés » : la fiche attend derrière ; elle réapparaît si on annule,
+    // et se rouvre avec des données à jour après un enregistrement
+    let masquer = () => {}
     afficherOnglet(ongletInitial)
     const panneau = ouvrirPanneau(c.Nom || 'Chantier', [onglets, contenu])
-    fermer = panneau.fermer
+    masquer = panneau.masquer
     panneau.section.classList.add('panneau-large', 'panneau-fiche')
   }
 

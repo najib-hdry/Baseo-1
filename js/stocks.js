@@ -148,10 +148,10 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       h('div', { className: 'cases-chantiers' }, [...d.Chantiers].sort(parNom).map((c) => caseACocher('Chantiers', c.id, c.Nom || 'Sans nom', dessinerBases)))),
     h('fieldset', { className: 'groupe' }, h('legend', null, 'Bases vie où le stock est rangé'), zoneBases),
     erreur, valider,
-    s && h('button', { className: 'bouton', type: 'button', onClick: () => { fermer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
-    s && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { fermer(); supprimerStock(s) } }, 'Supprimer ce stock'))
+    s && h('button', { className: 'bouton', type: 'button', onClick: () => { masquer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
+    s && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); supprimerStock(s) } }, 'Supprimer ce stock'))
 
-    const { fermer, section } = ouvrirPanneau(s ? nomStock(s) : 'Nouveau stock', formulaire)
+    const { fermer, masquer, section } = ouvrirPanneau(s ? nomStock(s) : 'Nouveau stock', formulaire)
     section.classList.add('panneau-large')
   }
 
@@ -229,7 +229,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     majResume()
 
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
-    const { fermer, section } = ouvrirPanneau(`Articles du stock « ${nomStock(s)} »`, [
+    const { fermer, annuler, section } = ouvrirPanneau(`Articles du stock « ${nomStock(s)} »`, [
       h('p', null, 'Coche les articles de ce stock et saisis leur quantité de départ et leur seuil. Les quantités temporaires du catalogue (initiale et seuil) sont reprises ici ; elles sont remises à 0 après l’ajout.'),
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (descriptif, type, format…)', 'aria-label': 'Rechercher un article',
@@ -241,7 +241,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_CHOIX.map((t) => h('th', null, t)))), corps)),
       resume, erreur,
       h('div', { className: 'fiche-boutons' }, valider,
-        h('button', { className: 'bouton', type: 'button', onClick: () => fermer() }, 'Plus tard')),
+        h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Plus tard')),
     ])
     section.classList.add('panneau-large', 'panneau-fiche')
   }
@@ -290,7 +290,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     dessiner()
 
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
-    const { fermer, section } = ouvrirPanneau(`Articles — ${nomStock(s)}`, [
+    const { annuler, masquer, section } = ouvrirPanneau(`Articles — ${nomStock(s)}`, [
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (article, type, commentaire…)', 'aria-label': 'Rechercher un article',
           onInput: (ev) => { filtreTexte = ev.target.value; dessiner() } }),
@@ -302,9 +302,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       h('div', { className: 'tableau-defilant' },
         h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', null, t)))), corps)),
       h('div', { className: 'fiche-boutons' },
-        h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => { fermer(); ouvrirEntreesSorties(s) } }, 'Entrées / sorties'),
-        h('button', { className: 'bouton', type: 'button', onClick: () => { fermer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
-        h('button', { className: 'bouton', type: 'button', onClick: () => fermer() }, 'Fermer')),
+        h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => { masquer(); ouvrirEntreesSorties(s) } }, 'Entrées / sorties'),
+        h('button', { className: 'bouton', type: 'button', onClick: () => { masquer(); ouvrirChoixArticles(s) } }, 'Ajouter des articles du catalogue'),
+        h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Fermer')),
     ])
     section.classList.add('panneau-large', 'panneau-fiche')
   }
@@ -379,7 +379,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     majResume()
 
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
-    const { fermer, section } = ouvrirPanneau(`Entrées / sorties — ${nomStock(s)}`, [
+    const { fermer, annuler, section } = ouvrirPanneau(`Entrées / sorties — ${nomStock(s)}`, [
       h('p', null, 'Saisis les quantités qui entrent ou qui sortent, sur autant de lignes que tu veux, puis valide une seule fois. Elles s’ajoutent aux totaux du stock.'),
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (article, type…)', 'aria-label': 'Rechercher un article',
@@ -390,7 +390,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       h('div', { className: 'tableau-defilant' },
         h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ES.map((t) => h('th', null, t)))), corps)),
       resume, erreur,
-      h('div', { className: 'fiche-boutons' }, valider, h('button', { className: 'bouton', type: 'button', onClick: () => fermer() }, 'Annuler')),
+      h('div', { className: 'fiche-boutons' }, valider, h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Annuler')),
     ])
     section.classList.add('panneau-large', 'panneau-fiche')
   }
@@ -489,9 +489,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     h('div', { className: 'champ-groupe' }, 'Photo',
       zoneFichier((f) => { nouvellePhoto = f }, { deja: Boolean(photo), lien: photo && lien ? lien(photo) : null, accept: 'image/*' })),
     erreur, valider,
-    r && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { fermer(); supprimerArticle(r) } }, 'Supprimer cet article'))
+    r && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => { masquer(); supprimerArticle(r) } }, 'Supprimer cet article'))
 
-    const { fermer, section } = ouvrirPanneau(r ? r.Descriptif || 'Article' : 'Nouvel article', formulaire)
+    const { fermer, masquer, section } = ouvrirPanneau(r ? r.Descriptif || 'Article' : 'Nouvel article', formulaire)
     section.classList.add('panneau-large')
   }
 

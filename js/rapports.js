@@ -175,13 +175,13 @@ export function creerEcranRapport(racine, recharger, config) {
       ['Fiche de passage', badgeFiche(r)],
       ['Commentaire', r.Commentaire || '—'],
     ]
-    const { fermer, section } = ouvrirPanneau(`${config.titre} du ${enFrancais(depuisGrist(r.Date)) || '—'}`, [
+    const { fermer, masquer, section } = ouvrirPanneau(`${config.titre} du ${enFrancais(depuisGrist(r.Date)) || '—'}`, [
       h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
       h('h3', { className: 'titre-section' }, `Photos (${photos.length})`),
       galeriePhotos(photos, lien),
       h('div', { className: 'fiche-boutons' },
-        peutGerer(d) && h('button', { className: 'bouton', onClick: () => { fermer(); ouvrirModification(r, lien) } }, 'Modifier'),
-        estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => { fermer(); ouvrirSuppression(r) } }, 'Supprimer')),
+        peutGerer(d) && h('button', { className: 'bouton', onClick: () => { masquer(); ouvrirModification(r, lien) } }, 'Modifier'),
+        estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => { masquer(); ouvrirSuppression(r) } }, 'Supprimer')),
     ])
     section.classList.add('panneau-large')
   }

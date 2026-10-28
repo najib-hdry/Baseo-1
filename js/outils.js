@@ -98,11 +98,11 @@ export function fenetreSuppression(titre, texte, boutons, recharger) {
     })
     return bouton
   })
-  const { fermer } = ouvrirPanneau(titre, [
+  const { fermer, annuler } = ouvrirPanneau(titre, [
     ...texte,
     h('p', { className: 'sous-texte' }, 'En cas d’erreur, la suppression s’annule dans l’Historique du document Grist.'),
     erreur, ...elements,
-    h('button', { className: 'bouton', onClick: () => fermer() }, 'Annuler'),
+    h('button', { className: 'bouton', onClick: () => annuler() }, 'Annuler'),
   ])
   return elements
 }
@@ -241,22 +241,44 @@ export async function reduirePhoto(fichier) {
   }
 }
 
-// Fenêtre modale : voile, titre, bouton ✕, fermeture par Échap
+// Fenêtres ouvertes, la dernière au-dessus ; `enAttente` : fenêtre qui a appelé masquer() et qui devient
+// le parent de la prochaine fenêtre ouverte (elle est cachée derrière, pas fermée)
+const pilePanneaux = []
+let enAttente = null
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') pilePanneaux.at(-1)?.annuler() })
+
+/**
+ * Fenêtre modale : voile, titre, bouton ✕, fermeture par Échap. Renvoie :
+ * - annuler() : ✕, Échap, clic à côté, « Annuler » : ferme cette fenêtre et fait réapparaître son parent ;
+ * - fermer() : après un enregistrement ou une suppression : ferme aussi le parent, dont les données ont changé ;
+ * - masquer() : à appeler juste avant d'ouvrir une autre fenêtre depuis celle-ci (« Modifier », « Supprimer »…) :
+ *   celle-ci attend derrière la nouvelle au lieu d'être fermée.
+ */
 export function ouvrirPanneau(titre, contenu) {
-  const fermer = () => {
+  const parent = enAttente
+  enAttente = null
+  if (parent) parent.voile.hidden = true
+  const retirer = () => {
     voile.remove()
-    window.removeEventListener('keydown', touche)
+    const i = pilePanneaux.indexOf(panneau)
+    if (i >= 0) pilePanneaux.splice(i, 1)
   }
-  const touche = (e) => e.key === 'Escape' && fermer()
+  const fermer = () => { retirer(); parent?.fermer() }
+  const annuler = () => { retirer(); if (parent) parent.voile.hidden = false }
+  const masquer = () => {
+    enAttente = panneau
+    setTimeout(() => { if (enAttente === panneau) enAttente = null }, 10000) // aucune fenêtre ouverte entre-temps : on oublie
+  }
   const section = h('section', { className: 'panneau', role: 'dialog', 'aria-modal': 'true', onClick: (e) => e.stopPropagation() },
     h('div', { className: 'panneau-haut' },
       h('h2', null, titre),
-      h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: fermer }, '✕')),
+      h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: annuler }, '✕')),
     contenu)
-  const voile = h('div', { className: 'voile', onClick: fermer }, section)
+  const voile = h('div', { className: 'voile', onClick: annuler }, section)
+  const panneau = { voile, fermer, annuler }
+  pilePanneaux.push(panneau)
   document.body.append(voile)
-  window.addEventListener('keydown', touche)
-  return { fermer, section }
+  return { fermer, annuler, masquer, section }
 }
 
 // Recopie le titre de chaque colonne sur les cellules (data-label) : sur un écran étroit,
