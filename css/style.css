@@ -889,3 +889,29 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
   .menu-replie .menu-chevron { display: none; }
   .menu-replie button.menu-groupe { width: 100%; justify-content: center; }
 }
+
+/* Tableau de bord : tuiles des chiffres clés (sans liseré) — pastille d'icône teintée, grand chiffre, barre ou pastilles */
+.tb-tuiles { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.tb-tuile { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 150px; padding: 16px 18px; color: var(--encre);
+  background: #fff; border: 1px solid var(--trait-clair); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.tb-tuile:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--teinte) 45%, white); box-shadow: 0 8px 20px rgba(0, 0, 0, .08); }
+@media (prefers-reduced-motion: reduce) { .tb-tuile, .tb-tuile:hover { transition: none; transform: none; } }
+.tb-haut { display: flex; align-items: center; gap: 10px; }
+.tb-icone { flex: none; display: grid; place-items: center; width: 38px; height: 38px; color: var(--teinte); background: color-mix(in srgb, var(--teinte) 13%, white); border-radius: 10px; }
+.tb-libelle { flex: 1; min-width: 0; font-size: .9rem; font-weight: 600; line-height: 1.25; color: #555; }
+.tb-fleche { flex: none; font-size: 1.4rem; line-height: 1; color: #B9BDB5; transition: transform .15s ease, color .15s ease; }
+.tb-tuile:hover .tb-fleche { color: var(--teinte); transform: translateX(3px); }
+.tb-chiffre { display: flex; align-items: baseline; gap: 4px; }
+.tb-valeur { font-size: 2.4rem; font-weight: 700; line-height: 1; color: var(--encre); }
+.tb-unite { font-family: 'Titillium Web', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--encre-douce); }
+.tb-barre { display: flex; height: 8px; overflow: hidden; background: #EEF0EC; border-radius: 4px; }
+.tb-barre > span { min-width: 3px; }
+.tb-detail { margin-top: auto; font-size: .82rem; color: var(--encre-douce); }
+.tb-puces { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.tb-puce { padding: 2px 8px; font-size: .78rem; font-weight: 600; border-radius: 999px; }
+.tb-puce-alerte { color: #8A1C12; background: #FBE9E7; }
+.tb-puce-attention { color: #6B4A00; background: #FFF1C9; }
+.tb-puce-neutre { color: #444; background: #EEF0EC; }
+.tb-rien { margin-top: auto; font-size: .85rem; font-weight: 600; color: var(--action); }
+.tb-calme .tb-valeur { color: #9AA09A; }

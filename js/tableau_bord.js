@@ -16,12 +16,28 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
 
   // ---- Petits éléments de dessin ----
 
-  // Tuile : grand nombre, libellé, détail ; cliquable vers une page
-  const tuile = ({ valeur, libelle, detail, couleur, page }) => h('button', { className: 'tb-tuile', type: 'button',
-    style: { '--teinte': couleur }, onClick: () => page && aller(page), title: page ? 'Ouvrir la page' : null },
-  h('span', { className: 'tb-valeur' }, String(valeur)),
-  h('span', { className: 'tb-libelle' }, libelle),
-  detail && h('span', { className: 'tb-detail' }, detail))
+  /**
+   * Tuile cliquable vers une page : icône dans une pastille teintée, libellé, grand nombre (et `unite`), puis au choix
+   * une barre empilée (`barre` : [[valeur, couleur, nom]]), des pastilles (`puces` : [[texte, ton]], ton 'alerte' | 'attention'
+   * | 'neutre') ou un détail. `aTraiter` : un zéro s'affiche « Rien à traiter ✓ » en vert au lieu d'un détail vide.
+   */
+  const tuile = ({ valeur, unite, libelle, detail, couleur, page, icone: nomIcone, barre, puces, aTraiter }) => {
+    const calme = aTraiter && Number(valeur) === 0
+    const total = (barre ?? []).reduce((t, [n]) => t + n, 0)
+    return h('button', { className: `tb-tuile${calme ? ' tb-calme' : ''}`, type: 'button', style: { '--teinte': couleur },
+      onClick: () => page && aller(page), title: page ? `Ouvrir la page ${libelle.toLowerCase()}` : null },
+    h('span', { className: 'tb-haut' },
+      h('span', { className: 'tb-icone' }, icone(nomIcone, 20)),
+      h('span', { className: 'tb-libelle' }, libelle),
+      page && h('span', { className: 'tb-fleche', 'aria-hidden': 'true' }, '›')),
+    h('span', { className: 'tb-chiffre' }, h('span', { className: 'tb-valeur' }, String(valeur)), unite && h('span', { className: 'tb-unite' }, unite)),
+    calme ? h('span', { className: 'tb-rien' }, 'Rien à traiter ✓')
+      : barre && total > 0 ? h('span', { className: 'tb-barre', title: barre.map(([n, , nom]) => `${nom} ${n}`).join(' · ') },
+        barre.filter(([n]) => n > 0).map(([n, c]) => h('span', { style: { flexGrow: n, background: c } })))
+        : null,
+    puces && !calme ? h('span', { className: 'tb-puces' }, puces.filter(([t]) => t).map(([t, ton]) => h('span', { className: `tb-puce tb-puce-${ton ?? 'neutre'}` }, t)))
+      : detail && !calme ? h('span', { className: 'tb-detail' }, detail) : null)
+  }
 
   // Barres horizontales : lignes = [libellé, [[valeur, couleur, nom], …]] (parties empilées), longueurs comparables
   const barres = (titre, lignes, vide, legende = []) => {
@@ -187,13 +203,24 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
         h('span', { className: 'sous-texte' }, nomChantier ? `Chiffres du chantier ${nomChantier}` : `Chiffres de ${tbPluriel(chantiers.length, 'chantier')}`)),
 
       h('div', { className: 'tb-tuiles' },
-        tuile({ valeur: taux, libelle: 'Casiers occupés', detail: `${occ.occupes}/${occ.total} · ${tbPluriel(occ.libres, 'libre')} · ${occ.hs} HS`, couleur: TB_COULEURS.occupes, page: 'casiers' }),
-        tuile({ valeur: ouverts + enCours, libelle: 'Incidents à traiter', detail: `${tbPluriel(ouverts, 'ouvert')} · ${enCours} en cours`, couleur: TB_COULEURS.ouvert, page: 'incidents' }),
-        tuile({ valeur: actifs, libelle: 'Salariés actifs', detail: tbPluriel(p.salaries.length - actifs, 'désactivé'), couleur: TB_COULEURS.actif, page: 'utilisateurs' }),
-        tuile({ valeur: alertes.length, libelle: 'Alertes salariés', detail: `${tbPluriel(nbAlerte('Fin de contrat'), 'contrat')} · ${nbAlerte('Fin du Pass IAE')} Pass IAE · ${tbPluriel(nbAlerte('Fin du titre de séjour'), 'titre')} de séjour`, couleur: TB_COULEURS.alerte, page: 'utilisateurs' }),
-        tuile({ valeur: alertesStock.length, libelle: 'Articles à commander', detail: tbPluriel(parSource.size, 'source'), couleur: TB_COULEURS.en_cours, page: 'stocks' }),
-        tuile({ valeur: p.conges.length, libelle: 'Nouvelles demandes de congé', couleur: TB_COULEURS.neutre, page: 'conges' }),
-        tuile({ valeur: p.acomptes.length, libelle: 'Nouvelles demandes d’acompte', detail: p.acomptes.length ? `${euros.format(totalAcomptes)} au total` : null, couleur: TB_COULEURS.neutre, page: 'acomptes' })),
+        tuile({ valeur: occ.total ? Math.round((100 * occ.occupes) / occ.total) : '—', unite: occ.total ? '%' : null, libelle: 'Casiers occupés', icone: 'total',
+          couleur: '#007EBD', page: 'casiers', barre: partsCasiers(occ),
+          detail: occ.total ? `${occ.occupes} sur ${occ.total} · ${tbPluriel(occ.libres, 'libre')} · ${occ.hs} HS` : 'Aucun casier' }),
+        tuile({ valeur: ouverts + enCours, libelle: 'Incidents à traiter', icone: 'hs', couleur: '#B42318', page: 'incidents', aTraiter: true,
+          puces: [[ouverts && tbPluriel(ouverts, 'ouvert'), 'alerte'], [enCours && `${enCours} en cours`, 'attention']] }),
+        tuile({ valeur: actifs, libelle: 'Salariés actifs', icone: 'utilisateurs', couleur: '#946AAB', page: 'utilisateurs',
+          barre: [[actifs, '#946AAB', 'Actifs'], [p.salaries.length - actifs, '#D9CCE3', 'Désactivés']],
+          detail: `sur ${p.salaries.length} · ${tbPluriel(p.salaries.length - actifs, 'désactivé')}` }),
+        tuile({ valeur: alertes.length, libelle: 'Alertes salariés', icone: 'emargements', couleur: '#D9480F', page: 'utilisateurs', aTraiter: true,
+          puces: [[nbAlerte('Fin de contrat') && tbPluriel(nbAlerte('Fin de contrat'), 'contrat'), 'alerte'],
+            [nbAlerte('Fin du Pass IAE') && `${nbAlerte('Fin du Pass IAE')} Pass IAE`, 'alerte'],
+            [nbAlerte('Fin du titre de séjour') && tbPluriel(nbAlerte('Fin du titre de séjour'), 'titre de séjour', 'titres de séjour'), 'alerte']] }),
+        tuile({ valeur: alertesStock.length, libelle: 'Articles à commander', icone: 'stock', couleur: '#C9861A', page: 'stocks', aTraiter: true,
+          puces: [...parSource].sort((a, b) => b[1] - a[1]).map(([src, n]) => [`${src} ${n}`, 'attention']) }),
+        tuile({ valeur: p.conges.length, libelle: 'Demandes de congé', icone: 'conges', couleur: '#00845A', page: 'conges', aTraiter: true,
+          detail: tbPluriel(p.conges.length, 'nouvelle demande', 'nouvelles demandes') }),
+        tuile({ valeur: p.acomptes.length, libelle: 'Demandes d’acompte', icone: 'acomptes', couleur: '#00845A', page: 'acomptes', aTraiter: true,
+          detail: `${euros.format(totalAcomptes)} demandés` })),
 
       section('Casiers', 'total',
         h('div', { className: 'graphiques' },
