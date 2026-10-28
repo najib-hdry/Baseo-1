@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {

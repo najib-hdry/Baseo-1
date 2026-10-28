@@ -14,6 +14,7 @@ import { creerEcranUtilisateurs } from './utilisateurs.js'
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranAcomptes } from './acomptes.js'
 import { creerEcranConges } from './conges.js'
+import { creerEcranStocks } from './stocks.js'
 
 // `admin` : page visible seulement par le profil Admin. La première page visible s'ouvre au démarrage.
 const PAGES = [
@@ -30,6 +31,7 @@ const PAGES = [
   { cle: 'emargements', libelle: 'Suivi des émargements', icone: 'emargements', admin: true },
   { cle: 'acomptes', libelle: 'Suivi des demandes d’acompte', icone: 'acomptes', admin: true },
   { cle: 'conges', libelle: 'Suivi des demandes de congé', icone: 'conges', admin: true },
+  { cle: 'stocks', libelle: 'Gestion des stocks', icone: 'stock', admin: true },
 ]
 const pagesVisibles = () => PAGES.filter((p) => !p.admin || estAdmin(donnees))
 
@@ -48,6 +50,7 @@ const ecrans = {
   emargements: creerEcranEmargements(zones.emargements, () => recharger()),
   acomptes: creerEcranAcomptes(zones.acomptes, () => recharger()),
   conges: creerEcranConges(zones.conges, () => recharger()),
+  stocks: creerEcranStocks(zones.stocks, () => recharger()),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
