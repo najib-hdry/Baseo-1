@@ -65,7 +65,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('td', null, chantiers(u)),
           h('td', null, u.Actif ? 'Oui' : 'Non'),
           h('td', { className: 'tableau-actions' },
-            estSalarie(u) && h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheSalarie(u) } }, 'Fiche'),
+            estSalarie(u) && h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheSalarie(u) } }, 'Fiche salarié'),
             h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(u) } }, 'Modifier'),
             h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(u) } }, 'Supprimer'))))))
       etiqueterLignes(corps, TITRES_UTILISATEURS)
