@@ -178,8 +178,10 @@ export function creerEcranCasiers(racine, recharger) {
       rendre()
     },
     // revient à la liste des chantiers
-    accueil() {
+    // revient à la liste des chantiers, ou ouvre directement `chantierId` (tuile du Tableau de bord)
+    accueil({ chantierId } = {}) {
       etat.chantierId = null
+      if (chantierId && d?.parId.Chantiers.has(chantierId)) Object.assign(etat, { filtre: 'tous' }, selectionPourChantier(d, chantierId))
       rendre()
     },
   }

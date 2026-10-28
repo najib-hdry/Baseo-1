@@ -3,7 +3,7 @@
 // fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié ;
 // détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ;
 // émargements, demandes de congé et acomptes du salarié : tableaux des pages de suivi, filtrés sur lui ; compte).
-import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier, notifier, compte } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier, notifier, compte, menuPlus } from './outils.js'
 import { blocsCandidatLecture } from './candidats.js'
 import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEmargements } from './taches.js'
 import { creerEcranEmargements } from './emargements.js'
@@ -66,8 +66,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('td', null, u.Actif ? 'Oui' : 'Non'),
           h('td', { className: 'tableau-actions' },
             estSalarie(u) && h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheSalarie(u) } }, 'Fiche salarié'),
-            h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(u) } }, 'Modifier'),
-            h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(u) } }, 'Supprimer'))))))
+            menuPlus([
+              h('button', { className: 'bouton bouton-compact', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(u) } }, 'Modifier'),
+              h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(u) } }, 'Supprimer')]))))))
       etiqueterLignes(corps, TITRES_UTILISATEURS)
     }
     dessinerLignes()
@@ -544,8 +545,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       d = donnees
       rendre()
     },
-    accueil() {
-      recherche = ''
+    // `chantierId` (tuile du Tableau de bord) : recherche préremplie avec le nom du chantier
+    accueil({ chantierId } = {}) {
+      recherche = (chantierId && d?.parId.Chantiers.get(chantierId)?.Nom) || ''
       onglet = ROLE_SALARIE
       rendre()
     },

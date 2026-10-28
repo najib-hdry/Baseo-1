@@ -321,9 +321,12 @@ export function creerEcranIncidents(racine, recharger) {
       if (etat.chantierId && !d.parId.Chantiers.has(etat.chantierId)) etat.chantierId = null
       rendre()
     },
-    // revient à la liste des chantiers
-    accueil() {
+    // revient à la liste des chantiers, ou ouvre le suivi des incidents de `chantierId` (tuile du Tableau de bord)
+    accueil({ chantierId } = {}) {
       etat.chantierId = null
+      if (chantierId && d?.parId.Chantiers.has(chantierId)) {
+        Object.assign(etat, { filtre: 'tous', onglet: 'suivi', filtreSuivi: 'actifs', rechercheSuivi: '' }, selectionPourChantier(d, chantierId))
+      }
       rendre()
     },
   }

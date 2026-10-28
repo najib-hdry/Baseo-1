@@ -1,7 +1,7 @@
 // Écran « Suivi des demandes de congé » (admin) : onglets par statut (Nouvelle, Acceptée, Refusée, Tous), tableau avec recherche,
 // fiche de demande (nouvelle ou modification) dont les dates suivent le type de congé, suppression.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versGrist, depuisGrist, enFrancais, compte } from './outils.js'
-import { estAdmin, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact } from './donnees.js'
+import { estAdmin, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact, idsDeListe } from './donnees.js'
 
 const TABLE_CONGES = 'Demande_de_conge'
 const TITRES_CONGES = ['Salarié', 'Type', 'Période', 'Créée le', 'Statut', '']
@@ -33,6 +33,7 @@ export function creerEcranConges(racine, recharger, options = {}) {
   let d = null
   let recherche = ''
   let onglet = ongletDepart // statut affiché ; '' = tous
+  let chantierFiltre = null
 
   // Nom d'un salarié : son compte, sinon le candidat lié à l'embauche, sinon l'email
   const nomU = (u) => {
@@ -52,7 +53,9 @@ export function creerEcranConges(racine, recharger, options = {}) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Demande de congé.'))
       return
     }
-    const tous = d[TABLE_CONGES].filter((c) => !seul || c.Salarie === seul)
+    // `chantierFiltre` : seulement les salariés de ce chantier (tuile du Tableau de bord)
+    const duChantier = (id) => !chantierFiltre || idsDeListe(d.parId.Utilisateurs?.get(id)?.Chantiers).includes(chantierFiltre)
+    const tous = d[TABLE_CONGES].filter((c) => (!seul || c.Salarie === seul) && duChantier(c.Salarie))
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     // Ne redessine que les lignes : le champ de recherche garde le curseur
@@ -77,9 +80,12 @@ export function creerEcranConges(racine, recharger, options = {}) {
     }
     dessinerLignes()
 
+    const nomChantierFiltre = chantierFiltre && d.parId.Chantiers.get(chantierFiltre)?.Nom
     racine.replaceChildren(
       // Onglets, recherche et tableau dans une même carte blanche à bordure noire
       h('section', { className: 'carte-tableau' },
+        nomChantierFiltre && h('p', { className: 'filtre-actif' }, `Salariés du chantier ${nomChantierFiltre}`,
+          h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { chantierFiltre = null; rendre() } }, 'Retirer le filtre ✕')),
         h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Statut des demandes' },
           [...STATUTS_CONGE.map((s) => [s, s]), ['', 'Tous']].map(([statut, libelle]) => h('button', { className: 'onglet', role: 'tab',
             'aria-selected': String(statut === onglet), onClick: () => { onglet = statut; rendre() } },
@@ -186,7 +192,9 @@ export function creerEcranConges(racine, recharger, options = {}) {
       d = donnees
       rendre()
     },
-    accueil() {
+    // `chantierId` (tuile du Tableau de bord) : seulement les demandes des salariés de ce chantier
+    accueil({ chantierId } = {}) {
+      chantierFiltre = chantierId ?? null
       recherche = ''
       onglet = ongletDepart
       rendre()

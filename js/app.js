@@ -64,7 +64,7 @@ const ecrans = {
   acomptes: creerEcranAcomptes(zones.acomptes, () => recharger()),
   conges: creerEcranConges(zones.conges, () => recharger()),
   stocks: creerEcranStocks(zones.stocks, () => recharger(), 'stocks'),
-  tableau_bord: creerEcranTableauDeBord(zones.tableau_bord, () => recharger(), (cle) => allerA(cle)),
+  tableau_bord: creerEcranTableauDeBord(zones.tableau_bord, () => recharger(), (cle, options) => allerA(cle, options)),
   catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
@@ -184,10 +184,11 @@ const entete = h('header', { className: 'entete' },
 // ---- Navigation entre les écrans ----
 
 // Choisir une page dans le menu la ramène toujours à son accueil
-function allerA(cle) {
+// `options` : transmis à l'accueil de la page (ex. { chantierId } depuis une tuile du Tableau de bord)
+function allerA(cle, options = {}) {
   choix = cle
   afficherPage()
-  if (donnees?.moi) ecrans[cle].accueil()
+  if (donnees?.moi) ecrans[cle].accueil(options)
   window.scrollTo(0, 0) // la nouvelle page s'ouvre en haut, pas au défilement de la précédente
 }
 

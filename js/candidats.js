@@ -3,7 +3,7 @@
 // fiche d'entretien en onglets : Entretien (infos de base, nouvel entretien, entretiens réalisés) et Poste (poste affilié),
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
-import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte, zoneFichier, compte } from './outils.js'
+import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte, zoneFichier, compte, menuPlus } from './outils.js'
 import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
@@ -206,8 +206,9 @@ export function creerEcranCandidats(racine, recharger) {
             h('td', { className: 'tableau-actions' },
               c.Statut === STATUT_ACCEPTE && h('button', { className: 'bouton bouton-compact bouton-embauche', onClick: (e) => { e.stopPropagation(); ouvrirFicheEmbauche(c) } }, 'Embauche'),
               h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (e) => { e.stopPropagation(); ouvrirFicheEntretien(c) } }, 'Entretien'),
-              h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirFormulaire(c) } }, 'Modifier'),
-              h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
+              menuPlus([
+                h('button', { className: 'bouton bouton-compact', role: 'menuitem', onClick: (e) => { e.stopPropagation(); ouvrirFormulaire(c) } }, 'Modifier'),
+                h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')])))
         })))
       etiqueterLignes(corps, TITRES_CANDIDATS)
     }

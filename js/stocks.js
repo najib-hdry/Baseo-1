@@ -1,7 +1,7 @@
 // Écrans des stocks (admin), deux pages du menu :
 // - « Gestion des stocks » (vue 'stocks') : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche, suppression ;
 // - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus } from './outils.js'
 import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock } from './donnees.js'
 
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
@@ -89,8 +89,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
               `Voir les articles (${elementsDe(s).length})`)),
             h('td', { className: 'tableau-actions' },
               h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirEntreesSorties(s) } }, 'Entrées / sorties'),
-              h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheStock(s) } }, 'Modifier'),
-              h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); supprimerStock(s) } }, 'Supprimer'))))))
+              menuPlus([
+                h('button', { className: 'bouton bouton-compact', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheStock(s) } }, 'Modifier'),
+                h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); supprimerStock(s) } }, 'Supprimer')]))))))
       })
   }
 
@@ -512,8 +513,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       d = donnees
       rendre()
     },
-    accueil() {
-      recherche = ''
+    // `chantierId` (tuile du Tableau de bord) : recherche préremplie avec le nom du chantier
+    accueil({ chantierId } = {}) {
+      recherche = (vue === 'stocks' && chantierId && d?.parId.Chantiers.get(chantierId)?.Nom) || ''
       filtreSource = 0
       rendre()
     },

@@ -326,6 +326,35 @@ export function ouvrirPanneau(titre, contenu) {
 
 // Recopie le titre de chaque colonne sur les cellules (data-label) : sur un écran étroit,
 // le CSS affiche alors chaque ligne comme une fiche étiquetée
+/**
+ * Menu « ⋯ » d'une ligne de tableau : les actions secondaires (Modifier, Supprimer…) dans une petite liste,
+ * pour que la ligne ne garde qu'une ou deux actions visibles. `actions` : les boutons, avec leurs propres clics.
+ * La liste se place sous le bouton (position fixe : jamais coupée par le tableau qui défile) et se ferme
+ * après un choix, au clic ailleurs, à Échap ou au défilement.
+ */
+export function menuPlus(actions) {
+  const liste = h('div', { className: 'menu-plus-liste', role: 'menu', hidden: true }, actions.filter(Boolean))
+  const bouton = h('button', { className: 'bouton bouton-compact menu-plus-bouton', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+    'aria-label': 'Autres actions', title: 'Autres actions', onClick: (e) => { e.stopPropagation(); basculer(liste.hidden) } }, '⋯')
+  const conteneur = h('span', { className: 'menu-plus' }, bouton, liste)
+  const ailleurs = (e) => { if (!conteneur.contains(e.target)) basculer(false) }
+  const fermer = () => basculer(false)
+  function basculer(ouvrir) {
+    liste.hidden = !ouvrir
+    bouton.setAttribute('aria-expanded', String(ouvrir))
+    const methode = ouvrir ? 'addEventListener' : 'removeEventListener'
+    document[methode]('click', ailleurs, true)
+    window[methode]('scroll', fermer, true)
+    if (!ouvrir) return
+    const r = bouton.getBoundingClientRect()
+    liste.style.top = `${Math.round(r.bottom + 4)}px`
+    liste.style.right = `${Math.round(window.innerWidth - r.right)}px`
+  }
+  liste.addEventListener('click', fermer, true) // une action choisie ferme le menu (avant son propre clic)
+  conteneur.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !liste.hidden) { e.stopPropagation(); fermer(); bouton.focus() } })
+  return conteneur
+}
+
 // Compteur d'une liste : « 120 articles », ou « 12 articles sur 120 » quand une recherche ou un filtre la réduit
 export const compte = (n, total, mot, pluriel = `${mot}s`) => `${n} ${n > 1 ? pluriel : mot}${n < total ? ` sur ${total}` : ''}`
 

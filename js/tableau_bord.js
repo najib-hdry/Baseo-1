@@ -9,7 +9,7 @@ const TB_COULEURS = { occupes: 'var(--occupe)', libres: 'var(--libre)', hs: 'var
   resolu: 'var(--libre)', actif: 'var(--marque-turquoise)', inactif: '#9AA7B2', alerte: 'var(--hs)', neutre: 'var(--marque-vert)' }
 const tbPluriel = (n, mot, pluriel = `${mot}s`) => `${n} ${n > 1 ? pluriel : mot}`
 
-// `aller(cle)` : ouvre une page du menu
+// `aller(cle, options)` : ouvre une page du menu ; `options.chantierId` : la page s'ouvre filtrée sur ce chantier
 export function creerEcranTableauDeBord(racine, recharger, aller) {
   let d = null
   let chantier = 0 // 0 : tous les chantiers
@@ -25,7 +25,8 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     const calme = aTraiter && Number(valeur) === 0
     const total = (barre ?? []).reduce((t, [n]) => t + n, 0)
     return h('button', { className: `tb-tuile${calme ? ' tb-calme' : ''}`, type: 'button', style: { '--teinte': couleur },
-      onClick: () => page && aller(page), title: page ? `Ouvrir la page ${libelle.toLowerCase()}` : null },
+      onClick: () => page && aller(page, chantier ? { chantierId: chantier } : {}),
+      title: page ? `Ouvrir la page${chantier ? ' (filtrée sur ce chantier)' : ''}` : null },
     h('span', { className: 'tb-haut' },
       h('span', { className: 'tb-icone' }, icone(nomIcone, 20)),
       h('span', { className: 'tb-libelle' }, libelle),
