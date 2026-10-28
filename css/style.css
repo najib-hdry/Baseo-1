@@ -441,6 +441,12 @@ button.tiroir-lien.active { background: var(--signal); }
 
 /* En-tête des tableaux : texte noir plein sur fond vert vif, séparé des lignes par un trait */
 .tableau th { color: #000; background: #0dfc81; border-bottom: 2px solid var(--trait); }
+/* En-têtes de tableau figés : le tableau défile dans sa carte, si bien que les onglets, la recherche
+   et les titres de colonnes restent visibles (sur téléphone, les lignes sont des fiches sans en-tête) */
+@media (min-width: 721px) {
+  .tableau-defilant { max-height: max(320px, calc(100dvh - 240px)); overflow: auto; }
+  .tableau thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -2px 0 var(--trait); }
+}
 
 /* Fiche détail d'un chantier (admin) */
 .fiche-entete { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
