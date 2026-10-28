@@ -915,3 +915,10 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .tb-puce-neutre { color: #444; background: #EEF0EC; }
 .tb-rien { margin-top: auto; font-size: .85rem; font-weight: 600; color: var(--action); }
 .tb-calme .tb-valeur { color: #9AA09A; }
+
+/* Fiche chantier, onglet Composants : plan 3D en tête (onglets des bases vie, plan, occupation de l'élément choisi) */
+.plan3d-fiche { display: grid; gap: 8px; padding: 14px 16px; background: #fff; border: 1px solid var(--trait-clair); border-radius: var(--rayon); }
+.plan3d-fiche h3 { margin: 0; font-size: 1rem; }
+.plan3d-fiche .onglets-statut { margin: 0; padding: 0; }
+.plan3d-fiche .plan3d { margin: 0; border-radius: var(--rayon); }
+.plan3d-fiche .plan3d-aide { margin: 0; font-size: .85rem; font-weight: 500; color: var(--encre); }

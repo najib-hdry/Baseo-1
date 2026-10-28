@@ -4,6 +4,7 @@ import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes, lienCont
 import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 import { zonesDuChantier, basesVisibles, libelleLieu, lieuRapport } from './navigation.js'
 import { NETTOYAGE, MAINTENANCE } from './rapports.js'
+import { plan3d } from './plan3d.js'
 
 export const ONGLETS_FICHE = [
   ['composants', 'Composants'],
@@ -35,7 +36,45 @@ const tableau = (entetes, lignes, vide) => h('div', { className: 'tableau-defila
       ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: entetes.length }, vide))
       : lignes.map((cellules) => h('tr', null, cellules.map((c) => h('td', null, c))))), entetes)))
 
-// ---- Onglet Composants : zones → bases vie → étages → vestiaires et pièces ----
+// ---- Onglet Composants : plan 3D, puis zones → bases vie → étages → vestiaires et pièces ----
+
+// Plan 3D d'une base vie du chantier (un onglet par base vie qui a des étages) : glisser pour tourner ;
+// un clic sur un étage ou un vestiaire le met en avant et affiche son occupation sous le plan
+function plan3dDuChantier(d, c) {
+  const plusieursZones = zonesDuChantier(d, c.id).length > 1
+  const nomBase = (b) => [plusieursZones && d.parId.Zones.get(b.Zone)?.Nom, b.Nom].filter(Boolean).join(' · ')
+  const bases = d.Bases_vie.filter((b) => b.Chantier === c.id && d.Etages.some((e) => e.Base_vie === b.id))
+    .sort((a, b) => nomBase(a).localeCompare(nomBase(b)))
+  if (bases.length === 0) return null
+  const etat = { baseId: bases[0].id, etageId: null, vestiaireId: null, vue: { rotation: -35, inclinaison: 55 } }
+  const zone = h('section', { className: 'plan3d-fiche' })
+  const resumeOccupation = (o) => `${pluriel(o.total, 'casier')} · ${o.occupes} occupés · ${o.libres} libres${o.hs ? ` · ${o.hs} HS` : ''}`
+
+  const dessiner = () => {
+    const etages = d.Etages.filter((e) => e.Base_vie === etat.baseId)
+    const idsEtages = new Set(etages.map((e) => e.id))
+    const vestiaires = d.Vestiaires.filter((v) => idsEtages.has(v.Etage))
+      .map((v) => ({ ...v, ...occupation(d, d.Casiers.filter((k) => k.Vestiaire === v.id)) }))
+    const vestiaire = vestiaires.find((v) => v.id === etat.vestiaireId)
+    const etage = d.parId.Etages.get(etat.etageId)
+    const info = vestiaire ? `Vestiaire ${vestiaire.Nom} · ${d.parId.Etages.get(vestiaire.Etage)?.Nom ?? ''} : ${resumeOccupation(vestiaire)}`
+      : etage ? `Étage ${etage.Nom} : ${pluriel(vestiaires.filter((v) => v.Etage === etage.id).length, 'vestiaire')} · `
+        + resumeOccupation(occupation(d, d.Casiers.filter((k) => vestiaires.some((v) => v.Etage === etage.id && v.id === k.Vestiaire))))
+        : 'Glisse pour tourner · clique sur un étage ou un vestiaire'
+    zone.replaceChildren(...[
+      h('h3', null, 'Plan 3D'),
+      bases.length > 1 && h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Bases vie' },
+        bases.map((b) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(b.id === etat.baseId),
+          onClick: () => { etat.baseId = b.id; etat.etageId = null; etat.vestiaireId = null; dessiner() } }, nomBase(b)))),
+      plan3d({ etages, vestiaires, pieces: d.Pieces, etageId: etat.etageId, vestiaireId: etat.vestiaireId, vue: etat.vue,
+        onEtage: (e) => { etat.etageId = e.id; etat.vestiaireId = null; dessiner() },
+        onVestiaire: (v) => { etat.etageId = v.Etage; etat.vestiaireId = v.id; dessiner() } }),
+      h('p', { className: 'plan3d-aide' }, info),
+    ].filter(Boolean))
+  }
+  dessiner()
+  return zone
+}
 
 function composants(d, c) {
   const zones = zonesDuChantier(d, c.id)
@@ -85,6 +124,7 @@ function composants(d, c) {
 
   // Le résumé se calcule pendant la construction des blocs ci-dessus
   return [
+    plan3dDuChantier(d, c),
     h('p', { className: 'structure-resume' }, [
       zones.length > 0 && pluriel(zones.length, 'zone'),
       `${nb.bases} base${nb.bases > 1 ? 's' : ''} vie`,
