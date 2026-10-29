@@ -435,7 +435,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           cases.map((jour) => h('div', { className: `calendrier-case${jour.getMonth() !== m ? ' hors-mois' : ''}${cleJour(jour) === cleJour(auj) ? ' aujourdhui' : ''}` },
             h('span', { className: 'calendrier-numero' }, jour.getDate()),
             (parJour.get(cleJour(jour)) ?? []).map((t) => h('div', { className: 'calendrier-tache', title: [t.Titre, emplacement(t), t.Action].filter(Boolean).join(' · ') },
-              h('strong', null, heure(enDate(t.Date_debut))), ' ', t.Titre || 'Tâche'))))),
+              h('strong', null, heure(enDate(t.Date_debut))), ' ', t.Incident ? h('span', { className: 'badge badge-ouvert badge-incident' }, 'Incident') : null, ' ', t.Titre || 'Tâche'))))),
         h('h3', null, `Tâches du mois (${duMois.length})`),
         // Mois sans tâche : raccourcis vers la tâche précédente et la suivante
         duMois.length === 0 && taches.length > 0 && (() => {
@@ -468,7 +468,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
                   h('td', { className: 'tableau-nom' }, dateHeure(t.Date_debut)),
                   h('td', null, dateHeure(t.Date_fin)),
                   h('td', null, emplacement(t) || '—'),
-                  h('td', null, t.Titre || '—'),
+                  h('td', null, t.Incident ? h('span', { className: 'badge badge-ouvert badge-incident' }, 'Incident') : null, t.Incident ? ' ' : null, t.Titre || '—'),
                   h('td', null, t.Action || '—'),
                   h('td', { className: 'cellule-detail' }, t.Detail || '—'),
                   h('td', { className: 'tableau-actions' },

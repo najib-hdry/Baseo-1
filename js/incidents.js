@@ -1,7 +1,7 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
-import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte } from './outils.js'
-import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer, estAdmin, idsDeListe, modifierIncident, supprimerIncident } from './donnees.js'
+import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
+import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
 // Écran « Gestion des incidents », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -153,10 +153,13 @@ export function creerEcranIncidents(racine, recharger) {
     Résolu: [['Ouvert', 'Rouvrir', '']],
   }
 
-  // Boutons de changement de statut d'un incident (aucun pour le salarié, qui consulte seulement) ;
+  // Boutons de changement de statut d'un incident : toutes les actions pour le chef d'équipe et l'admin ;
+  // « Marquer résolu » seulement pour un salarié autorisé (« Gestion des incidents autorisée ») ; aucun sinon.
   // `apres` : appelé après l'écriture réussie, `surErreur(message)` en cas d'échec
+  const actionsStatut = (i) => (peutGerer(d) ? ACTIONS[i.Statut] ?? ACTIONS.Ouvert
+    : peutResoudre(d) && i.Statut !== 'Résolu' ? [['Résolu', 'Marquer résolu', 'bouton-principal']] : [])
   const boutonsStatut = (i, { compact = false, apres = () => {}, surErreur }) =>
-    (peutGerer(d) ? ACTIONS[i.Statut] ?? ACTIONS.Ouvert : []).map(([statut, libelle, classe]) => {
+    actionsStatut(i).map(([statut, libelle, classe]) => {
       const b = h('button', { className: `bouton ${classe}${compact ? ' bouton-compact' : ''}` }, libelle)
       b.addEventListener('click', async (ev) => {
         ev.stopPropagation() // dans le tableau, le clic ne doit pas ouvrir le détail
@@ -173,7 +176,16 @@ export function creerEcranIncidents(racine, recharger) {
       return b
     })
 
-  const TITRES_SUIVI = ['Photo', 'Signalé le', 'Lieu', 'Catégorie', 'Description', 'Statut', 'Résolu le', '']
+  const TITRES_SUIVI = ['Photo', 'Signalé le', 'Lieu', 'Catégorie', 'Description', 'Statut', 'Attribué à', 'Résolu le', '']
+
+  // Salariés qui ont une tâche liée à l'incident (tâches de l'emploi du temps), dans l'ordre des créneaux
+  const tachesIncident = (i) => (d.Emploi_du_temps ?? []).filter((t) => t.Incident === i.id).sort((a, b) => (a.Date_debut ?? 0) - (b.Date_debut ?? 0))
+  const nomSalarie = (id) => {
+    const u = d.parId.Utilisateurs.get(id)
+    const c = d.Candidats?.find((x) => x.Utilisateur === id)
+    return nomContact(u) || (c && nomContact(c)) || u?.Email || 'Sans nom'
+  }
+  const attribuesA = (i) => [...new Set(tachesIncident(i).map((t) => nomSalarie(t.Salarie)))].join(', ')
 
   // Suivi : tableau des incidents du chantier (filtres en onglets, recherche, actions sur chaque ligne)
   async function rendreSuivi(zone) {
@@ -193,7 +205,7 @@ export function creerEcranIncidents(racine, recharger) {
       const filtre = FILTRES_SUIVI.find((f) => f.cle === etat.filtreSuivi)
       const texte = (etat.rechercheSuivi ?? '').trim().toLowerCase()
       const visibles = incidents.filter(filtre.garde)
-        .filter((i) => !texte || [lieu(i), i.Categorie, i.Description, i.Statut].some((v) => String(v ?? '').toLowerCase().includes(texte)))
+        .filter((i) => !texte || [lieu(i), i.Categorie, i.Description, i.Statut, attribuesA(i)].some((v) => String(v ?? '').toLowerCase().includes(texte)))
       compteur.textContent = compte(visibles.length, incidents.filter(filtre.garde).length, 'incident')
       corps.replaceChildren(...(visibles.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_SUIVI.length },
@@ -209,6 +221,7 @@ export function creerEcranIncidents(racine, recharger) {
             h('td', null, i.Categorie ?? ''),
             h('td', null, h('span', { className: 'cellule-description' }, i.Description ?? '')),
             h('td', null, h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')),
+            h('td', null, attribuesA(i) || '—'),
             h('td', null, resolu ? enFrancais(resolu) : '—'),
             // Action principale du statut, puis fiche, modification et suppression
             h('td', { className: 'tableau-actions' },
@@ -256,15 +269,70 @@ export function creerEcranIncidents(racine, recharger) {
       ['Signalé par', i.Signale_par || '—'],
       ['Résolu le', resolu ? enFrancais(resolu) : '—'],
     ]
+    const taches = tachesIncident(i)
+    const creneau = (t) => `${dateHeure(t.Date_debut)}${t.Date_fin ? ` → ${new Date(t.Date_fin * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}`
     const { fermer, ouvrirDepuis, section } = ouvrirPanneau(`Incident · ${i.Categorie ?? ''}`, [
       h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
+      h('h3', { className: 'titre-section' }, `Attribué à (${taches.length})`),
+      taches.length === 0 ? h('p', { className: 'sous-texte' }, 'Personne pour l’instant.')
+        : h('ul', { className: 'liste-attribution' }, taches.map((t) => h('li', null, h('strong', null, nomSalarie(t.Salarie)), ` · ${creneau(t)}`))),
       h('h3', { className: 'titre-section' }, `Photos (${ids.length})`),
       galeriePhotos(ids, lien),
       erreur,
       h('div', { className: 'fiche-boutons' }, ...boutons,
+        peutGerer(d) && i.Statut !== 'Résolu' && h('button', { className: 'bouton bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirAttribution(i, lieu)) }, 'Attribuer à des salariés'),
         peutGerer(d) && h('button', { className: 'bouton', onClick: () => ouvrirDepuis(() => ouvrirModification(i, lieu, lien)) }, 'Modifier'),
         estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => ouvrirDepuis(() => ouvrirSuppression(i, lieu)) }, 'Supprimer')),
     ])
+    section.classList.add('panneau-large')
+  }
+
+  // Attribution : salariés (ceux du chantier de l'incident d'abord), date, heures, consigne ; une tâche par salarié
+  function ouvrirAttribution(i, lieu) {
+    const duChantier = (u) => idsDeListe(u.Chantiers).includes(i.Chantier)
+    const choix = choixEtiquettes({
+      elements: () => d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && u.Actif)
+        .sort((a, b) => duChantier(b) - duChantier(a))
+        .map((u) => ({ id: u.id, libelle: `${nomSalarie(u.id)}${duChantier(u) ? '' : ' (autre chantier)'}` })),
+      textes: { aucun: 'Aucun salarié choisi.', choisir: 'Ajouter un salarié…', tous: 'Tous les salariés sont ajoutés', vide: 'Aucun salarié actif' },
+    })
+    const demain = new Date(Date.now() + 86400000)
+    const z = (n) => String(n).padStart(2, '0')
+    const champs = { jour: `${demain.getFullYear()}-${z(demain.getMonth() + 1)}-${z(demain.getDate())}`, debut: '08:00', fin: '10:00', consigne: '' }
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Attribuer')
+    const groupe = (libelle, champ) => h('label', { className: 'champ-groupe' }, libelle, champ)
+    const saisie = (cle, type) => h('input', { className: 'champ', type, required: true, value: champs[cle], onInput: (e) => { champs[cle] = e.target.value } })
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      const debut = new Date(`${champs.jour}T${champs.debut}`)
+      const fin = new Date(`${champs.jour}T${champs.fin}`)
+      const probleme = choix.ids().length === 0 ? 'Choisis au moins un salarié.'
+        : Number.isNaN(debut.getTime()) || Number.isNaN(fin.getTime()) ? 'Indique la date et les heures.'
+          : fin <= debut ? 'L’heure de fin doit être après l’heure de début.' : null
+      if (probleme) {
+        erreur.textContent = probleme
+        erreur.hidden = false
+        return
+      }
+      valider.disabled = true
+      try {
+        await attribuerIncident(d, i, choix.ids(), debut.getTime() / 1000, fin.getTime() / 1000, champs.consigne.trim())
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'L’attribution a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+      }
+    } },
+    h('p', { className: 'sous-texte' }, `${lieu} · ${i.Description || i.Categorie || ''}`),
+    h('div', { className: 'champ-groupe' }, 'Salariés (une tâche est créée dans l’emploi du temps de chacun)', choix.element),
+    h('div', { className: 'grille-2' }, groupe('Date *', saisie('jour', 'date')), h('div', { className: 'grille-2' }, groupe('De *', saisie('debut', 'time')), groupe('À *', saisie('fin', 'time')))),
+    groupe('Consigne', h('textarea', { className: 'champ champ-texte', placeholder: 'Ce qu’il faut faire, le matériel à prévoir…', onInput: (e) => { champs.consigne = e.target.value } })),
+    erreur, valider)
+    const { fermer, section } = ouvrirPanneau('Attribuer l’incident', formulaire)
     section.classList.add('panneau-large')
   }
 

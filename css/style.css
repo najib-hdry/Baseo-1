@@ -976,3 +976,7 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .tableau-actions .menu-plus-liste .bouton-danger { color: var(--hs); background: #fff; border-color: transparent; }
 .tableau-actions .menu-plus-liste .bouton-danger:hover { background: #FDF1F0; }
 .tableau-actions .bouton + .menu-plus { margin-left: 6px; }
+
+/* Incidents attribués : liste des salariés dans la fiche, pastille « Incident » dans l'emploi du temps */
+.liste-attribution { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.badge-incident { padding: 0 6px; font-size: .68rem; vertical-align: 1px; }

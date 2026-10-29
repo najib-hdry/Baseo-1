@@ -28,11 +28,14 @@ async function lireProfil() {
   }
   if (lignes.length > 1) return { refus: 'Les règles d’accès de la table Utilisateurs sont à corriger : chacun ne doit voir que sa propre ligne. Préviens l’administrateur.' }
   const moi = lignes[0]?.Actif ? lignes[0] : null
-  return moi?.Profil ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null } : null
+  return moi?.Profil ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null,
+    incidents: Boolean(moi.Gestion_incidents_autorisee) } : null
 }
 
 // Chef d'équipe et admin : hors service, suivi des incidents ; les autres rôles déclarent seulement
 export const peutGerer = (d) => ['Admin', 'Chef d’équipe'].includes(d.moi?.profil)
+// Marquer un incident résolu : chef d'équipe, admin, ou salarié dont le compte a « Gestion des incidents autorisée »
+export const peutResoudre = (d) => peutGerer(d) || Boolean(d.moi?.incidents)
 // Pages et actions réservées au profil Admin (`d` peut être null avant le premier chargement)
 export const estAdmin = (d) => d?.moi?.profil === 'Admin'
 
@@ -354,6 +357,22 @@ export function bilanEmargements(d, ids, nouvelles = []) {
 
 // Tâches ajoutées (formulaire ou import) et leurs émargements, en un seul envoi ; `taches` : objets au format Grist
 export const importerTaches = (d, taches) => action([ajoutGroupeLignes('Emploi_du_temps', taches), ...actionsEmargements(d, taches)])
+
+/**
+ * Attribue l'incident `i` aux salariés `salaries` (ids) : une tâche par salarié dans l'emploi du temps, de `debut` à `fin`
+ * (secondes), à l'emplacement de l'incident, liée à lui (colonne Incident), avec ses émargements du jour ;
+ * un incident « Ouvert » passe « En cours ». Un seul envoi.
+ */
+export function attribuerIncident(d, i, salaries, debut, fin, consigne) {
+  const casier = d.parId.Casiers.get(i.Casier)
+  const lieu = { Chantier: i.Chantier || 0, Zone: i.Zone || 0, Base_vie: i.Base_vie || 0, Etage: i.Etage || 0,
+    Piece: i.Piece || 0, Vestiaire: casier?.Vestiaire || 0 }
+  const titre = `Incident : ${[i.Categorie, i.Element].filter(Boolean).join(' – ') || 'à traiter'}`
+  const detail = [i.Description, consigne && `Consigne : ${consigne}`].filter(Boolean).join('\n')
+  const taches = salaries.map((s) => ({ Salarie: s, Date_debut: debut, Date_fin: fin, ...lieu, Titre: titre, Action: 'Réparation incident', Detail: detail, Incident: i.id }))
+  return action([ajoutGroupeLignes('Emploi_du_temps', taches), ...actionsEmargements(d, taches),
+    ...(!i.Statut || i.Statut === 'Ouvert' ? [['UpdateRecord', 'Incidents', i.id, { Statut: 'En cours' }]] : [])])
+}
 
 /**
  * Tâche modifiée (`id`, `champs`), ses copies pour d'autres salariés (`copies`, même format) et les émargements, en un seul envoi.
