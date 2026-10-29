@@ -7,6 +7,8 @@ import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, en
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
 const TITRES_ARTICLES = ['Photo', 'Source', 'Type', 'Article', 'Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Alerte', 'Commentaire']
 const TITRES_ES = ['Source', 'Type', 'Article', 'Actuelle', 'Seuil', 'Entrée', 'Sortie', 'Après']
+// Colonnes de nombres des articles et des entrées/sorties : centrées (titre et valeurs)
+const COLONNES_NOMBRES = new Set(['Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Entrée', 'Sortie', 'Après'])
 const TITRES_CHOIX = ['', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Déjà dans le stock', 'Quantité', 'Seuil']
 const TITRES_CATALOGUE = ['Photo', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Commentaire', '']
 
@@ -283,10 +285,10 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
             h('td', null, source(e)),
             h('td', null, type(e)),
             h('td', { className: 'tableau-nom' }, e.libelle),
-            h('td', { className: 'tableau-nombre' }, String(e.Quantite_entree || 0)),
-            h('td', { className: 'tableau-nombre' }, String(e.Quantite_sortie || 0)),
-            h('td', { className: 'tableau-nombre' }, h('strong', null, String(actuelle(e)))),
-            h('td', { className: 'tableau-nombre' }, e.Quantite_seuil ? String(e.Quantite_seuil) : ''),
+            h('td', { className: 'tableau-nombre tableau-centre' }, String(e.Quantite_entree || 0)),
+            h('td', { className: 'tableau-nombre tableau-centre' }, String(e.Quantite_sortie || 0)),
+            h('td', { className: 'tableau-nombre tableau-centre' }, h('strong', null, String(actuelle(e)))),
+            h('td', { className: 'tableau-nombre tableau-centre' }, e.Quantite_seuil ? String(e.Quantite_seuil) : ''),
             h('td', null, enAlerte(e) ? h('span', { className: 'badge badge-ouvert' }, 'À commander') : ''),
             h('td', null, h('span', { className: 'cellule-description' }, e.Commentaire ?? '')))
         })))
@@ -305,7 +307,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         h('label', { className: 'case' }, h('input', { type: 'checkbox', onChange: (ev) => { seulementAlertes = ev.target.checked; dessiner() } }), 'Seulement à commander')),
       compteur,
       h('div', { className: 'tableau-defilant' },
-        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', null, t)))), corps)),
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', { className: COLONNES_NOMBRES.has(t) ? 'tableau-centre' : null }, t)))), corps)),
       h('div', { className: 'fiche-boutons' },
         h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirEntreesSorties(s, rouvrirArticles)) }, 'Entrées / sorties'),
         h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles du catalogue'),
@@ -360,22 +362,22 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         ? ligneVide(8, elements.length === 0 ? 'Ce stock n’a pas encore d’articles : ajoute-les depuis sa fiche (« Ajouter des articles du catalogue »).' : 'Aucun article ne correspond à la recherche ou à la source choisie.')
         : liste.map((e) => {
           const saisie = saisies.get(e.id)
-          const apres = h('td', { className: 'tableau-nombre' })
+          const apres = h('td', { className: 'tableau-nombre tableau-centre' })
           const majApres = () => {
             const v = actuelle(e) + saisie.entree - saisie.sortie
             apres.textContent = saisie.entree || saisie.sortie ? String(v) : ''
             apres.style.color = v < 0 ? 'var(--hs)' : ''
           }
           majApres()
-          const caseNombre = (cle, libelleCase) => h('td', null, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:90px',
+          const caseNombre = (cle, libelleCase) => h('td', { className: 'tableau-centre' }, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:90px',
             value: saisie[cle] || '', 'aria-label': libelleCase, onInput: (ev) => { saisie[cle] = Math.max(0, Number(ev.target.value) || 0); majApres(); majResume() } }))
           const enAlerte = e.Quantite_seuil && actuelle(e) <= e.Quantite_seuil
           return h('tr', null,
             h('td', null, source(e)),
             h('td', null, type(e)),
             h('td', { className: 'tableau-nom' }, e.libelle),
-            h('td', { className: 'tableau-nombre' }, String(actuelle(e)), enAlerte && h('span', { title: 'À commander' }, ' ⚠️')),
-            h('td', { className: 'tableau-nombre' }, e.Quantite_seuil ? String(e.Quantite_seuil) : ''),
+            h('td', { className: 'tableau-nombre tableau-centre' }, String(actuelle(e)), enAlerte && h('span', { title: 'À commander' }, ' ⚠️')),
+            h('td', { className: 'tableau-nombre tableau-centre' }, e.Quantite_seuil ? String(e.Quantite_seuil) : ''),
             caseNombre('entree', `Entrée de ${e.libelle}`),
             caseNombre('sortie', `Sortie de ${e.libelle}`),
             apres)
@@ -395,7 +397,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
           h('option', { value: '0' }, 'Toutes les sources'),
           sources.map((src) => h('option', { value: String(src.id) }, src.Source)))),
       h('div', { className: 'tableau-defilant' },
-        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ES.map((t) => h('th', null, t)))), corps)),
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ES.map((t) => h('th', { className: COLONNES_NOMBRES.has(t) ? 'tableau-centre' : null }, t)))), corps)),
       resume, erreur,
       h('div', { className: 'fiche-boutons' }, valider, h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Annuler')),
     ])

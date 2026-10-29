@@ -383,6 +383,12 @@ export function creerEcranRapport(racine, recharger, config) {
       if (etat.chantierId && !d.parId.Chantiers.has(etat.chantierId)) etat.chantierId = null
       rendre()
     },
+    // dessine dans `zone` l'historique des enregistrements de `chantierId` (onglet de la fiche chantier)
+    tableauDuChantier(zone, donnees, chantierId) {
+      d = donnees
+      if (etat.chantierId !== chantierId) Object.assign(etat, { chantierId, filtreHisto: '', recherche: '' })
+      return rendreHistorique(zone)
+    },
     // revient à la liste des chantiers
     accueil() {
       etat.chantierId = null

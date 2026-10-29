@@ -1,21 +1,21 @@
 // Fiche détail d'un chantier (page admin), en onglets :
-// Composants (structure), Informations, Salariés sur le chantier, Casiers (occupation), Incidents, Nettoyage, Maintenance, Postes.
-import { h, depuisGrist, enFrancais, dateHeure, euros, etiqueterLignes, lienContact } from './outils.js'
+// Composants (structure), Informations, Salariés sur le chantier, Casiers (occupation), Incidents, Nettoyage, Maintenance,
+// Entreprises, Sous-traitants, Postes. Incidents, Nettoyage et Maintenance reprennent les tableaux de leurs pages (voir admin.js).
+import { h, depuisGrist, enFrancais, euros, etiqueterLignes, lienContact } from './outils.js'
 import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
-import { zonesDuChantier, basesVisibles, libelleLieu, lieuRapport } from './navigation.js'
-import { NETTOYAGE, MAINTENANCE } from './rapports.js'
+import { zonesDuChantier, basesVisibles } from './navigation.js'
 import { plan3d } from './plan3d.js'
 
 export const ONGLETS_FICHE = [
   ['composants', 'Composants'],
   ['informations', 'Informations'],
   ['equipe', 'Salariés sur le chantier'],
-  ['entreprises', 'Entreprises'],
-  ['sous_traitants', 'Sous-traitants'],
   ['casiers', 'Casiers'],
   ['incidents', 'Incidents'],
   ['nettoyage', 'Nettoyage'],
   ['maintenance', 'Maintenance'],
+  ['entreprises', 'Entreprises'],
+  ['sous_traitants', 'Sous-traitants'],
   ['postes', 'Postes'],
 ]
 
@@ -287,55 +287,6 @@ function casiers(d, c) {
   ]
 }
 
-// ---- Onglets Incidents, Nettoyage, Maintenance : résumé puis enregistrements, du plus récent au plus ancien ----
-
-// « libellé : nombre » séparés par des points médians
-const resume = (liste, criteres) => h('p', { className: 'structure-resume' },
-  [`Total : ${liste.length}`, ...criteres.map(([libelle, garde]) => `${libelle} : ${liste.filter(garde).length}`)].join(' · '))
-
-const plusRecent = (champ) => (a, b) => (depuisGrist(b[champ]) ?? '').localeCompare(depuisGrist(a[champ]) ?? '') || b.id - a.id
-const fiche = (r) => h('span', { className: `badge ${r.Fiche_passage_complete ? 'badge-resolu' : 'badge-ouvert'}` }, r.Fiche_passage_complete ? 'Complète' : 'Incomplète')
-const CLASSES_INCIDENT = { Ouvert: 'badge-ouvert', 'En cours': 'badge-en_cours', Résolu: 'badge-resolu' }
-
-function incidents(d, c) {
-  const liste = d.Incidents.filter((i) => i.Chantier === c.id).sort((a, b) => (b.Signale_le ?? 0) - (a.Signale_le ?? 0))
-  return [
-    resume(liste, [['ouverts', (i) => i.Statut === 'Ouvert'], ['en cours', (i) => i.Statut === 'En cours'], ['résolus', (i) => i.Statut === 'Résolu']]),
-    tableau(['Signalé le', 'Lieu', 'Catégorie', 'Description', 'Statut'],
-      liste.map((i) => [
-        i.Signale_le ? dateHeure(i.Signale_le) : '—',
-        libelleLieu(d, { casier: d.parId.Casiers.get(i.Casier), piece: d.parId.Pieces.get(i.Piece), element: i.Element }),
-        i.Categorie ?? '', i.Description ?? '',
-        h('span', { className: `badge ${CLASSES_INCIDENT[i.Statut] ?? 'badge-ouvert'}` }, i.Statut ?? 'Ouvert'),
-      ]),
-      'Aucun incident sur ce chantier.'),
-  ]
-}
-
-function nettoyage(d, c) {
-  const liste = d.Controles_nettoyage.filter((r) => r.Chantier === c.id).sort(plusRecent('Date'))
-  const [controle, ecart] = NETTOYAGE.choix[0].valeurs // mêmes valeurs que le formulaire
-  return [
-    resume(liste, [['contrôles', (r) => r.Type_action === controle], ['écarts déclarés', (r) => r.Type_action === ecart],
-      ['fiches incomplètes', (r) => !r.Fiche_passage_complete]]),
-    tableau(['Date', 'Horaire', 'Type d’action', 'Lieu', 'Fiche', 'Commentaire'],
-      liste.map((r) => [enFrancais(depuisGrist(r.Date)) || '—', r.Horaire_passage ?? '', r.Type_action ?? '', lieuRapport(d, c.id, r), fiche(r), r.Commentaire ?? '']),
-      'Aucun contrôle nettoyage sur ce chantier.'),
-  ]
-}
-
-function maintenance(d, c) {
-  const liste = d.Maintenance.filter((r) => r.Chantier === c.id).sort(plusRecent('Date'))
-  const [entretien] = MAINTENANCE.choix[0].valeurs // « Maintenance » ; les autres actions sont des aménagements
-  return [
-    resume(liste, [['maintenances', (r) => r.Action === entretien], ['aménagements et installations', (r) => r.Action && r.Action !== entretien],
-      ['fiches incomplètes', (r) => !r.Fiche_passage_complete]]),
-    tableau(['Date', 'Action', 'Type', 'Lieu', 'Fiche', 'Commentaire'],
-      liste.map((r) => [enFrancais(depuisGrist(r.Date)) || '—', r.Action ?? '', r.Type ?? '', lieuRapport(d, c.id, r), fiche(r), r.Commentaire ?? '']),
-      'Aucune maintenance sur ce chantier.'),
-  ]
-}
-
 // ---- Onglet Postes ----
 
 function postes(d, c) {
@@ -354,9 +305,6 @@ export function contenuFiche(d, c, onglet) {
   if (onglet === 'entreprises') return partenaires(d, c, PARTENAIRES.entreprises)
   if (onglet === 'sous_traitants') return partenaires(d, c, PARTENAIRES.sous_traitants)
   if (onglet === 'casiers') return casiers(d, c)
-  if (onglet === 'incidents') return incidents(d, c)
-  if (onglet === 'nettoyage') return nettoyage(d, c)
-  if (onglet === 'maintenance') return maintenance(d, c)
   if (onglet === 'postes') return postes(d, c)
   return composants(d, c)
 }

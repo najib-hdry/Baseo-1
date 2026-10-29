@@ -3,6 +3,8 @@
 // fiche détail en onglets dans une popup (voir chantier.js), modification des informations, suppression avec tout son contenu.
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, choixEtiquettes } from './outils.js'
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
+import { creerEcranIncidents } from './incidents.js'
+import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
 import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Détail du chantier', '']
@@ -72,12 +74,32 @@ export function creerEcranAdmin(racine, recharger) {
 
   // ---- Fiche détail (popup) ----
 
+  // Onglets Incidents, Nettoyage, Maintenance de la fiche : les tableaux de leurs pages (filtres, recherche, fiche, modification,
+  // suppression), redessinés avec des données à jour après chaque écriture
+  let redessinerFiche = () => {}
+  const apresEcriture = async () => {
+    await recharger()
+    redessinerFiche()
+  }
+  const TABLEAUX_FICHE = {
+    incidents: creerEcranIncidents(null, apresEcriture),
+    nettoyage: creerEcranRapport(null, apresEcriture, NETTOYAGE),
+    maintenance: creerEcranRapport(null, apresEcriture, MAINTENANCE),
+  }
+  const tableauFiche = (cle, c) => {
+    const zone = h('div')
+    TABLEAUX_FICHE[cle].tableauDuChantier(zone, d, c.id)
+    return zone
+  }
+
   // `ongletInitial` : onglet affiché à l'ouverture (par défaut le premier)
   function ouvrirFiche(c, ongletInitial = ONGLETS_FICHE[0][0]) {
     const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche du chantier' })
     const contenu = h('div', { className: 'fiche-contenu' })
     // Changer d'onglet ne redessine que le contenu de la popup
+    let ongletCourant = ongletInitial
     const afficherOnglet = (cle) => {
+      ongletCourant = cle
       onglets.replaceChildren(...ONGLETS_FICHE.map(([k, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle),
         onClick: () => afficherOnglet(k) }, libelle)))
       contenu.replaceChildren(...[
@@ -88,9 +110,10 @@ export function creerEcranAdmin(racine, recharger) {
         PARTENAIRES[cle] && !d.absentes.has(PARTENAIRES[cle].table) && h('div', { className: 'fiche-actions' },
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirPartenaires(c, PARTENAIRES[cle])) },
             `Gérer les ${PARTENAIRES[cle].titre.toLowerCase()}`)),
-        contenuFiche(d, c, cle),
+        TABLEAUX_FICHE[cle] ? tableauFiche(cle, c) : contenuFiche(d, c, cle),
       ].flat().filter(Boolean))
     }
+    redessinerFiche = () => { if (contenu.isConnected && TABLEAUX_FICHE[ongletCourant]) afficherOnglet(ongletCourant) }
     // « Modifier les composants » / « Gérer les salariés » : la fiche attend derrière ; elle réapparaît si on annule,
     // et se rouvre avec des données à jour après un enregistrement
     let ouvrirDepuis = () => {}
