@@ -9,7 +9,7 @@ import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEma
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
-import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements } from './donnees.js'
+import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -192,13 +192,53 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       ? blocsCandidatLecture(d, c, lien, ['Suivi de la candidature'])
       : h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Ressources humaines › Candidats).'))
 
+    // Compte à gauche, autorisations (cases de la table Utilisateurs) à droite
+    const autorisation = (oui) => h('span', { className: `badge ${oui ? 'badge-resolu' : 'badge-termine'}` }, oui ? 'Oui' : 'Non')
     const ongletCompte = () => h('section', { className: 'bloc-candidat' },
-      infos([
-        ['Email (compte Grist)', lienContact('mailto', u.Email) || '—'], ['Rôle', u.Profil || 'Sans rôle'],
-        ['Chantiers', chantiers(u) || '—'], ['Actif', u.Actif ? 'Oui' : 'Non'],
-      ]),
+      h('div', { className: 'compte-colonnes' },
+        h('div', null, h('h3', { className: 'titre-section' }, 'Compte'), infos([
+          ['Email (compte Grist)', lienContact('mailto', u.Email) || '—'], ['Rôle', u.Profil || 'Sans rôle'],
+          ['Chantiers', chantiers(u) || '—'], ['Actif', u.Actif ? 'Oui' : 'Non'],
+        ])),
+        h('div', null, h('h3', { className: 'titre-section' }, 'Autorisations'), infos([
+          ['Auto-émargement', autorisation(u.Auto_emargement_autorise)],
+          ['Gestion des casiers', autorisation(u.Gestion_casiers_autorisee)],
+          ['Gestion des incidents', autorisation(u.Gestion_incidents_autorisee)],
+        ]))),
       h('div', { className: 'fiche-actions' },
         h('button', { className: 'bouton', onClick: () => ouvrirDepuis(() => ouvrirFiche(u)) }, 'Modifier le compte')))
+
+    // Motif de sortie (colonne du candidat lié, CDDI uniquement) et désactivation du compte, après confirmation
+    const ongletSortie = () => {
+      let motif = c?.Motif_sortie || ''
+      const erreur = h('p', { className: 'erreur', hidden: true })
+      const enregistrer = c && h('button', { className: 'bouton', type: 'button', onClick: async () => {
+        erreur.hidden = true
+        enregistrer.disabled = true
+        try {
+          await enregistrerLigne('Candidats', c.id, { Motif_sortie: motif || null })
+          notifier('Motif enregistré ✓')
+          await recharger()
+          fermer()
+          ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'sortie')
+        } catch (err) {
+          erreur.textContent = err.message || 'L’enregistrement a échoué.'
+          erreur.hidden = false
+          enregistrer.disabled = false
+        }
+      } }, 'Enregistrer le motif')
+      return h('section', { className: 'bloc-candidat' },
+        h('p', null, 'Compte : ', h('span', { className: `badge ${u.Actif ? 'badge-resolu' : 'badge-termine'}` }, u.Actif ? 'Actif' : 'Désactivé')),
+        c ? [
+          h('h3', { className: 'titre-section' }, 'Sélectionner un motif de sortie (CDDI uniquement)'),
+          h('div', { className: 'choix-motifs', role: 'radiogroup', 'aria-label': 'Motif de sortie' },
+            MOTIFS_SORTIE.map((m) => h('label', { className: 'choix-motif' },
+              h('input', { type: 'radio', name: `motif-${u.id}`, value: m, checked: m === motif, onChange: () => { motif = m } }), h('span', null, m)))),
+        ] : h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte : le motif de sortie ne peut pas être noté (il se range dans la fiche d’embauche du candidat).'),
+        erreur,
+        h('div', { className: 'fiche-actions' }, enregistrer,
+          u.Actif && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirDesactivation(u, c, motif)) }, 'Désactiver l’utilisateur')))
+    }
 
     // Changer d'onglet ne redessine que le contenu
     const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail],
@@ -207,7 +247,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       ['emargements', 'Suivi des émargements', () => suiviDuSalarie(creerEcranEmargements)],
       ['conges', 'Demandes de congé', () => suiviDuSalarie(creerEcranConges)],
       ['acomptes', 'Acomptes', () => suiviDuSalarie(creerEcranAcomptes)],
-      ['compte', 'Compte', ongletCompte]]
+      ['sortie', 'Motif de sortie', ongletSortie],
+      ['compte', 'Compte et autorisations', ongletCompte]]
     const contenu = h('div', { className: 'fiche-contenu' })
     const barre = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche salarié' })
     const afficherOnglet = (cle) => {
@@ -222,6 +263,32 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       nomContact(u) || (c && nomContact(c)) || u.Email || 'Sans nom')
     const { fermer, ouvrirDepuis, section } = ouvrirPanneau(titre, [barre, contenu])
     section.classList.add('panneau-large', 'panneau-fiche')
+  }
+
+  // Confirmation de la désactivation : motif enregistré sur le candidat lié et compte désactivé ; la fiche se rouvre à jour
+  function ouvrirDesactivation(u, c, motif) {
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const confirmer = h('button', { className: 'bouton bouton-danger', type: 'button', onClick: async () => {
+      erreur.hidden = true
+      confirmer.disabled = true
+      try {
+        await desactiverSalarie(u, c, motif)
+        fermer()
+        notifier('Utilisateur désactivé ✓')
+        await recharger()
+        ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'sortie')
+      } catch (err) {
+        erreur.textContent = err.message || 'La désactivation a échoué.'
+        erreur.hidden = false
+        confirmer.disabled = false
+      }
+    } }, 'Désactiver')
+    const { fermer, annuler } = ouvrirPanneau(`Désactiver ${nom(u)} ?`, [
+      h('p', null, 'Le compte ne sera plus actif : la personne ne pourra plus ouvrir ID PILOTE et n’apparaîtra plus parmi les salariés actifs. Ses données sont conservées ; le compte se réactive depuis « Modifier le compte ».'),
+      c && h('p', null, h('strong', null, 'Motif de sortie : '), motif || 'aucun'),
+      erreur, confirmer,
+      h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Annuler'),
+    ].filter(Boolean))
   }
 
   // ---- Contrats du salarié (dans la fiche salarié) : contrat actuel / contrats précédents, ajout, modification, suppression ----

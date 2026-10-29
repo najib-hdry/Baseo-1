@@ -984,3 +984,15 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 /* Stocks : colonnes de nombres centrées (articles, entrées/sorties) */
 .tableau .tableau-centre { text-align: center; }
 .tableau .tableau-centre .champ { margin: 0 auto; }
+
+/* Fiche salarié, onglet « Compte et autorisations » : compte à gauche, autorisations à droite (l'une sous l'autre sur téléphone) */
+.compte-colonnes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 40px; align-items: start; }
+.compte-colonnes .titre-section { margin-top: 0; }
+
+/* Fiche salarié, onglet « Motif de sortie » : motifs en cases à choisir, sur deux colonnes (une sur téléphone) */
+.choix-motifs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.choix-motif { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 14px; font-size: .9rem; line-height: 1.3;
+  background: #fff; border: 1px solid var(--trait-clair); border-radius: var(--rayon); cursor: pointer; }
+.choix-motif:hover { border-color: var(--action); }
+.choix-motif:has(input:checked) { border-color: var(--action); background: #EAF6F0; font-weight: 500; }
+.choix-motif input { flex: none; accent-color: var(--action); }

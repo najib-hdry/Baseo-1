@@ -748,6 +748,35 @@ export function entreesSortiesStock(saisies) {
 }
 
 // Nouvelle ligne (`id` null) ou modification
+// Motifs de sortie d'un salarié (CDDI) : choix de la colonne Candidats.Motif_sortie, dans l'ordre du formulaire officiel
+export const MOTIFS_SORTIE = [
+  'Embauche en CDI non aidé par un autre employeur',
+  'Embauche en CDI aidé par un autre employeur',
+  'Embauche en CDI au sein de la structure IAE ou d’une de ses filiales',
+  'Embauche en CDD de 6 mois ou plus, sans aide publique à l’emploi, par un autre employeur',
+  'Embauche en CDD de moins de 6 mois, sans aide publique à l’emploi, par un autre employeur',
+  'Embauche en contrat aidé à durée déterminée par un autre employeur (hors IAE)',
+  'Embauche en contrat à durée déterminée dans une autre structure de l’IAE',
+  'Création ou reprise d’entreprise à son compte',
+  'Intégration dans la fonction publique',
+  'Entrée en formation qualifiante ou poursuite d’une formation qualifiante',
+  'Autre sortie reconnue comme positive',
+  'Prise des droits à la retraite',
+  'Inscription ou retour au chômage',
+  'Sans nouvelle / personne non joignable',
+  'Rupture de la période d’essai à l’initiative de l’employeur',
+  'Rupture de la période d’essai à l’initiative du salarié',
+  'Rupture du contrat à l’initiative de l’employeur pour faute grave',
+  'Décès',
+  'Décision administrative ou décision de justice',
+]
+
+// Sortie d'un salarié : motif sur le candidat lié (s'il y en a un), puis compte désactivé, en un seul envoi
+export const desactiverSalarie = (u, c, motif) => action([
+  ...(c ? [['UpdateRecord', 'Candidats', c.id, { Motif_sortie: motif || null }]] : []),
+  ['UpdateRecord', 'Utilisateurs', u.id, { Actif: false }],
+])
+
 export const enregistrerLigne = (table, id, champs) => action([id == null ? ['AddRecord', table, null, champs] : ['UpdateRecord', table, id, champs]])
 // Validation en masse des émargements `ids`
 export const validerEmargements = (ids) => action([['BulkUpdateRecord', 'Emargement_Salarie', ids, { Emargement_valide: ids.map(() => true) }]])
