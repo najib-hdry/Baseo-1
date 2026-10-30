@@ -192,8 +192,28 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       ? blocsCandidatLecture(d, c, lien, ['Suivi de la candidature'])
       : h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Ressources humaines › Candidats).'))
 
-    // Compte à gauche, autorisations (cases de la table Utilisateurs) à droite
-    const autorisation = (oui) => h('span', { className: `badge ${oui ? 'badge-resolu' : 'badge-termine'}` }, oui ? 'Oui' : 'Non')
+    // Compte à gauche, autorisations (cases de la table Utilisateurs) à droite : un interrupteur par case,
+    // enregistré dès qu'on le bascule (remis comme avant si l'écriture échoue)
+    const autorisation = (col, libelle) => {
+      const texte = h('span', null, u[col] ? 'Oui' : 'Non')
+      const coche = h('input', { type: 'checkbox', role: 'switch', checked: Boolean(u[col]), 'aria-label': libelle, onChange: async (e) => {
+        const oui = e.target.checked
+        texte.textContent = oui ? 'Oui' : 'Non'
+        coche.disabled = true
+        try {
+          await enregistrerLigne('Utilisateurs', u.id, { [col]: oui })
+          notifier(`${libelle} : ${oui ? 'autorisé' : 'retiré'} ✓`)
+          recharger()
+        } catch (err) {
+          coche.checked = !oui
+          texte.textContent = !oui ? 'Oui' : 'Non'
+          notifier(err.message || 'L’enregistrement a échoué.', 'erreur')
+        } finally {
+          coche.disabled = false
+        }
+      } })
+      return h('label', { className: 'interrupteur' }, coche, h('span', { className: 'interrupteur-piste', 'aria-hidden': 'true' }), texte)
+    }
     const ongletCompte = () => h('section', { className: 'bloc-candidat' },
       h('div', { className: 'compte-colonnes' },
         h('div', null, h('h3', { className: 'titre-section' }, 'Compte'), infos([
@@ -201,9 +221,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           ['Chantiers', chantiers(u) || '—'], ['Actif', u.Actif ? 'Oui' : 'Non'],
         ])),
         h('div', null, h('h3', { className: 'titre-section' }, 'Autorisations'), infos([
-          ['Auto-émargement', autorisation(u.Auto_emargement_autorise)],
-          ['Gestion des casiers', autorisation(u.Gestion_casiers_autorisee)],
-          ['Gestion des incidents', autorisation(u.Gestion_incidents_autorisee)],
+          ['Auto-émargement', autorisation('Auto_emargement_autorise', 'Auto-émargement')],
+          ['Gestion des casiers', autorisation('Gestion_casiers_autorisee', 'Gestion des casiers')],
+          ['Gestion des incidents', autorisation('Gestion_incidents_autorisee', 'Gestion des incidents')],
         ]))),
       h('div', { className: 'fiche-actions' },
         h('button', { className: 'bouton', onClick: () => ouvrirDepuis(() => ouvrirFiche(u)) }, 'Modifier le compte')))
