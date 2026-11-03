@@ -16,12 +16,14 @@ import { creerEcranAcomptes } from './acomptes.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranStocks } from './stocks.js'
 import { creerEcranTableauDeBord } from './tableau_bord.js'
+import { creerEcranCommunication } from './communication.js'
 
 // Groupes du menu, dans l'ordre : titre et couleur (pastille, icônes, sur-titre de la page)
 const GROUPES = [
   { cle: 'pilotage', titre: 'Pilotage', couleur: '#00A470' },
   { cle: 'chantiers', titre: 'Chantiers', couleur: '#007EBD' },
   { cle: 'rh', titre: 'Ressources humaines', couleur: '#946AAB' },
+  { cle: 'communication', titre: 'Communication', couleur: '#C8456B' },
   { cle: 'stocks', titre: 'Stocks', couleur: '#C9861A' },
   { cle: 'partenaires', titre: 'Partenaires', couleur: '#7E9A12' },
 ]
@@ -42,6 +44,7 @@ const PAGES = [
   { cle: 'emargements', libelle: 'Émargements', icone: 'emargements', groupe: 'rh', admin: true },
   { cle: 'conges', libelle: 'Congés', icone: 'conges', groupe: 'rh', admin: true },
   { cle: 'acomptes', libelle: 'Acomptes', icone: 'acomptes', groupe: 'rh', admin: true },
+  { cle: 'communication', libelle: 'Communication', icone: 'communication', groupe: 'communication', admin: true },
   { cle: 'stocks', libelle: 'Stocks', icone: 'stock', groupe: 'stocks', admin: true },
   { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', groupe: 'stocks', admin: true, parent: 'stocks' },
 ]
@@ -66,6 +69,7 @@ const ecrans = {
   stocks: creerEcranStocks(zones.stocks, () => recharger(), 'stocks'),
   tableau_bord: creerEcranTableauDeBord(zones.tableau_bord, () => recharger(), (cle, options) => allerA(cle, options)),
   catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
+  communication: creerEcranCommunication(zones.communication, () => recharger()),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
