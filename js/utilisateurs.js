@@ -3,8 +3,8 @@
 // fiche salarié en onglets (infos du candidat lié à l'embauche, contrats et suivi d'insertion du salarié ;
 // détail du salarié : le candidat en lecture ; emploi du temps : calendrier du mois et tableau des tâches ;
 // émargements, demandes de congé et acomptes du salarié : tableaux des pages de suivi, filtrés sur lui ; compte).
-import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier, notifier, compte, menuPlus } from './outils.js'
-import { blocsCandidatLecture } from './candidats.js'
+import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, choixEtiquettes, dateAvecAlerte, enFrancais, depuisGrist, versGrist, aujourdhui, icone, zoneFichier, notifier, compte, menuPlus, reduirePhoto, dateHeure } from './outils.js'
+import { blocsCandidatLecture, DOCUMENTS_EMBAUCHE } from './candidats.js'
 import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEmargements } from './taches.js'
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranConges } from './conges.js'
@@ -13,6 +13,7 @@ import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, 
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
+const TITRES_DOCUMENTS = ['Type de document', 'Recto', 'Verso', 'Créé le', 'Ajouté par', '']
 const TITRES_CONTRATS = ['N° de contrat', 'Sites', 'Intitulé de poste', 'Date début', 'Date fin', 'Contrat', 'DPAE', '']
 // Fichiers d'un contrat : [colonne, libellé]
 const FICHIERS_CONTRAT = [['Fichier_contrat', 'Contrat'], ['Fichier_DPAE', 'DPAE']]
@@ -263,6 +264,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     // Changer d'onglet ne redessine que le contenu
     const ONGLETS_FICHE = [['salarie', 'Fiche salarié', ongletSalarie], ['detail', 'Détail du salarié', ongletDetail],
       // Après un import : fiche rouverte sur l'emploi du temps, au mois de la première tâche importée
+      ['documents', 'Documents', () => blocDocuments(u, c, lien, () => { fermer(); ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'documents') })],
       ['planning', 'Emploi du temps', () => blocEmploiDuTemps(u, moisPlanning, (mois) => { fermer(); ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'planning', mois) })],
       ['emargements', 'Suivi des émargements', () => suiviDuSalarie(creerEcranEmargements)],
       ['conges', 'Demandes de congé', () => suiviDuSalarie(creerEcranConges)],
@@ -441,6 +443,111 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     fenetreSuppression(`Supprimer le contrat ${k.Numero || ''} ?`.replace('  ', ' '), [
       h('p', null, 'Le contrat et ses fichiers (contrat, DPAE) seront retirés de la fiche du salarié.'),
     ], [['Supprimer définitivement', 'bouton-danger', () => supprimerFiche('Contrats', k.id)]], async () => { await recharger(); rouvrir() })
+  }
+
+  // ---- Documents du salarié (onglet de la fiche) : pièces du candidat lié (table Documents, une ligne par type) ----
+
+  function blocDocuments(u, c, lien, rouvrir) {
+    if (d.absentes.has('Documents')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Documents.')
+    if (!c) return h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte : ses documents se rangent sur la fiche d’embauche du candidat (Ressources humaines › Candidats).')
+    const ordre = (type) => { const i = DOCUMENTS_EMBAUCHE.findIndex(([t]) => t === type); return i < 0 ? DOCUMENTS_EMBAUCHE.length : i }
+    const liste = d.Documents.filter((r) => r.Candidat === c.id).sort((a, b) => ordre(a.Type_document) - ordre(b.Type_document))
+    const fichier = (r, face) => {
+      const id = idsDeListe(r[face])[0]
+      if (!id) return '—'
+      return lien ? h('a', { href: lien(id), target: '_blank', rel: 'noreferrer', onClick: (e) => e.stopPropagation() }, 'Voir') : 'Enregistré'
+    }
+    const corps = etiqueterLignes(h('tbody', null, liste.length === 0
+      ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_DOCUMENTS.length }, 'Aucun document enregistré.'))
+      : liste.map((r) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirDocument(c, r.Type_document, lien, rouvrir) },
+        h('td', { className: 'tableau-nom' }, r.Type_document || 'Sans type'),
+        h('td', null, fichier(r, 'Recto')),
+        h('td', null, fichier(r, 'Verso')),
+        h('td', null, dateHeure(r.Cree_le) || '—'),
+        h('td', null, r.Cree_par || '—'),
+        h('td', { className: 'tableau-actions' },
+          menuPlus([
+            h('button', { className: 'bouton bouton-compact', role: 'menuitem', onClick: (e) => { e.stopPropagation(); ouvrirDocument(c, r.Type_document, lien, rouvrir) } }, 'Remplacer les fichiers'),
+            h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (e) => { e.stopPropagation(); supprimerDocument(r, rouvrir) } }, 'Supprimer')]))))), TITRES_DOCUMENTS)
+    return h('section', { className: 'bloc-candidat bloc-contrats' },
+      h('div', { className: 'contrats-haut' }, h('h3', null, 'Documents'),
+        h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirDocument(c, null, lien, rouvrir) }, '＋ Nouveau document')),
+      h('p', { className: 'sous-texte' }, compte(liste.length, liste.length, 'document')),
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_DOCUMENTS.map((t) => h('th', null, t)))), corps)))
+  }
+
+  // Ajout d'un document (`typeInitial` null) ou remplacement de ses fichiers : une seule ligne par type et par candidat,
+  // seules les faces choisies sont remplacées
+  function ouvrirDocument(c, typeInitial, lien, rouvrir) {
+    let type = typeInitial ?? ''
+    const fichiers = {} // { Recto: fichier, Verso: fichier }
+    const envoyes = {} // identifiants déjà envoyés pour ces fichiers (un nouvel essai ne renvoie rien)
+    const existant = () => d.Documents.find((r) => r.Candidat === c.id && r.Type_document === type)
+    const faces = () => DOCUMENTS_EMBAUCHE.find(([t]) => t === type)?.[3] ?? ['Recto', 'Verso']
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const libelleValider = typeInitial ? 'Enregistrer' : 'Ajouter le document'
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, libelleValider)
+    const zones = h('div', { className: 'grille-2' })
+    const note = h('p', { className: 'sous-texte' })
+    // Changer de type efface les fichiers déjà choisis
+    const dessinerFaces = () => {
+      for (const face of Object.keys(fichiers)) { delete fichiers[face]; delete envoyes[face] }
+      const r = existant()
+      note.textContent = r && !typeInitial ? 'Ce document existe déjà : les fichiers choisis remplaceront ceux enregistrés.' : ''
+      zones.replaceChildren(...(type ? faces().map((face) => {
+        const id = idsDeListe(r?.[face])[0]
+        return h('div', { className: 'champ-groupe' }, face === 'Recto' ? 'Recto *' : 'Verso',
+          zoneFichier((f) => { fichiers[face] = f; delete envoyes[face] }, { deja: Boolean(id), lien: id && lien ? lien(id) : null }))
+      }) : []))
+    }
+    dessinerFaces()
+
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      const r = existant()
+      const probleme = !type ? 'Choisis le type de document.'
+        : Object.keys(fichiers).length === 0 ? 'Choisis au moins un fichier.'
+          : !fichiers.Recto && !idsDeListe(r?.Recto)[0] ? 'Le recto est obligatoire.'
+            : null
+      if (probleme) {
+        erreur.textContent = probleme
+        erreur.hidden = false
+        return
+      }
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        const valeurs = {}
+        for (const [face, f] of Object.entries(fichiers)) {
+          envoyes[face] ??= f.type.startsWith('image/') ? await envoyerPhoto(await reduirePhoto(f), `${type} ${face}.jpg`) : await envoyerPhoto(f, f.name)
+          valeurs[face] = ['L', envoyes[face]]
+        }
+        await enregistrerLigne('Documents', r?.id ?? null, r ? valeurs : { Candidat: c.id, Type_document: type, ...valeurs })
+        fermerDocument()
+        await recharger()
+        rouvrir()
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = libelleValider
+      }
+    } },
+    h('label', { className: 'champ-groupe' }, 'Type de document *',
+      h('select', { className: 'champ', disabled: Boolean(typeInitial), onChange: (e) => { type = e.target.value; dessinerFaces() } },
+        h('option', { value: '', selected: !type }, '-- Choisissez --'),
+        DOCUMENTS_EMBAUCHE.map(([t]) => h('option', { value: t, selected: t === type }, t)))),
+    note, zones, erreur, valider)
+
+    const { fermer: fermerDocument } = ouvrirPanneau(typeInitial ? `Document · ${typeInitial}` : `Nouveau document · ${nomContact(c) || 'candidat'}`, formulaire)
+  }
+
+  function supprimerDocument(r, rouvrir) {
+    fenetreSuppression(`Supprimer « ${r.Type_document || 'ce document'} » ?`, [
+      h('p', null, 'Le document et ses fichiers (recto, verso) seront retirés de la fiche du salarié et de la fiche d’embauche du candidat.'),
+    ], [['Supprimer définitivement', 'bouton-danger', () => supprimerFiche('Documents', r.id)]], async () => { await recharger(); rouvrir() })
   }
 
   // ---- Emploi du temps du salarié (onglet de la fiche) : calendrier du mois, puis tableau des tâches de ce mois ----

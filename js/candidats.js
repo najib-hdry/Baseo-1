@@ -30,7 +30,7 @@ const LOGEMENT_HEBERGE = 'Hébergé(e) chez quelqu’un'
 const DOC_HEBERGEUR = 'Pièce d’identité de l’hébergeur'
 
 // Documents de la fiche d'embauche : [type (table Documents), titre, précision, faces demandées]
-const DOCUMENTS_EMBAUCHE = [
+export const DOCUMENTS_EMBAUCHE = [
   ['Pièce d’identité', 'Carte d’identité ou titre de séjour / récépissé / attestation d’instruction d’une demande de titre de séjour',
     'Document valide et couvrant au moins la durée du premier contrat (4 mois minimum)', ['Recto', 'Verso']],
   ['Carte Vitale / attestation d’assurance maladie', 'Carte Vitale / attestation d’assurance maladie', '', ['Recto', 'Verso']],
