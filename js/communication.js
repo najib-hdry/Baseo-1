@@ -1,6 +1,6 @@
 // Écran « Communication » (admin) : onglets Communication générale / par site, tableau (titre, contenu…) avec recherche,
 // fiche de communication (nouvelle ou modification) avec un fichier joint, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, reduirePhoto, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte } from './outils.js'
 import { estAdmin, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe } from './donnees.js'
 
 const TABLE_COMMUNICATION = 'Communication'
@@ -14,7 +14,7 @@ const apercuContenu = (texte) => (texte && texte.length > 120 ? `${texte.slice(0
 
 export function creerEcranCommunication(racine, recharger) {
   let d = null
-  let lien = null // adresse temporaire des fichiers joints (relue à chaque chargement)
+  let lien = null // adresse temporaire des fichiers joints (demandée une seule fois)
   let recherche = ''
   let onglet = NIVEAU_GENERAL
   let redessinerLignes = null // lignes du tableau seules, quand l'adresse des fichiers arrive
@@ -24,6 +24,7 @@ export function creerEcranCommunication(racine, recharger) {
 
   function rendre() {
     if (!d) return
+    redessinerLignes = null // un message remplace le tableau : rien à redessiner
     if (!estAdmin(d)) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
       return
@@ -93,13 +94,14 @@ export function creerEcranCommunication(racine, recharger) {
     const champs = {
       Titre: c?.Titre ?? '',
       Niveau: c?.Niveau || onglet,
-      Chantier: c?.Chantier || 0,
+      Chantier: c?.Chantier && d.parId.Chantiers.has(c.Chantier) ? c.Chantier : 0, // chantier supprimé : à choisir de nouveau
       Type: c?.Type || 'Permanente',
       Date: depuisGrist(c?.Date) ?? aujourdhui(),
       Date_expiration: depuisGrist(c?.Date_expiration) ?? '',
       Contenu: c?.Contenu ?? '',
     }
     let nouveauFichier = null
+    let fichierEnvoye = null // identifiant de la pièce jointe déjà envoyée pour `nouveauFichier`
     const ancienFichier = c ? fichierDe(c) : null
     const chantiers = [...d.Chantiers].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
     const erreur = h('p', { className: 'erreur', hidden: true })
@@ -124,7 +126,7 @@ export function creerEcranCommunication(racine, recharger) {
         : site && !champs.Chantier ? 'Choisis le chantier concerné.'
           : !champs.Date ? 'Indique la date.'
             : temporaire && !champs.Date_expiration ? 'Indique la date d’expiration d’une communication temporaire.'
-              : temporaire && champs.Date_expiration < champs.Date ? 'La date d’expiration doit être après la date de la communication.'
+              : temporaire && champs.Date_expiration < champs.Date ? 'La date d’expiration ne peut pas être avant la date de la communication.'
                 : null
       if (probleme) {
         erreur.textContent = probleme
@@ -143,10 +145,12 @@ export function creerEcranCommunication(racine, recharger) {
           Date_expiration: temporaire ? versGrist(champs.Date_expiration) : null,
           Contenu: champs.Contenu.trim(),
         }
-        // Un nouveau fichier remplace l'ancien ; sans nouveau fichier, l'ancien reste
+        // Un nouveau fichier remplace l'ancien ; sans nouveau fichier, l'ancien reste.
+        // Envoyé tel quel avec son nom (affiche, PDF…) : une image n'est pas réduite en JPEG comme les photos
         if (nouveauFichier) {
           const f = nouveauFichier
-          colonnes.Fichier = ['L', f.type.startsWith('image/') ? await envoyerPhoto(await reduirePhoto(f)) : await envoyerPhoto(f, f.name)]
+          fichierEnvoye ??= await envoyerPhoto(f, f.name)
+          colonnes.Fichier = ['L', fichierEnvoye]
         }
         await enregistrerLigne(TABLE_COMMUNICATION, c?.id ?? null, colonnes)
         onglet = champs.Niveau // la communication enregistrée reste visible
@@ -175,7 +179,7 @@ export function creerEcranCommunication(racine, recharger) {
     h('label', { className: 'champ-groupe' }, 'Contenu *',
       h('textarea', { className: 'champ champ-texte', value: champs.Contenu, onInput: (ev) => { champs.Contenu = ev.target.value } })),
     h('div', { className: 'champ-groupe' }, 'Fichier',
-      zoneFichier((f) => { nouveauFichier = f }, { deja: Boolean(ancienFichier), lien: ancienFichier && lien ? lien(ancienFichier) : null })),
+      zoneFichier((f) => { nouveauFichier = f; fichierEnvoye = null }, { deja: Boolean(ancienFichier), lien: ancienFichier && lien ? lien(ancienFichier) : null })),
     erreur, valider,
     c && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(c)) }, 'Supprimer cette communication'))
 
@@ -195,7 +199,7 @@ export function creerEcranCommunication(racine, recharger) {
     afficher(donnees) {
       d = donnees
       rendre()
-      lienPhotos().then((f) => { lien = f; redessinerLignes?.() }).catch(() => {})
+      if (!lien && redessinerLignes) lienPhotos().then((f) => { lien = f; redessinerLignes?.() }).catch(() => {})
     },
     accueil() {
       recherche = ''
