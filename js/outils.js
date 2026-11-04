@@ -55,6 +55,9 @@ const TRACES = {
   sortie: '<path d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
   heures_sup: '<circle cx="11" cy="13" r="8"/><path d="M11 9v4l2 2M19 2v6M16 5h6"/>',
   crayon: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/>',
+  demi: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18Z" fill="currentColor"/>',
+  soleil: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  lever: '<path d="M7 17a5 5 0 0 1 10 0M3 21h18M12 4v4M4.2 10.2l1.4 1.4M19.8 10.2l-1.4 1.4M2 17h2M20 17h2"/>',
   poste: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',
 }
 export function icone(type, taille = 20) {

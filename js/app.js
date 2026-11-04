@@ -20,6 +20,7 @@ import { creerEcranCommunication } from './communication.js'
 import { creerEcranMesTaches } from './mes_taches.js'
 import { creerEcranPresence } from './presence.js'
 import { creerEcranActualites } from './actualites.js'
+import { creerEcranDemandes } from './demandes.js'
 
 // Groupes du menu, dans l'ordre : titre et couleur (pastille, icônes, sur-titre de la page)
 const GROUPES = [
@@ -37,6 +38,7 @@ const GROUPES = [
 const PAGES = [
   { cle: 'mes_taches', libelle: 'Mes tâches', icone: 'emargements', groupe: 'travail', profils: [ROLE_SALARIE] },
   { cle: 'presence', libelle: 'Présence', icone: 'crayon', groupe: 'travail', profils: [ROLE_SALARIE], autorisation: 'emargement' },
+  { cle: 'demandes', libelle: 'Congé et acompte', icone: 'conges', groupe: 'travail', profils: [ROLE_SALARIE] },
   { cle: 'actualites', libelle: 'Communication', icone: 'communication', groupe: 'travail', profils: [ROLE_SALARIE, ROLE_CHEF] },
   { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', groupe: 'pilotage', admin: true },
   { cle: 'chantiers', libelle: 'Chantiers', icone: 'grue', groupe: 'chantiers', admin: true },
@@ -82,6 +84,7 @@ const ecrans = {
   mes_taches: creerEcranMesTaches(zones.mes_taches, (cle) => allerA(cle), () => recharger()),
   presence: creerEcranPresence(zones.presence, () => recharger()),
   actualites: creerEcranActualites(zones.actualites),
+  demandes: creerEcranDemandes(zones.demandes, () => recharger()),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible

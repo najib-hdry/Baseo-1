@@ -1106,3 +1106,15 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .actu-contenu-complet { margin: 0; white-space: pre-line; font-size: 1.05rem; }
 .actu-photo { display: block; width: 100%; border-radius: 12px; border: 1px solid var(--trait); }
 .actu-document { display: inline-flex; align-items: center; gap: 8px; justify-self: start; }
+
+/* ---- Congé et acompte (salarié) : demandes et leur statut ---- */
+.demandes .taches-pastille { border-color: #c9e2f2; background: #eaf4fb; color: #005a87; }
+.demandes .taches-pastille::before { background: #007EBD; }
+.demande-date > span { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.demande-date .champ { min-height: 52px; font-size: 1.1rem; }
+.demande-montant { font-size: 1.4rem; font-weight: 700; }
+.demande-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px; border: 1px solid var(--trait); border-radius: 12px; background: #f7f9fa; }
+.demande-ligne .tache-ligne-heure { font-size: .88rem; }
+/* Statut et « Annuler » sur leur ligne, sous le texte */
+.demande-droite { flex: 1 0 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid var(--trait); }
+.demande-droite .bouton { display: inline-flex; align-items: center; gap: 4px; }
