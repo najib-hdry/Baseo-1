@@ -73,7 +73,7 @@ const ecrans = {
   tableau_bord: creerEcranTableauDeBord(zones.tableau_bord, () => recharger(), (cle, options) => allerA(cle, options)),
   catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
   communication: creerEcranCommunication(zones.communication, () => recharger()),
-  mes_taches: creerEcranMesTaches(zones.mes_taches, (cle) => allerA(cle)),
+  mes_taches: creerEcranMesTaches(zones.mes_taches, (cle) => allerA(cle), () => recharger()),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible

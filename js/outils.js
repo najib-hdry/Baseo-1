@@ -192,12 +192,13 @@ export const galeriePhotos = (ids, lien) => (ids.length === 0 || !lien
       h('img', { src: lien(id), alt: `Photo ${n + 1}`, loading: 'lazy' })))))
 
 /**
- * Photos modifiables d'un formulaire : celles déjà enregistrées (✕ pour retirer) et de nouvelles, `max` au plus.
+ * Photos modifiables d'un formulaire : celles déjà enregistrées (✕ pour retirer) et de nouvelles, `max` au plus ;
+ * `libelle` : titre du champ.
  * - `modifie()` : vrai si une photo a été retirée ou ajoutée (sinon inutile de réécrire les colonnes photo) ;
  * - `ids(envoyer)` envoie les nouvelles photos (réduites, en parallèle) avec `envoyer(blob)` et renvoie la liste finale.
  *   Une photo déjà envoyée ne l'est pas une seconde fois si l'enregistrement échoue puis est relancé.
  */
-export function editeurPhotos({ ids = [], lien, max = Infinity }) {
+export function editeurPhotos({ ids = [], lien, max = Infinity, libelle = 'Photos' }) {
   // Chaque élément a sa propre entrée : une même pièce jointe présente deux fois se retire une seule fois
   let gardees = ids.map((id) => ({ id }))
   let nouvelles = [] // { fichier, url (aperçu), id (après envoi) }
@@ -226,7 +227,7 @@ export function editeurPhotos({ ids = [], lien, max = Infinity }) {
   }
   dessiner()
   return {
-    element: h('div', { className: 'champ-groupe' }, 'Photos', zone, bouton),
+    element: h('div', { className: 'champ-groupe' }, libelle, zone, bouton),
     modifie: () => modifie,
     async ids(envoyer) {
       await Promise.all(nouvelles.filter((n) => n.id == null).map(async (n) => { n.id = await envoyer(await reduirePhoto(n.fichier)) }))

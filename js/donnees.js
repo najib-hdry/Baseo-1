@@ -132,8 +132,11 @@ export async function creerEtAttribuer(d, casierId, form, dateDebut) {
     }])
   try {
     await action(actions)
-  } catch {
-    throw new Error('L’attribution n’a pas pu être enregistrée (données modifiées entre-temps ?). Réessaie dans un instant.')
+  } catch (e) {
+    // Refus des règles d'accès : on le dit (sinon : identifiant pris entre-temps, un nouvel essai suffit)
+    if (/access|blocked|accès|permission/i.test(e?.message ?? ''))
+      throw new Error(`Ton compte n’a pas le droit d’enregistrer cette attribution (règles d’accès). Préviens l’administrateur. Détail : ${e.message}`)
+    throw new Error(`L’attribution n’a pas pu être enregistrée (données modifiées entre-temps ?). Réessaie dans un instant.${e?.message ? ` Détail : ${e.message}` : ''}`)
   }
 }
 
@@ -201,7 +204,7 @@ export async function lienPhotos() {
   return (id) => `${baseUrl}/attachments/${id}/download?auth=${token}`
 }
 
-export async function signaler({ casierId, pieceId, element, categorie, description, photoId }) {
+export async function signaler({ casierId, pieceId, element, categorie, description, photos = [] }) {
   await action([['AddRecord', 'Incidents', null, {
     Casier: casierId ?? 0,
     Piece: pieceId ?? 0,
@@ -209,7 +212,7 @@ export async function signaler({ casierId, pieceId, element, categorie, descript
     Categorie: categorie,
     Description: description,
     Statut: 'Ouvert',
-    Photo: photoId ? ['L', photoId] : null,
+    Photo: photos.length > 0 ? ['L', ...photos] : null,
   }]])
 }
 
@@ -787,6 +790,15 @@ export const enregistrerLigne = (table, id, champs) => action([id == null ? ['Ad
 // Validation en masse des émargements `ids`
 export const validerEmargements = (ids) => action([['BulkUpdateRecord', 'Emargement_Salarie', ids, { Emargement_valide: ids.map(() => true) }]])
 
+// Résolution d'un incident : photos d'après (identifiants de pièces jointes) et commentaire, tous deux facultatifs
+export const resoudreIncident = (incidentId, { photos, commentaire }, aujourdhuiIso) =>
+  action([['UpdateRecord', 'Incidents', incidentId, {
+    Statut: 'Résolu',
+    Resolu_le: versGrist(aujourdhuiIso),
+    Photos_resolution: photos.length > 0 ? ['L', ...photos] : null,
+    Commentaire_resolution: commentaire || null,
+  }]])
+
 export const changerStatut = (incidentId, statut, aujourdhuiIso) =>
   action([['UpdateRecord', 'Incidents', incidentId, {
     Statut: statut,
@@ -794,16 +806,17 @@ export const changerStatut = (incidentId, statut, aujourdhuiIso) =>
   }]])
 
 /**
- * Modifie un incident : `champs` = { Categorie, Element, Description, Statut, photos (identifiants de pièces jointes,
- * ou null pour ne pas toucher à la colonne Photo) }.
+ * Modifie un incident : `champs` = { Categorie, Element, Description, Statut, Commentaire_resolution, photos et
+ * photosResolution (identifiants de pièces jointes, ou null pour ne pas toucher à la colonne Photo / Photos_resolution) }.
  * La date de résolution est gardée si l'incident était déjà résolu, posée à aujourd'hui s'il le devient, effacée sinon.
  */
-export function modifierIncident(incident, { photos, ...champs }, aujourdhuiIso) {
+export function modifierIncident(incident, { photos, photosResolution, ...champs }, aujourdhuiIso) {
   if (!champs.Categorie) throw new Error('Choisis une catégorie.')
   if (!champs.Description) throw new Error('La description est obligatoire.')
   const resolu = champs.Statut === 'Résolu' ? (incident.Statut === 'Résolu' && incident.Resolu_le) || versGrist(aujourdhuiIso) : null
   const photo = photos ? { Photo: photos.length > 0 ? ['L', ...photos] : null } : {}
-  return action([['UpdateRecord', 'Incidents', incident.id, { ...champs, Resolu_le: resolu, ...photo }]])
+  const apres = photosResolution ? { Photos_resolution: photosResolution.length > 0 ? ['L', ...photosResolution] : null } : {}
+  return action([['UpdateRecord', 'Incidents', incident.id, { ...champs, Resolu_le: resolu, ...photo, ...apres }]])
 }
 
 export const supprimerIncident = (incidentId) => action([['RemoveRecord', 'Incidents', incidentId]])

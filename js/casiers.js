@@ -132,7 +132,7 @@ export function creerEcranCasiers(racine, recharger) {
       h('input', { className: 'champ', autocomplete: 'off', ...extra, onInput: (e) => { form[cle] = e.target.value } }))
     const liste = h('datalist', { id: 'liste-entreprises' }, d.Entreprises.map((e) => h('option', { value: e.Nom })))
     // Employeur : référence vers la table Sous_traitants (0 = aucun)
-    const employeur = h('label', { className: 'champ-groupe' }, 'Employeur (facultatif)',
+    const employeur = h('label', { className: 'champ-groupe' }, 'Employeur',
       h('select', { className: 'champ', onChange: (e) => { form.employeur = Number(e.target.value) || 0 } },
         h('option', { value: '0' }, '—'),
         [...d.Sous_traitants].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
@@ -156,8 +156,8 @@ export function creerEcranCasiers(racine, recharger) {
     h('label', { className: 'champ-groupe' }, 'Date d’attribution', date), messageDate,
     champ('prenom', 'Prénom', { required: true }),
     champ('nom', 'Nom', { required: true }),
-    champ('badge', 'N° de badge (facultatif)'),
-    champ('entreprise', 'Entreprise (facultatif)', { list: 'liste-entreprises' }), liste,
+    champ('badge', 'N° de badge'),
+    champ('entreprise', 'Entreprise', { list: 'liste-entreprises' }), liste,
     employeur, coffre, cle,
     valider)
     zone.replaceChildren(formulaire)

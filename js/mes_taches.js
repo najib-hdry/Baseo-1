@@ -1,8 +1,9 @@
 // Écran « Mes tâches » (salarié, sur téléphone) : en-tête, quatre gros boutons vers les pages du chantier
 // (casiers et incidents selon les autorisations du compte), puis les tâches du jour ; une tâche touchée ouvre sa fiche
-// en lecture seule. Des pictogrammes accompagnent chaque texte, pour les salariés qui lisent peu.
-import { h, icone, ouvrirPanneau } from './outils.js'
-import { ROLE_SALARIE } from './donnees.js'
+// en lecture seule ; une tâche liée à un incident montre l'incident (photos) et, pour un salarié autorisé, sa résolution
+// (commentaire, photos d'après). Des pictogrammes accompagnent chaque texte, pour les salariés qui lisent peu.
+import { h, icone, ouvrirPanneau, galeriePhotos, editeurPhotos, aujourdhui } from './outils.js'
+import { ROLE_SALARIE, peutResoudre, resoudreIncident, envoyerPhoto, lienPhotos, idsDeListe } from './donnees.js'
 
 // [page, libellé, pictogramme, couleur, autorisation du compte nécessaire (clé de d.moi) ou null]
 const RACCOURCIS_TACHES = [
@@ -20,9 +21,10 @@ const PICTOS_TACHE = [
 ]
 const dateDeTache = (v) => (v ? new Date(v * 1000) : null) // colonnes Date et heure : secondes depuis 1970
 const heureDeTache = (dt) => (dt ? dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—')
+const MAX_PHOTOS_RESOLUTION = 4
 const memeJour = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 
-export function creerEcranMesTaches(racine, allerA) {
+export function creerEcranMesTaches(racine, allerA, recharger) {
   let d = null
 
   const pictoTache = (t) => (t.Incident ? 'hs' : PICTOS_TACHE.find(([motif]) => motif.test(`${t.Titre ?? ''} ${t.Action ?? ''}`))?.[1] ?? 'emargements')
@@ -37,15 +39,59 @@ export function creerEcranMesTaches(racine, allerA) {
     h('span', { className: 'tache-info-picto' }, icone(picto, 26)),
     h('div', null, h('span', { className: 'tache-info-libelle' }, libelle), h('strong', null, valeur)))
 
-  function ouvrirTache(t) {
-    const incident = t.Incident && d.parId.Incidents.get(t.Incident)
-    ouvrirPanneau(t.Titre || 'Tâche', h('div', { className: 'tache-fiche' },
+  // Incident lié à la tâche : informations et photos du signalement, puis résolution (salarié autorisé, incident non résolu)
+  // ou ce qui a été fait (incident résolu). Invisible pour le salarié (règles d'accès) : un simple rappel.
+  function blocIncident(t, lien, fermer) {
+    const i = d.parId.Incidents.get(t.Incident)
+    if (!i) return h('section', { className: 'tache-incident' }, ligneFiche('hs', 'Incident', 'Cette tâche répare un incident. Demande les détails à ton chef d’équipe.'))
+    const resolu = i.Statut === 'Résolu'
+    const parties = [
+      h('h3', null, h('span', { className: 'tache-incident-picto' }, icone('hs', 24)), 'Incident'),
+      ligneFiche(resolu ? 'libres' : 'en_cours', 'Statut', i.Statut || 'Ouvert'),
+      i.Categorie && ligneFiche('catalogue', 'Catégorie', i.Categorie),
+      i.Lieu && ligneFiche('lieu', 'Lieu', i.Lieu),
+      i.Description && ligneFiche('note', 'Problème', i.Description),
+      h('span', { className: 'tache-info-libelle' }, 'Photos du problème'), galeriePhotos(idsDeListe(i.Photo), lien),
+    ]
+    if (resolu) {
+      parties.push(i.Commentaire_resolution && ligneFiche('main', 'Ce qui a été fait', i.Commentaire_resolution),
+        h('span', { className: 'tache-info-libelle' }, 'Photos après réparation'), galeriePhotos(idsDeListe(i.Photos_resolution), lien))
+    } else if (peutResoudre(d)) {
+      let commentaire = ''
+      const photos = editeurPhotos({ max: MAX_PHOTOS_RESOLUTION, libelle: 'Photos après réparation' })
+      const erreur = h('p', { className: 'erreur', hidden: true })
+      const valider = h('button', { className: 'bouton bouton-principal tache-resolu', type: 'submit' }, icone('libres', 22), 'Marquer comme résolu')
+      parties.push(h('form', { className: 'formulaire tache-resolution', onSubmit: async (e) => {
+        e.preventDefault()
+        erreur.hidden = true
+        valider.disabled = true
+        try {
+          await resoudreIncident(i.id, { photos: await photos.ids(envoyerPhoto), commentaire: commentaire.trim() }, aujourdhui())
+          fermer()
+          await recharger()
+        } catch (err) {
+          erreur.textContent = err.message || 'La résolution n’a pas pu être enregistrée.'
+          erreur.hidden = false
+          valider.disabled = false
+        }
+      } },
+      h('label', { className: 'champ-groupe' }, 'Commentaire',
+        h('textarea', { className: 'champ champ-texte', placeholder: 'Ex. : serrure changée', onInput: (e) => { commentaire = e.target.value } })),
+      photos.element, erreur, valider))
+    }
+    return h('section', { className: 'tache-incident' }, parties)
+  }
+
+  async function ouvrirTache(t) {
+    // Adresse des photos : demandée seulement pour une tâche liée à un incident
+    const lien = t.Incident ? await lienPhotos().catch(() => null) : null
+    const { fermer } = ouvrirPanneau(t.Titre || 'Tâche', h('div', { className: 'tache-fiche' },
       h('div', { className: 'tache-fiche-picto' }, icone(pictoTache(t), 48)),
       ligneFiche('en_cours', 'Horaires', horaires(t)),
       emplacements(t).map(([picto, libelle, nom]) => ligneFiche(picto, libelle, nom)),
       t.Action && ligneFiche('main', 'Action', t.Action),
       t.Detail && ligneFiche('note', 'Détail', t.Detail),
-      incident && ligneFiche('hs', 'Incident', incident.Description || `Incident n° ${incident.id}`)))
+      t.Incident && blocIncident(t, lien, () => fermer())))
   }
 
   function rendre() {

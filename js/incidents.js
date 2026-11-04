@@ -1,7 +1,7 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
-import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, reduirePhoto, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
-import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE } from './donnees.js'
+import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
+import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
 // Écran « Gestion des incidents », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -15,6 +15,7 @@ export function creerEcranIncidents(racine, recharger) {
   }
 
   const STATUTS = { Ouvert: 'ouvert', 'En cours': 'en_cours', Résolu: 'resolu' }
+  const MAX_PHOTOS_INCIDENT = 4 // par incident, avant comme après réparation
   const chantierIncident = (i) => {
     const casier = d.parId.Casiers.get(i.Casier)
     const piece = d.parId.Pieces.get(i.Piece)
@@ -79,7 +80,7 @@ export function creerEcranIncidents(racine, recharger) {
   // ---- Signalement ----
 
   function ouvrirSignalement({ casier, piece }) {
-    const form = { element: '', categorie: '', description: '', photo: null }
+    const form = { element: '', categorie: '', description: '' }
     const erreur = h('p', { className: 'erreur', hidden: true })
     const envoyer = h('button', { className: 'bouton bouton-principal', type: 'submit', disabled: true }, 'Envoyer')
     const majBouton = () => { envoyer.disabled = !(form.categorie && form.description.trim()) }
@@ -94,16 +95,7 @@ export function creerEcranIncidents(racine, recharger) {
       return b
     }))
 
-    const apercu = h('div', { className: 'apercu', hidden: true })
-    const fichier = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true })
-    const libellePhoto = h('span', null, '📷 Ajouter une photo')
-    fichier.addEventListener('change', () => {
-      form.photo = fichier.files?.[0] ?? null
-      libellePhoto.textContent = form.photo ? 'Changer la photo' : '📷 Ajouter une photo'
-      apercu.hidden = !form.photo
-      if (form.photo) apercu.replaceChildren(h('img', { src: URL.createObjectURL(form.photo), alt: 'Aperçu de la photo' }),
-        h('button', { className: 'bouton bouton-discret-clair', type: 'button', onClick: () => { form.photo = null; fichier.value = ''; apercu.hidden = true; libellePhoto.textContent = '📷 Ajouter une photo' } }, 'Retirer la photo'))
-    })
+    const photos = editeurPhotos({ max: MAX_PHOTOS_INCIDENT, libelle: 'Photos' })
 
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
       e.preventDefault()
@@ -112,9 +104,8 @@ export function creerEcranIncidents(racine, recharger) {
       envoyer.disabled = true
       envoyer.textContent = 'Envoi…'
       try {
-        const photoId = form.photo ? await envoyerPhoto(await reduirePhoto(form.photo)) : null
         await signaler({ casierId: casier?.id, pieceId: piece?.id, element: piece ? form.element.trim() : '',
-          categorie: form.categorie, description: form.description.trim(), photoId })
+          categorie: form.categorie, description: form.description.trim(), photos: await photos.ids(envoyerPhoto) })
         fermer()
         etat.confirmation = true
         setTimeout(() => { etat.confirmation = false; rendre() }, 4000)
@@ -131,8 +122,7 @@ export function creerEcranIncidents(racine, recharger) {
     h('fieldset', { className: 'groupe' }, h('legend', null, 'Catégorie'), categories),
     h('textarea', { className: 'champ champ-texte', placeholder: 'Décris le problème', 'aria-label': 'Description',
       onInput: (e) => { form.description = e.target.value; majBouton() } }),
-    h('label', { className: 'bouton bouton-photo' }, libellePhoto, fichier),
-    apercu, erreur, envoyer)
+    photos.element, erreur, envoyer)
 
     const { fermer } = ouvrirPanneau('Signaler un incident', [
       h('p', { className: 'lieu-choisi' }, libelleLieu(d, { casier, piece })),
@@ -155,14 +145,16 @@ export function creerEcranIncidents(racine, recharger) {
 
   // Boutons de changement de statut d'un incident : toutes les actions pour le chef d'équipe et l'admin ;
   // « Marquer résolu » seulement pour un salarié autorisé (« Gestion des incidents autorisée ») ; aucun sinon.
-  // `apres` : appelé après l'écriture réussie, `surErreur(message)` en cas d'échec
+  // `apres` : appelé après l'écriture réussie, `surErreur(message)` en cas d'échec ;
+  // « Marquer résolu » ouvre la fenêtre de résolution (photos et commentaire), par `ouvrirDepuis` depuis une fiche
   const actionsStatut = (i) => (peutGerer(d) ? ACTIONS[i.Statut] ?? ACTIONS.Ouvert
     : peutResoudre(d) && i.Statut !== 'Résolu' ? [['Résolu', 'Marquer résolu', 'bouton-principal']] : [])
-  const boutonsStatut = (i, { compact = false, apres = () => {}, surErreur }) =>
+  const boutonsStatut = (i, { compact = false, apres = () => {}, surErreur, ouvrirDepuis = (ouvrir) => ouvrir() }) =>
     actionsStatut(i).map(([statut, libelle, classe]) => {
       const b = h('button', { className: `bouton ${classe}${compact ? ' bouton-compact' : ''}` }, libelle)
       b.addEventListener('click', async (ev) => {
         ev.stopPropagation() // dans le tableau, le clic ne doit pas ouvrir le détail
+        if (statut === 'Résolu') return ouvrirDepuis(() => ouvrirResolution(i))
         b.disabled = true
         try {
           await changerStatut(i.id, statut, aujourdhui())
@@ -257,9 +249,10 @@ export function creerEcranIncidents(racine, recharger) {
   function ouvrirDetail(i, lieu, lien) {
     const erreur = h('p', { className: 'erreur', hidden: true })
     // Le salarié consulte la fiche sans changer le statut
-    const boutons = boutonsStatut(i, { apres: () => fermer(), surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } })
+    const boutons = boutonsStatut(i, { apres: () => fermer(), surErreur: (m) => { erreur.textContent = m; erreur.hidden = false }, ouvrirDepuis: (o) => ouvrirDepuis(o) })
     const resolu = depuisGrist(i.Resolu_le)
     const ids = idsDeListe(i.Photo)
+    const idsResolution = idsDeListe(i.Photos_resolution)
     const infos = [
       ['Statut', h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')],
       ['Lieu', lieu],
@@ -268,6 +261,7 @@ export function creerEcranIncidents(racine, recharger) {
       ['Signalé le', i.Signale_le ? dateHeure(i.Signale_le) : '—'],
       ['Signalé par', i.Signale_par || '—'],
       ['Résolu le', resolu ? enFrancais(resolu) : '—'],
+      ['Commentaire de résolution', i.Commentaire_resolution || '—'],
     ]
     const taches = tachesIncident(i)
     const creneau = (t) => `${dateHeure(t.Date_debut)}${t.Date_fin ? ` → ${new Date(t.Date_fin * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}`
@@ -276,8 +270,11 @@ export function creerEcranIncidents(racine, recharger) {
       h('h3', { className: 'titre-section' }, `Attribué à (${taches.length})`),
       taches.length === 0 ? h('p', { className: 'sous-texte' }, 'Personne pour l’instant.')
         : h('ul', { className: 'liste-attribution' }, taches.map((t) => h('li', null, h('strong', null, nomSalarie(t.Salarie)), ` · ${creneau(t)}`))),
-      h('h3', { className: 'titre-section' }, `Photos (${ids.length})`),
+      h('h3', { className: 'titre-section' }, `Photos du signalement (${ids.length})`),
       galeriePhotos(ids, lien),
+      (idsResolution.length > 0 || i.Statut === 'Résolu') && [
+        h('h3', { className: 'titre-section' }, `Photos de la résolution (${idsResolution.length})`),
+        galeriePhotos(idsResolution, lien)],
       erreur,
       h('div', { className: 'fiche-boutons' }, ...boutons,
         peutGerer(d) && i.Statut !== 'Résolu' && h('button', { className: 'bouton bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirAttribution(i, lieu)) }, 'Attribuer à des salariés'),
@@ -336,10 +333,41 @@ export function creerEcranIncidents(racine, recharger) {
     section.classList.add('panneau-large')
   }
 
-  // Modification : catégorie, élément (pièce), description, statut, photos (retirer ou ajouter)
+  // Résolution : photos d'après et commentaire (facultatifs), puis statut Résolu daté d'aujourd'hui
+  function ouvrirResolution(i) {
+    let commentaire = ''
+    const photos = editeurPhotos({ max: MAX_PHOTOS_INCIDENT, libelle: 'Photos après réparation' })
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Confirmer la résolution')
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
+      e.preventDefault()
+      erreur.hidden = true
+      valider.disabled = true
+      valider.textContent = 'Enregistrement…'
+      try {
+        await resoudreIncident(i.id, { photos: await photos.ids(envoyerPhoto), commentaire: commentaire.trim() }, aujourdhui())
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'La résolution n’a pas pu être enregistrée.'
+        erreur.hidden = false
+        valider.disabled = false
+        valider.textContent = 'Confirmer la résolution'
+      }
+    } },
+    h('p', { className: 'lieu-choisi' }, [i.Categorie || 'Incident', i.Lieu].filter(Boolean).join(' · ')),
+    h('label', { className: 'champ-groupe' }, 'Commentaire',
+      h('textarea', { className: 'champ champ-texte', placeholder: 'Ex. : serrure changée', onInput: (e) => { commentaire = e.target.value } })),
+    photos.element, erreur, valider)
+    const { fermer } = ouvrirPanneau('Marquer résolu', formulaire)
+  }
+
+  // Modification : catégorie, élément (pièce), description, statut, photos et commentaire de résolution
   function ouvrirModification(i, lieu, lien) {
-    const champs = { Categorie: i.Categorie ?? '', Element: i.Element ?? '', Description: i.Description ?? '', Statut: i.Statut || 'Ouvert' }
-    const photos = editeurPhotos({ ids: idsDeListe(i.Photo), lien })
+    const champs = { Categorie: i.Categorie ?? '', Element: i.Element ?? '', Description: i.Description ?? '', Statut: i.Statut || 'Ouvert',
+      Commentaire_resolution: i.Commentaire_resolution ?? '' }
+    const photos = editeurPhotos({ ids: idsDeListe(i.Photo), lien, max: MAX_PHOTOS_INCIDENT, libelle: 'Photos du signalement' })
+    const photosResolution = editeurPhotos({ ids: idsDeListe(i.Photos_resolution), lien, max: MAX_PHOTOS_INCIDENT, libelle: 'Photos de la résolution' })
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer')
     const choix = (libelle, cle, valeurs) => h('label', { className: 'champ-groupe' }, libelle,
@@ -353,7 +381,9 @@ export function creerEcranIncidents(racine, recharger) {
       valider.textContent = 'Enregistrement…'
       try {
         const nouvellesPhotos = photos.modifie() ? await photos.ids(envoyerPhoto) : null
-        await modifierIncident(i, { ...champs, Element: champs.Element.trim(), Description: champs.Description.trim(), photos: nouvellesPhotos }, aujourdhui())
+        const nouvellesResolution = photosResolution.modifie() ? await photosResolution.ids(envoyerPhoto) : null
+        await modifierIncident(i, { ...champs, Element: champs.Element.trim(), Description: champs.Description.trim(),
+          Commentaire_resolution: champs.Commentaire_resolution.trim() || null, photos: nouvellesPhotos, photosResolution: nouvellesResolution }, aujourdhui())
         fermer()
         await recharger()
       } catch (err) {
@@ -370,6 +400,9 @@ export function creerEcranIncidents(racine, recharger) {
     h('label', { className: 'champ-groupe' }, 'Description',
       h('textarea', { className: 'champ champ-texte', value: champs.Description, onInput: (e) => { champs.Description = e.target.value } })),
     photos.element,
+    h('label', { className: 'champ-groupe' }, 'Commentaire de résolution',
+      h('textarea', { className: 'champ champ-texte', value: champs.Commentaire_resolution, onInput: (e) => { champs.Commentaire_resolution = e.target.value } })),
+    photosResolution.element,
     erreur, valider)
     const { fermer, section } = ouvrirPanneau('Modifier l’incident', formulaire)
     section.classList.add('panneau-large')

@@ -1043,3 +1043,9 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .tache-info-picto { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; background: #f0f3f5; color: var(--marque-fonce); }
 .tache-info-libelle { display: block; font-size: .85rem; color: var(--encre-douce); }
 .tache-info strong { white-space: pre-line; }
+
+.tache-incident { display: grid; gap: 12px; padding-top: 14px; border-top: 2px solid #f3d6d3; }
+.tache-incident h3 { display: flex; align-items: center; gap: 10px; color: var(--hs); }
+.tache-incident-picto { display: grid; }
+.tache-resolution { margin-top: 4px; }
+.tache-resolu { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; font-size: 1.05rem; }
