@@ -80,6 +80,11 @@ export const peutAttribuer = (d) => peutGerer(d) || d?.moi?.profil === 'RH'
 // Source de stock « propreté » (accents et majuscules ignorés) : les seuls articles que voit le Client
 export const estSourceProprete = (d, sourceId) =>
   /propret/i.test((d.parId.Stock_Source?.get(sourceId)?.Source ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+// Profils limités à leurs chantiers et au stock de propreté (tableau de bord, stocks) ; les autres voient tout
+const PROFILS_LIMITES = ['Client']
+// Chantiers de la personne connectée (ensemble d'identifiants) si son profil y est limité, sinon null : tous les chantiers
+export const chantiersLimites = (d) => (PROFILS_LIMITES.includes(d?.moi?.profil) ? new Set(d.moi.chantiers) : null)
+export const limiteAuStockProprete = (d) => PROFILS_LIMITES.includes(d?.moi?.profil)
 // Blocs du tableau de bord par profil (tuile et section) ; l'Admin les voit tous
 export const BLOCS_TABLEAU_BORD = {
   RH: ['salaries', 'alertes', 'conges', 'acomptes'],

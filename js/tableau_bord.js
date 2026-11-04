@@ -4,7 +4,7 @@
 // Admin : tout ; RH : salariés, alertes et demandes ; Client : ses chantiers, casiers, incidents et stock de propreté
 // (BLOCS_TABLEAU_BORD, donnees.js).
 import { h, depuisGrist, enFrancais, etiqueterLignes, euros, icone } from './outils.js'
-import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, estSourceProprete, BLOCS_TABLEAU_BORD } from './donnees.js'
+import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, estSourceProprete, BLOCS_TABLEAU_BORD, chantiersLimites, limiteAuStockProprete } from './donnees.js'
 
 // Couleurs des graphiques (variables du thème)
 const TB_COULEURS = { occupes: 'var(--occupe)', libres: 'var(--libre)', hs: 'var(--hs)', ouvert: 'var(--hs)', en_cours: 'var(--signal)',
@@ -104,17 +104,21 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
 
   // ---- Données du périmètre choisi ----
 
-  // Chantiers du tableau de bord : tous, ou ceux du Client
-  const chantiersVisibles = () => (d.moi.profil === 'Client' ? d.Chantiers.filter((c) => d.moi.chantiers.includes(c.id)) : d.Chantiers)
+  // Chantiers proposés dans le choix : tous, ou ceux de la personne si son profil y est limité (Client)
+  const chantiersVisibles = () => { const limites = chantiersLimites(d); return limites ? d.Chantiers.filter((c) => limites.has(c.id)) : d.Chantiers }
   // Bloc `cle` (tuile et section) affiché pour ce profil
   const voit = (cle) => d.moi.profil === 'Admin' || (BLOCS_TABLEAU_BORD[d.moi.profil] ?? []).includes(cle)
 
   function perimetre() {
-    const ids = new Set(chantiersVisibles().map((c) => c.id))
-    const dansChantier = (id) => (chantier ? id === chantier : ids.has(id))
-    const salaries = d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && (!chantier || idsDeListe(u.Chantiers).includes(chantier)))
+    // Un chantier choisi : ses lignes. « Tous les chantiers » : tout, y compris les lignes sans chantier (incident sans lieu),
+    // sauf pour un profil limité à ses chantiers (Client)
+    const limites = chantiersLimites(d)
+    const dansChantier = (id) => (chantier ? id === chantier : !limites || limites.has(id))
+    // Salariés du périmètre (et donc leurs contrats, alertes et demandes) : même règle, sur leurs chantiers
+    const salaries = d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && ((!chantier && !limites) || idsDeListe(u.Chantiers).some(dansChantier)))
     const idsSalaries = new Set(salaries.map((u) => u.id))
-    const stocks = (d.Stock ?? []).filter((s) => idsDeListe(s.Chantiers).some(dansChantier) || (!chantier && d.moi.profil !== 'Client'))
+    // Un stock sans chantier ne compte que pour « Tous les chantiers », hors profil limité
+    const stocks = (d.Stock ?? []).filter((s) => (!chantier && !limites) || idsDeListe(s.Chantiers).some(dansChantier))
     const idsStocks = new Set(stocks.map((s) => s.id))
     return {
       casiers: d.Casiers.filter((k) => dansChantier(k.Chantier)),
@@ -123,7 +127,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       // Alertes : candidat lié au compte du salarié ; fin du dernier contrat
       candidats: (d.Candidats ?? []).filter((c) => idsSalaries.has(c.Utilisateur)),
       contrats: (d.Contrats ?? []).filter((k) => idsSalaries.has(k.Salarie)),
-      elements: (d.Stock_Elements ?? []).filter((e) => idsStocks.has(e.Stock) && (d.moi.profil !== 'Client' || estSourceProprete(d, e.Source))),
+      elements: (d.Stock_Elements ?? []).filter((e) => idsStocks.has(e.Stock) && (!limiteAuStockProprete(d) || estSourceProprete(d, e.Source))),
       conges: (d.Demande_de_conge ?? []).filter((c) => c.Statut === 'Nouvelle' && idsSalaries.has(c.Salarie)),
       acomptes: (d.Acompte ?? []).filter((a) => a.Statut === 'Nouvelle' && idsSalaries.has(a.Salarie)),
     }
@@ -142,8 +146,10 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
-    const p = perimetre()
     const chantiers = [...chantiersVisibles()].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr', { numeric: true }))
+    // Chantier choisi supprimé ou plus accessible : retour à « Tous les chantiers », avant de calculer les chiffres
+    if (chantier && !chantiers.some((c) => c.id === chantier)) chantier = 0
+    const p = perimetre()
 
     // Casiers
     const occupation = (casiers) => {
@@ -154,7 +160,6 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     const occ = occupation(p.casiers)
     const partsCasiers = (o) => [[o.occupes, TB_COULEURS.occupes, 'Occupés'], [o.libres, TB_COULEURS.libres, 'Libres'], [o.hs, TB_COULEURS.hs, 'HS']]
     const taux = occ.total ? `${Math.round((100 * occ.occupes) / occ.total)} %` : '—'
-    if (chantier && !chantiers.some((c) => c.id === chantier)) chantier = 0
     // Tous les chantiers : une barre par chantier ; un chantier : une barre par base vie
     const lignesCasiers = chantier
       ? d.Bases_vie.filter((b) => b.Chantier === chantier).map((b) => [b.Nom || 'Sans nom', partsCasiers(occupation(p.casiers.filter((k) => k.Base_vie === b.id)))])
