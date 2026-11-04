@@ -1,8 +1,10 @@
-// Écran « Tableau de bord » (admin) : chiffres clés et graphiques, pour tous les chantiers ou un seul.
+// Écran « Tableau de bord » : chiffres clés et graphiques, pour tous les chantiers ou un seul.
 // Casiers, incidents, salariés (actifs, alertes de fin de contrat, de Pass IAE et de titre de séjour),
 // articles de stock à commander, nouvelles demandes de congé et d'acompte. Chaque tuile ouvre la page concernée.
+// Admin : tout ; RH : salariés, alertes et demandes ; Client : ses chantiers, casiers, incidents et stock de propreté
+// (BLOCS_TABLEAU_BORD, donnees.js).
 import { h, depuisGrist, enFrancais, etiqueterLignes, euros, icone } from './outils.js'
-import { accesPage, idsDeListe, nomContact, ROLE_SALARIE } from './donnees.js'
+import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, estSourceProprete, BLOCS_TABLEAU_BORD } from './donnees.js'
 
 // Couleurs des graphiques (variables du thème)
 const TB_COULEURS = { occupes: 'var(--occupe)', libres: 'var(--libre)', hs: 'var(--hs)', ouvert: 'var(--hs)', en_cours: 'var(--signal)',
@@ -24,6 +26,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
   const tuile = ({ valeur, unite, libelle, detail, couleur, page, icone: nomIcone, barre, puces, aTraiter }) => {
     const calme = aTraiter && Number(valeur) === 0
     const total = (barre ?? []).reduce((t, [n]) => t + n, 0)
+    if (page && !accesPage(d, page)) page = null
     return h('button', { className: `tb-tuile${calme ? ' tb-calme' : ''}`, type: 'button', style: { '--teinte': couleur },
       onClick: () => page && aller(page, chantier ? { chantierId: chantier } : {}),
       title: page ? `Ouvrir la page${chantier ? ' (filtrée sur ce chantier)' : ''}` : null },
@@ -101,11 +104,17 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
 
   // ---- Données du périmètre choisi ----
 
+  // Chantiers du tableau de bord : tous, ou ceux du Client
+  const chantiersVisibles = () => (d.moi.profil === 'Client' ? d.Chantiers.filter((c) => d.moi.chantiers.includes(c.id)) : d.Chantiers)
+  // Bloc `cle` (tuile et section) affiché pour ce profil
+  const voit = (cle) => d.moi.profil === 'Admin' || (BLOCS_TABLEAU_BORD[d.moi.profil] ?? []).includes(cle)
+
   function perimetre() {
-    const dansChantier = (id) => !chantier || id === chantier
+    const ids = new Set(chantiersVisibles().map((c) => c.id))
+    const dansChantier = (id) => (chantier ? id === chantier : ids.has(id))
     const salaries = d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && (!chantier || idsDeListe(u.Chantiers).includes(chantier)))
     const idsSalaries = new Set(salaries.map((u) => u.id))
-    const stocks = (d.Stock ?? []).filter((s) => !chantier || idsDeListe(s.Chantiers).includes(chantier))
+    const stocks = (d.Stock ?? []).filter((s) => idsDeListe(s.Chantiers).some(dansChantier) || (!chantier && d.moi.profil !== 'Client'))
     const idsStocks = new Set(stocks.map((s) => s.id))
     return {
       casiers: d.Casiers.filter((k) => dansChantier(k.Chantier)),
@@ -114,7 +123,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       // Alertes : candidat lié au compte du salarié ; fin du dernier contrat
       candidats: (d.Candidats ?? []).filter((c) => idsSalaries.has(c.Utilisateur)),
       contrats: (d.Contrats ?? []).filter((k) => idsSalaries.has(k.Salarie)),
-      elements: (d.Stock_Elements ?? []).filter((e) => idsStocks.has(e.Stock)),
+      elements: (d.Stock_Elements ?? []).filter((e) => idsStocks.has(e.Stock) && (d.moi.profil !== 'Client' || estSourceProprete(d, e.Source))),
       conges: (d.Demande_de_conge ?? []).filter((c) => c.Statut === 'Nouvelle' && idsSalaries.has(c.Salarie)),
       acomptes: (d.Acompte ?? []).filter((a) => a.Statut === 'Nouvelle' && idsSalaries.has(a.Salarie)),
     }
@@ -134,7 +143,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       return
     }
     const p = perimetre()
-    const chantiers = [...d.Chantiers].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr', { numeric: true }))
+    const chantiers = [...chantiersVisibles()].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr', { numeric: true }))
 
     // Casiers
     const occupation = (casiers) => {
@@ -145,6 +154,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     const occ = occupation(p.casiers)
     const partsCasiers = (o) => [[o.occupes, TB_COULEURS.occupes, 'Occupés'], [o.libres, TB_COULEURS.libres, 'Libres'], [o.hs, TB_COULEURS.hs, 'HS']]
     const taux = occ.total ? `${Math.round((100 * occ.occupes) / occ.total)} %` : '—'
+    if (chantier && !chantiers.some((c) => c.id === chantier)) chantier = 0
     // Tous les chantiers : une barre par chantier ; un chantier : une barre par base vie
     const lignesCasiers = chantier
       ? d.Bases_vie.filter((b) => b.Chantier === chantier).map((b) => [b.Nom || 'Sans nom', partsCasiers(occupation(p.casiers.filter((k) => k.Base_vie === b.id)))])
@@ -204,38 +214,38 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
         h('span', { className: 'sous-texte' }, nomChantier ? `Chiffres du chantier ${nomChantier}` : `Chiffres de ${tbPluriel(chantiers.length, 'chantier')}`)),
 
       h('div', { className: 'tb-tuiles' },
-        tuile({ valeur: occ.total ? Math.round((100 * occ.occupes) / occ.total) : '—', unite: occ.total ? '%' : null, libelle: 'Casiers occupés', icone: 'total',
+        voit('casiers') && tuile({ valeur: occ.total ? Math.round((100 * occ.occupes) / occ.total) : '—', unite: occ.total ? '%' : null, libelle: 'Casiers occupés', icone: 'total',
           couleur: '#007EBD', page: 'casiers', barre: partsCasiers(occ),
           detail: occ.total ? `${occ.occupes} sur ${occ.total} · ${tbPluriel(occ.libres, 'libre')} · ${occ.hs} HS` : 'Aucun casier' }),
-        tuile({ valeur: ouverts + enCours, libelle: 'Incidents à traiter', icone: 'hs', couleur: '#B42318', page: 'incidents', aTraiter: true,
+        voit('incidents') && tuile({ valeur: ouverts + enCours, libelle: 'Incidents à traiter', icone: 'hs', couleur: '#B42318', page: 'incidents', aTraiter: true,
           puces: [[ouverts && tbPluriel(ouverts, 'ouvert'), 'alerte'], [enCours && `${enCours} en cours`, 'attention']] }),
-        tuile({ valeur: actifs, libelle: 'Salariés actifs', icone: 'utilisateurs', couleur: '#946AAB', page: 'utilisateurs',
+        voit('salaries') && tuile({ valeur: actifs, libelle: 'Salariés actifs', icone: 'utilisateurs', couleur: '#946AAB', page: 'utilisateurs',
           barre: [[actifs, '#946AAB', 'Actifs'], [p.salaries.length - actifs, '#D9CCE3', 'Désactivés']],
           detail: `sur ${p.salaries.length} · ${tbPluriel(p.salaries.length - actifs, 'désactivé')}` }),
-        tuile({ valeur: alertes.length, libelle: 'Alertes salariés', icone: 'emargements', couleur: '#D9480F', page: 'utilisateurs', aTraiter: true,
+        voit('alertes') && tuile({ valeur: alertes.length, libelle: 'Alertes salariés', icone: 'emargements', couleur: '#D9480F', page: 'utilisateurs', aTraiter: true,
           puces: [[nbAlerte('Fin de contrat') && tbPluriel(nbAlerte('Fin de contrat'), 'contrat'), 'alerte'],
             [nbAlerte('Fin du Pass IAE') && `${nbAlerte('Fin du Pass IAE')} Pass IAE`, 'alerte'],
             [nbAlerte('Fin du titre de séjour') && tbPluriel(nbAlerte('Fin du titre de séjour'), 'titre de séjour', 'titres de séjour'), 'alerte']] }),
-        tuile({ valeur: alertesStock.length, libelle: 'Articles à commander', icone: 'stock', couleur: '#C9861A', page: 'stocks', aTraiter: true,
+        voit('stock') && tuile({ valeur: alertesStock.length, libelle: 'Articles à commander', icone: 'stock', couleur: '#C9861A', page: 'stocks', aTraiter: true,
           puces: [...parSource].sort((a, b) => b[1] - a[1]).map(([src, n]) => [`${src} ${n}`, 'attention']) }),
-        tuile({ valeur: p.conges.length, libelle: 'Demandes de congé', icone: 'conges', couleur: '#00845A', page: 'conges', aTraiter: true,
+        voit('conges') && tuile({ valeur: p.conges.length, libelle: 'Demandes de congé', icone: 'conges', couleur: '#00845A', page: 'conges', aTraiter: true,
           detail: tbPluriel(p.conges.length, 'nouvelle demande', 'nouvelles demandes') }),
-        tuile({ valeur: p.acomptes.length, libelle: 'Demandes d’acompte', icone: 'acomptes', couleur: '#00845A', page: 'acomptes', aTraiter: true,
+        voit('acomptes') && tuile({ valeur: p.acomptes.length, libelle: 'Demandes d’acompte', icone: 'acomptes', couleur: '#00845A', page: 'acomptes', aTraiter: true,
           detail: `${euros.format(totalAcomptes)} demandés` })),
 
-      section('Casiers', 'total',
+      voit('casiers') && section('Casiers', 'total',
         h('div', { className: 'graphiques' },
           anneau('Occupation', partsCasiers(occ), taux, 'occupés'),
           barres(chantier ? 'Par base vie' : 'Par chantier', lignesCasiers, 'Aucun casier.', partsCasiers(occ).map(([, c, nom]) => [nom, c])))),
 
-      section('Incidents', 'hs',
+      voit('incidents') && section('Incidents', 'hs',
         h('div', { className: 'graphiques' },
           anneau('Par statut', [[ouverts, TB_COULEURS.ouvert, 'Ouverts'], [enCours, TB_COULEURS.en_cours, 'En cours'], [resolus, TB_COULEURS.resolu, 'Résolus']],
             String(p.incidents.length), 'au total'),
           barres('Par catégorie', lignesCategories, 'Aucun incident.', [['Ouverts', TB_COULEURS.ouvert], ['En cours', TB_COULEURS.en_cours], ['Résolus', TB_COULEURS.resolu]]),
           colonnes('Signalés et résolus, 6 derniers mois', evolution, [['Signalés', TB_COULEURS.ouvert], ['Résolus', TB_COULEURS.resolu]]))),
 
-      section('Salariés et alertes', 'utilisateurs',
+      (voit('salaries') || voit('alertes')) && section('Salariés et alertes', 'utilisateurs',
         h('div', { className: 'graphiques' },
           anneau('Comptes salariés', [[actifs, TB_COULEURS.actif, 'Actifs'], [p.salaries.length - actifs, TB_COULEURS.inactif, 'Désactivés']], String(actifs), 'actifs'),
           barres('Alertes (un mois ou moins)', [['Fin de contrat', [[nbAlerte('Fin de contrat'), TB_COULEURS.alerte]]],
@@ -244,7 +254,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
         tableau(['Salarié', 'Alerte', 'Échéance'], alertes.map(([id, type, echeance]) => [h('strong', null, nomSalarie(id)), type, date(echeance)]),
           'Aucune alerte : pas de fin de contrat, de Pass IAE ou de titre de séjour dans le mois.')),
 
-      section('Stock à commander', 'stock',
+      voit('stock') && section('Stock à commander', 'stock',
         h('div', { className: 'graphiques' },
           barres('Par source', [...parSource].sort((a, b) => b[1] - a[1]).map(([src, n]) => [src, [[n, TB_COULEURS.en_cours]]]), 'Aucun article à commander.'),
           h('div', { className: 'graph' }, h('h3', null, 'Articles sous le seuil'),
@@ -253,7 +263,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
               h('strong', null, d.parId.Stock_Reference?.get(e.Descriptif)?.Libelle || '—'),
               String(actuelle(e)), String(e.Quantite_seuil)]), 'Aucun article sous son seuil.')))),
 
-      section('Nouvelles demandes', 'conges',
+      (voit('conges') || voit('acomptes')) && section('Nouvelles demandes', 'conges',
         h('div', { className: 'graphiques' },
           h('div', { className: 'graph' }, h('h3', null, `Congés (${p.conges.length})`),
             tableau(['Salarié', 'Type', 'Du', 'Au'], [...p.conges].sort((a, b) => (a.Date_debut ?? 0) - (b.Date_debut ?? 0))

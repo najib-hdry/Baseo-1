@@ -77,6 +77,15 @@ export const accesPage = (d, cle) => ACCES_PAGES[cle]?.[d?.moi?.profil] ?? null
 export const peutModifier = (d, cle) => accesPage(d, cle) === GESTION
 // Attribuer un incident à des salariés : chef d'équipe, admin et RH
 export const peutAttribuer = (d) => peutGerer(d) || d?.moi?.profil === 'RH'
+// Source de stock « propreté » (accents et majuscules ignorés) : les seuls articles que voit le Client
+export const estSourceProprete = (d, sourceId) =>
+  /propret/i.test((d.parId.Stock_Source?.get(sourceId)?.Source ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+// Blocs du tableau de bord par profil (tuile et section) ; l'Admin les voit tous
+export const BLOCS_TABLEAU_BORD = {
+  RH: ['salaries', 'alertes', 'conges', 'acomptes'],
+  Client: ['casiers', 'incidents', 'stock'],
+}
+
 // Page ouverte au démarrage quand ce n'est pas la première du menu
 export const PAGE_ACCUEIL = { CIP: 'candidats' }
 

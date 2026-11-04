@@ -2,7 +2,7 @@
 // - « Gestion des stocks » (vue 'stocks') : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche, suppression ;
 // - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus } from './outils.js'
-import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, peutModifier } from './donnees.js'
+import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, peutModifier, estSourceProprete } from './donnees.js'
 
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
 const TITRES_ARTICLES = ['Photo', 'Source', 'Type', 'Article', 'Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Alerte', 'Commentaire']
@@ -27,7 +27,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
   const nomStock = (s) => s.Nom || `Stock n° ${s.id}`
   // Lecture (Client) : seulement les articles de propreté (les règles d'accès filtrent aussi)
   const gestionStocks = () => peutModifier(d, 'stocks')
-  const visible = (e) => gestionStocks() || /propret/i.test((d.parId.Stock_Source.get(e.Source)?.Source ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+  const visible = (e) => gestionStocks() || estSourceProprete(d, e.Source)
   const elementsDe = (s) => (d.Stock_Elements ?? []).filter((e) => e.Stock === s.id && visible(e))
   const source = (r) => d.parId.Stock_Source.get(r.Source)?.Source ?? ''
   const type = (r) => d.parId.Stock_Type.get(r.Type)?.Type ?? ''
