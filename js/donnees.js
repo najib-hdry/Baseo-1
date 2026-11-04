@@ -85,8 +85,10 @@ export async function chargerTout() {
   const moi = await lireProfil()
   if (!moi?.profil) return { moi: null, refus: moi?.refus }
   const absentes = new Set()
+  // Table interdite en lecture par les règles d'accès (ex. Casiers pour le CIP) : vide, comme une table absente ;
+  // une autre erreur sur une table obligatoire arrête le chargement
   const brutes = await Promise.all(TABLES.map((t) => grist.docApi.fetchTable(t).catch((e) => {
-    if (!OPTIONNELLES.includes(t)) throw e
+    if (!OPTIONNELLES.includes(t) && !/access rules/i.test(e?.message ?? '')) throw e
     absentes.add(t)
     return { id: [] }
   })))
