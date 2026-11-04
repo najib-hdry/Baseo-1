@@ -14,7 +14,9 @@ function enLignes(table) {
 // Profil de la personne connectée : { profil: 'Admin' | 'Chef d’équipe' | 'Salarié' | 'RH' | 'CIP' | 'Client', nom },
 // { refus: message } si le profil ne peut pas être vérifié, ou null si aucun accès.
 // - Acces_complet n'est lisible que par les admins (règles d'accès) : seule source du profil Admin.
-// - Utilisateurs ne montre à chacun que sa propre ligne.
+//   Un rôle « Admin » écrit dans Utilisateurs sans cet accès est refusé (sinon un RH pourrait se le donner).
+// - Sa ligne de Utilisateurs : celle dont la colonne repère `Compte_connecte` est lisible (les règles d'accès
+//   la masquent sur les lignes des autres) ; sans cette colonne, la seule ligne visible.
 // - Une erreur de lecture ne donne jamais l'accès : un second essai, puis un message.
 async function lireProfil() {
   const admin = await grist.docApi.fetchTable('Acces_complet').then((t) => t.id.length > 0).catch(() => false)
@@ -26,10 +28,14 @@ async function lireProfil() {
   } catch {
     return { refus: 'Impossible de vérifier ton profil. Recharge la page ; si le message reste, demande à l’administrateur de vérifier ton accès.' }
   }
-  if (lignes.length > 1) return { refus: 'Les règles d’accès de la table Utilisateurs sont à corriger : chacun ne doit voir que sa propre ligne. Préviens l’administrateur.' }
-  const moi = lignes[0]?.Actif ? lignes[0] : null
-  return moi?.Profil ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null,
-    incidents: Boolean(moi.Gestion_incidents_autorisee) } : null
+  // Une valeur masquée par les règles d'accès n'est pas un texte (Grist envoie ['C'])
+  const avecRepere = lignes.length > 0 && 'Compte_connecte' in lignes[0]
+  const miennes = avecRepere ? lignes.filter((l) => typeof l.Compte_connecte === 'string' && l.Compte_connecte.trim()) : lignes
+  if (miennes.length > 1) return { refus: 'Les règles d’accès de la table Utilisateurs sont à corriger : plusieurs lignes semblent être la tienne. Préviens l’administrateur.' }
+  const moi = miennes[0]?.Actif ? miennes[0] : null
+  if (moi?.Profil === 'Admin') return { refus: 'Ton compte a le rôle Admin dans Utilisateurs, mais pas l’accès administrateur du document. Préviens l’administrateur.' }
+  return ROLES.includes(moi?.Profil) ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null, id: moi.id,
+    incidents: Boolean(moi.Gestion_incidents_autorisee), casiers: Boolean(moi.Gestion_casiers_autorisee) } : null
 }
 
 // Chef d'équipe et admin : hors service, suivi des incidents ; les autres rôles déclarent seulement

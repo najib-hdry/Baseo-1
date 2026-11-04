@@ -2,7 +2,7 @@
 // et les deux écrans (casiers, incidents), comme l'application Supabase.
 /* global grist */
 import { h, icone, afficherErreur, logoMarque } from './outils.js'
-import { chargerTout, estAdmin } from './donnees.js'
+import { chargerTout, estAdmin, ROLE_SALARIE } from './donnees.js'
 import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
@@ -17,9 +17,11 @@ import { creerEcranConges } from './conges.js'
 import { creerEcranStocks } from './stocks.js'
 import { creerEcranTableauDeBord } from './tableau_bord.js'
 import { creerEcranCommunication } from './communication.js'
+import { creerEcranMesTaches } from './mes_taches.js'
 
 // Groupes du menu, dans l'ordre : titre et couleur (pastille, icônes, sur-titre de la page)
 const GROUPES = [
+  { cle: 'travail', titre: 'Mon travail', couleur: '#1d6b5e' },
   { cle: 'pilotage', titre: 'Pilotage', couleur: '#00A470' },
   { cle: 'chantiers', titre: 'Chantiers', couleur: '#007EBD' },
   { cle: 'rh', titre: 'Ressources humaines', couleur: '#946AAB' },
@@ -27,9 +29,10 @@ const GROUPES = [
   { cle: 'stocks', titre: 'Stocks', couleur: '#C9861A' },
   { cle: 'partenaires', titre: 'Partenaires', couleur: '#7E9A12' },
 ]
-// `groupe` : groupe du menu ; `admin` : page visible seulement par le profil Admin ;
+// `groupe` : groupe du menu ; `admin` : page visible seulement par le profil Admin ; `salarie` : seulement par le profil Salarié ;
 // `parent` : sous-page, affichée décalée sous sa page. La première page visible s'ouvre au démarrage.
 const PAGES = [
+  { cle: 'mes_taches', libelle: 'Mes tâches', icone: 'emargements', groupe: 'travail', salarie: true },
   { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', groupe: 'pilotage', admin: true },
   { cle: 'chantiers', libelle: 'Chantiers', icone: 'grue', groupe: 'chantiers', admin: true },
   { cle: 'casiers', libelle: 'Casiers', icone: 'total', groupe: 'chantiers' },
@@ -49,7 +52,7 @@ const PAGES = [
   { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', groupe: 'stocks', admin: true, parent: 'stocks' },
 ]
 const groupeDe = (page) => GROUPES.find((g) => g.cle === page.groupe) ?? GROUPES[0]
-const pagesVisibles = () => PAGES.filter((p) => !p.admin || estAdmin(donnees))
+const pagesVisibles = () => PAGES.filter((p) => (p.salarie ? donnees?.moi?.profil === ROLE_SALARIE : !p.admin || estAdmin(donnees)))
 
 const principal = document.getElementById('app')
 const zones = Object.fromEntries(PAGES.map((p) => [p.cle, h('div')]))
@@ -70,6 +73,7 @@ const ecrans = {
   tableau_bord: creerEcranTableauDeBord(zones.tableau_bord, () => recharger(), (cle, options) => allerA(cle, options)),
   catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
   communication: creerEcranCommunication(zones.communication, () => recharger()),
+  mes_taches: creerEcranMesTaches(zones.mes_taches, (cle) => allerA(cle)),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
