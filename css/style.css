@@ -1086,3 +1086,23 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .presence-durees { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .presence-duree { min-height: 48px; border: 2px solid var(--trait); border-radius: 12px; background: var(--surface); font: inherit; font-weight: 700; cursor: pointer; }
 .presence-duree[aria-pressed="true"] { border-color: #7C3AED; background: #7C3AED; color: #fff; }
+
+/* ---- Communication du terrain (salarié, chef d'équipe) : onglets, cartes à 3 lignes, fiche ---- */
+.actualites .taches-pastille { border-color: #f3c9d6; background: #fdeef3; color: #8a2346; }
+.actualites .taches-pastille::before { background: #C8456B; }
+.actu-onglets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 14px; background: #e4e8eb; }
+.actu-onglet { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border: 0; border-radius: 10px;
+  background: transparent; font: inherit; font-weight: 700; color: var(--encre-douce); cursor: pointer; }
+.actu-onglet[aria-selected="true"] { background: var(--surface); color: #8a2346; box-shadow: 0 1px 4px rgb(0 0 0 / .08); }
+.actu-compte { min-width: 24px; padding: 1px 7px; border-radius: 999px; background: #fdeef3; color: #8a2346; font-size: .8rem; }
+.actu-carte { display: grid; gap: 8px; padding: 16px 18px; border: 1px solid var(--trait); border-left: 5px solid #C8456B; border-radius: 16px;
+  background: var(--surface); box-shadow: 0 2px 6px rgb(0 0 0 / .05); }
+.actu-carte h2 { font-size: 1.2rem; color: var(--encre); }
+.actu-date { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: var(--encre-douce); font-weight: 600; font-size: .92rem; }
+.actu-contenu { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.actu-suite { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; border: 0; background: none;
+  font: inherit; font-weight: 700; color: #C8456B; cursor: pointer; }
+.actu-fiche { display: grid; gap: 14px; }
+.actu-contenu-complet { margin: 0; white-space: pre-line; font-size: 1.05rem; }
+.actu-photo { display: block; width: 100%; border-radius: 12px; border: 1px solid var(--trait); }
+.actu-document { display: inline-flex; align-items: center; gap: 8px; justify-self: start; }

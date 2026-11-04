@@ -1,6 +1,7 @@
 // Écran « Présence » (salarié avec auto-émargement, sur téléphone) : en-tête, une fiche de présence par émargement du jour
-// (arrivée, départ) et le bouton « Émarger », qui ouvre la fiche d'émargement à gros pictogrammes : présent, en retard
-// (arrivée), absent ; parti plus tôt et heures sup (départ), avec leur durée. Un émargement validé ne se modifie plus.
+// (arrivée, départ) et le bouton « Émarger », qui ouvre la fiche d'émargement de la demi-journée à gros pictogrammes :
+// présent, en retard, absent ; parti plus tôt et heures sup, avec leur durée. Un émargement validé par le chef d'équipe
+// ne se modifie plus.
 import { h, icone, ouvrirPanneau } from './outils.js'
 import { ROLE_SALARIE, modifierLigne } from './donnees.js'
 
@@ -48,12 +49,12 @@ export function creerEcranPresence(racine, recharger) {
         emarge && ligneFiche('libres', 'Émargé à', heurePresence(e.Emarge_le)),
         emarge && resume(e),
         e.Emargement_valide
-          ? h('p', { className: 'presence-valide' }, icone('cadenas', 18), 'Validé par le responsable')
+          ? h('p', { className: 'presence-valide' }, icone('cadenas', 18), 'Validé par le chef d’équipe')
           : h('button', { className: 'bouton bouton-principal presence-emarger', type: 'button', onClick: () => ouvrirEmargement(e) },
             icone('crayon', 22), emarge ? 'Modifier mon émargement' : 'Émarger')))
   }
 
-  // Fiche d'émargement : un gros bouton par état, puis (départ) les cases parti plus tôt / heures sup ; durées en un toucher
+  // Fiche d'émargement : un gros bouton par état, puis les cases parti plus tôt / heures sup ; durées en un toucher
   function ouvrirEmargement(e) {
     const depart = e.Arrivee_Depart === 'Départ'
     const champs = {
@@ -78,14 +79,14 @@ export function creerEcranPresence(racine, recharger) {
       const absent = champs.Etat === 'Absent'
       // Les parties absentes (false) sont ignorées : replaceChildren les écrirait en texte
       zone.replaceChildren(...[
-        h('div', { className: `presence-tuiles${depart ? ' presence-tuiles-2' : ''}` }, ETATS_PRESENCE.filter(([etat]) => !depart || etat !== 'En retard').map(([etat, libelle, picto, couleur]) =>
+        h('div', { className: 'presence-tuiles' }, ETATS_PRESENCE.map(([etat, libelle, picto, couleur]) =>
           tuile(libelle, picto, couleur, champs.Etat === etat, () => { champs.Etat = etat; dessiner() }))),
         champs.Etat === 'En retard' && [h('p', { className: 'presence-question' }, icone('en_cours', 20), 'Combien de retard ?'), durees('Duree_retard')],
-        depart && !absent && h('div', { className: 'presence-tuiles presence-tuiles-2' },
+        !absent && h('div', { className: 'presence-tuiles presence-tuiles-2' },
           tuile('Parti plus tôt', 'sortie', '#7C3AED', champs.Parti_plus_tot, () => { champs.Parti_plus_tot = !champs.Parti_plus_tot; dessiner() }),
           tuile('Heures sup', 'heures_sup', '#007EBD', champs.Heures_sup_faites, () => { champs.Heures_sup_faites = !champs.Heures_sup_faites; dessiner() })),
-        depart && !absent && champs.Parti_plus_tot && [h('p', { className: 'presence-question' }, icone('sortie', 20), 'Parti combien de temps plus tôt ?'), durees('Duree_parti_tot')],
-        depart && !absent && champs.Heures_sup_faites && [h('p', { className: 'presence-question' }, icone('heures_sup', 20), 'Combien d’heures sup ?'), durees('Duree_heures_sup')],
+        !absent && champs.Parti_plus_tot && [h('p', { className: 'presence-question' }, icone('sortie', 20), 'Parti combien de temps plus tôt ?'), durees('Duree_parti_tot')],
+        !absent && champs.Heures_sup_faites && [h('p', { className: 'presence-question' }, icone('heures_sup', 20), 'Combien d’heures sup ?'), durees('Duree_heures_sup')],
       ].flat().filter(Boolean))
     }
     dessiner()
@@ -94,8 +95,8 @@ export function creerEcranPresence(racine, recharger) {
       ev.preventDefault()
       erreur.hidden = true
       const absent = champs.Etat === 'Absent'
-      const parti = depart && !absent && champs.Parti_plus_tot
-      const sup = depart && !absent && champs.Heures_sup_faites
+      const parti = !absent && champs.Parti_plus_tot
+      const sup = !absent && champs.Heures_sup_faites
       const probleme = champs.Etat === 'En retard' && !champs.Duree_retard ? 'Choisis la durée du retard.'
         : parti && !champs.Duree_parti_tot ? 'Choisis de combien tu es parti plus tôt.'
           : sup && !champs.Duree_heures_sup ? 'Choisis la durée des heures sup.' : null
