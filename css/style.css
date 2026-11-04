@@ -1044,9 +1044,7 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .tache-info-libelle { display: block; font-size: .85rem; color: var(--encre-douce); }
 .tache-info strong { white-space: pre-line; }
 
-.tache-incident { display: grid; gap: 12px; padding-top: 14px; border-top: 2px solid #f3d6d3; }
-.tache-incident h3 { display: flex; align-items: center; gap: 10px; color: var(--hs); }
-.tache-incident-picto { display: grid; }
+.tache-incident { display: grid; gap: 12px; }
 .tache-resolution { margin-top: 4px; }
 .tache-resolu { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; font-size: 1.05rem; }
 

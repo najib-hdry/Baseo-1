@@ -40,13 +40,10 @@ export function creerEcranMesTaches(racine, allerA, recharger) {
     h('div', null, h('span', { className: 'tache-info-libelle' }, libelle), h('strong', null, valeur)))
 
   // Incident lié à la tâche : informations et photos du signalement, puis résolution (salarié autorisé, incident non résolu)
-  // ou ce qui a été fait (incident résolu). Invisible pour le salarié (règles d'accès) : un simple rappel.
-  function blocIncident(t, lien, fermer) {
-    const i = d.parId.Incidents.get(t.Incident)
-    if (!i) return h('section', { className: 'tache-incident' }, ligneFiche('hs', 'Incident', 'Cette tâche répare un incident. Demande les détails à ton chef d’équipe.'))
+  // ou ce qui a été fait (incident résolu)
+  function blocIncident(i, lien, fermer) {
     const resolu = i.Statut === 'Résolu'
     const parties = [
-      h('h3', null, h('span', { className: 'tache-incident-picto' }, icone('hs', 24)), 'Incident'),
       ligneFiche(resolu ? 'libres' : 'en_cours', 'Statut', i.Statut || 'Ouvert'),
       i.Categorie && ligneFiche('catalogue', 'Catégorie', i.Categorie),
       i.Lieu && ligneFiche('lieu', 'Lieu', i.Lieu),
@@ -82,16 +79,25 @@ export function creerEcranMesTaches(racine, allerA, recharger) {
     return h('section', { className: 'tache-incident' }, parties)
   }
 
+  // Consigne donnée à l'attribution d'un incident : le détail de la tâche reprend la description de l'incident,
+  // puis « Consigne : … »
+  const consigneDe = (t) => String(t.Detail ?? '').split('\n').find((l) => l.startsWith('Consigne : '))?.slice('Consigne : '.length)
+
   async function ouvrirTache(t) {
     // Adresse des photos : demandée seulement pour une tâche liée à un incident
     const lien = t.Incident ? await lienPhotos().catch(() => null) : null
+    // Tâche d'un incident visible : horaires, consigne, puis l'incident (le lieu et la description y sont déjà) ;
+    // incident masqué par les règles d'accès : la tâche telle quelle et un rappel
+    const incident = t.Incident ? d.parId.Incidents.get(t.Incident) : null
+    const consigne = incident && consigneDe(t)
     const { fermer } = ouvrirPanneau(t.Titre || 'Tâche', h('div', { className: 'tache-fiche' },
       h('div', { className: 'tache-fiche-picto' }, icone(pictoTache(t), 48)),
       ligneFiche('en_cours', 'Horaires', horaires(t)),
-      emplacements(t).map(([picto, libelle, nom]) => ligneFiche(picto, libelle, nom)),
-      t.Action && ligneFiche('main', 'Action', t.Action),
-      t.Detail && ligneFiche('note', 'Détail', t.Detail),
-      t.Incident && blocIncident(t, lien, () => fermer())))
+      incident ? [consigne && ligneFiche('main', 'Consigne', consigne), blocIncident(incident, lien, () => fermer())] : [
+        emplacements(t).map(([picto, libelle, nom]) => ligneFiche(picto, libelle, nom)),
+        t.Action && ligneFiche('main', 'Action', t.Action),
+        t.Detail && ligneFiche('note', 'Détail', t.Detail),
+        t.Incident && ligneFiche('hs', 'Incident', 'Cette tâche répare un incident. Demande les détails à ton chef d’équipe.')]))
   }
 
   function rendre() {
