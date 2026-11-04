@@ -4,7 +4,7 @@
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
 import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte, zoneFichier, compte, menuPlus } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, estAdmin, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, accesPage, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
 
@@ -169,8 +169,8 @@ export function creerEcranCandidats(racine, recharger) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, 'candidats')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has('Candidats')) {

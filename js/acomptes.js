@@ -1,7 +1,7 @@
 // Écran « Suivi des demandes d'acompte » (admin) : onglets par statut (Nouvelle, Acceptée, Refusée, Tous), tableau avec recherche,
 // fiche de demande (nouvelle ou modification), suppression.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, euros, compte } from './outils.js'
-import { estAdmin, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact, idsDeListe } from './donnees.js'
+import { accesPage, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact, idsDeListe } from './donnees.js'
 
 const TABLE_ACOMPTES = 'Acompte'
 const TITRES_ACOMPTES = ['Salarié', 'Montant', 'Créée le', 'Statut', '']
@@ -29,8 +29,8 @@ export function creerEcranAcomptes(racine, recharger, options = {}) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, seul ? 'utilisateurs' : 'acomptes')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has(TABLE_ACOMPTES)) {

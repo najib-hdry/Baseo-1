@@ -1,7 +1,7 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
 import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
-import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE } from './donnees.js'
+import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE, peutModifier, peutAttribuer } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
 // Écran « Gestion des incidents », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -37,7 +37,7 @@ export function creerEcranIncidents(racine, recharger) {
           ]
         },
         onOuvrir: (c) => {
-          Object.assign(etat, { filtre: 'tous', onglet: 'signaler', filtreSuivi: 'actifs', rechercheSuivi: '' }, selectionPourChantier(d, c.id))
+          Object.assign(etat, { filtre: 'tous', onglet: peutModifier(d, 'incidents') ? 'signaler' : 'suivi', filtreSuivi: 'actifs', rechercheSuivi: '' }, selectionPourChantier(d, c.id))
           rendre()
         },
       }))
@@ -45,7 +45,9 @@ export function creerEcranIncidents(racine, recharger) {
     }
 
     const chantier = d.parId.Chantiers.get(etat.chantierId)
-    const bascule = h('div', { className: 'choix choix-2 bascule-vue' },
+    // Lecture (RH, Client) : pas d'onglet Signaler, le suivi seulement
+    if (!peutModifier(d, 'incidents')) etat.onglet = 'suivi'
+    const bascule = !peutModifier(d, 'incidents') ? h('div', { hidden: true }) : h('div', { className: 'choix choix-2 bascule-vue' },
       [['signaler', 'Signaler'], ['suivi', 'Suivi']].map(([cle, libelle]) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle)))
 
@@ -277,7 +279,7 @@ export function creerEcranIncidents(racine, recharger) {
         galeriePhotos(idsResolution, lien)],
       erreur,
       h('div', { className: 'fiche-boutons' }, ...boutons,
-        peutGerer(d) && i.Statut !== 'Résolu' && h('button', { className: 'bouton bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirAttribution(i, lieu)) }, 'Attribuer à des salariés'),
+        peutAttribuer(d) && i.Statut !== 'Résolu' && h('button', { className: 'bouton bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirAttribution(i, lieu)) }, 'Attribuer à des salariés'),
         peutGerer(d) && h('button', { className: 'bouton', onClick: () => ouvrirDepuis(() => ouvrirModification(i, lieu, lien)) }, 'Modifier'),
         estAdmin(d) && h('button', { className: 'bouton bouton-danger', onClick: () => ouvrirDepuis(() => ouvrirSuppression(i, lieu)) }, 'Supprimer')),
     ])

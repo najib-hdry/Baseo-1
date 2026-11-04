@@ -5,7 +5,7 @@ import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSupp
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, estAdmin, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, accesPage, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE, peutModifier } from './donnees.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Détail du chantier', '']
 // Ordre des onglets de la page
@@ -29,8 +29,8 @@ export function creerEcranAdmin(racine, recharger) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, 'chantiers')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     // Onglets dans l'ordre demandé ; « Sans statut » n'apparaît que s'il en reste
@@ -46,7 +46,7 @@ export function creerEcranAdmin(racine, recharger) {
           h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Statut des chantiers' },
             onglets.map(([s, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(s === onglet),
               onClick: () => { onglet = s; rendre() } }, `${libelle} (${parStatut(s).length})`))),
-          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
+          peutModifier(d, 'chantiers') && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
             h('thead', null, h('tr', null, TITRES_CHANTIERS.map((t) => h('th', null, t)))),
@@ -67,9 +67,10 @@ export function creerEcranAdmin(racine, recharger) {
       h('td', null, periode.some(Boolean) ? `${periode[0] || '?'} → ${periode[1] || '?'}` : '—'),
       h('td', { className: 'sous-texte' }, structure),
       h('td', null, h('button', { className: 'bouton bouton-compact bouton-detail', onClick: (e) => { e.stopPropagation(); ouvrirFiche(c) } }, 'Voir le détail')),
-      h('td', { className: 'tableau-actions' },
+      // Lecture (RH) : la cellule reste, vide, pour garder les colonnes
+      h('td', { className: 'tableau-actions' }, peutModifier(d, 'chantiers') && [
         h('button', { className: 'bouton bouton-compact', onClick: (e) => { e.stopPropagation(); ouvrirEdition(c) } }, 'Modifier'),
-        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')))
+        h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (e) => { e.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')]))
   }
 
   // ---- Fiche détail (popup) ----
@@ -103,11 +104,11 @@ export function creerEcranAdmin(racine, recharger) {
       onglets.replaceChildren(...ONGLETS_FICHE.map(([k, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle),
         onClick: () => afficherOnglet(k) }, libelle)))
       contenu.replaceChildren(...[
-        cle === 'composants' && h('div', { className: 'fiche-actions' },
+        cle === 'composants' && peutModifier(d, 'chantiers') && h('div', { className: 'fiche-actions' },
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirComposants(c)) }, 'Modifier les composants')),
-        cle === 'equipe' && !d.absentes.has('Utilisateurs') && h('div', { className: 'fiche-actions' },
+        cle === 'equipe' && peutModifier(d, 'chantiers') && !d.absentes.has('Utilisateurs') && h('div', { className: 'fiche-actions' },
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirEquipe(c)) }, 'Gérer les salariés')),
-        PARTENAIRES[cle] && !d.absentes.has(PARTENAIRES[cle].table) && h('div', { className: 'fiche-actions' },
+        PARTENAIRES[cle] && peutModifier(d, 'chantiers') && !d.absentes.has(PARTENAIRES[cle].table) && h('div', { className: 'fiche-actions' },
           h('button', { className: 'bouton bouton-compact bouton-principal', onClick: () => ouvrirDepuis(() => ouvrirPartenaires(c, PARTENAIRES[cle])) },
             `Gérer les ${PARTENAIRES[cle].titre.toLowerCase()}`)),
         TABLEAUX_FICHE[cle] ? tableauFiche(cle, c) : contenuFiche(d, c, cle),

@@ -3,14 +3,16 @@
 //   ou la pièce ; le formulaire (lieu modifiable, date, fiche de passage, commentaire, 4 photos) s'ouvre sur ce lieu ;
 // - onglet Historique : les enregistrements du chantier en tableau (filtres, recherche, fiche, modifier, supprimer).
 import { h, aujourdhui, depuisGrist, enFrancais, versGrist, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte } from './outils.js'
-import { envoyerPhoto, enregistrer, lienPhotos, modifierLigne, supprimerFiche, peutGerer, estAdmin, idsDeListe } from './donnees.js'
+import { envoyerPhoto, enregistrer, lienPhotos, modifierLigne, supprimerFiche, peutGerer, estAdmin, idsDeListe, peutModifier } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, zonesDuChantier, basesVisibles, lieuRapport } from './navigation.js'
 
 export const NETTOYAGE = {
+  page: 'nettoyage',
   titre: 'Contrôle nettoyage', table: 'Controles_nettoyage', nouveau: 'Nouveau contrôle', horaire: true,
   choix: [{ col: 'Type_action', libelle: 'Type d’action', valeurs: ['Contrôle nettoyage', 'Déclarer écart de nettoyage'] }],
 }
 export const MAINTENANCE = {
+  page: 'maintenance',
   titre: 'Maintenance', table: 'Maintenance', nouveau: 'Nouvelle intervention', horaire: false,
   choix: [
     { col: 'Action', libelle: 'Action', valeurs: ['Maintenance', 'Aménagement et nouvelle installation'] },
@@ -33,6 +35,8 @@ const colonnesPhotos = (ids) => Object.fromEntries(COLONNES_PHOTO.map((col, i) =
 // Écran d'un type de rapport (`config` : NETTOYAGE ou MAINTENANCE), affiché dans `racine`
 export function creerEcranRapport(racine, recharger, config) {
   let d = null
+  // Lecture (Client) : historique seulement
+  const declarable = () => peutModifier(d, config.page)
   const etat = {
     chantierId: null, zoneId: null, baseId: null, etageId: null, vestiaireId: null, filtre: 'tous',
     vue3d: { rotation: -35, inclinaison: 55 }, onglet: 'declarer',
@@ -60,7 +64,7 @@ export function creerEcranRapport(racine, recharger, config) {
             { type: 'hs', valeur: liste.filter((r) => !r.Fiche_passage_complete).length, libelle: 'Incomplètes' },
           ]
         },
-        onOuvrir: (c) => { Object.assign(etat, { onglet: 'declarer', filtreHisto: '', recherche: '' }, selectionPourChantier(d, c.id)); rendre() },
+        onOuvrir: (c) => { Object.assign(etat, { onglet: declarable() ? 'declarer' : 'historique', filtreHisto: '', recherche: '' }, selectionPourChantier(d, c.id)); rendre() },
       }))
       return
     }
@@ -70,7 +74,9 @@ export function creerEcranRapport(racine, recharger, config) {
       h('h1', null, chantier?.Nom ?? ''))]
     const confirmation = banniere ? [banniere] : []
 
-    const bascule = h('div', { className: 'choix choix-2 bascule-vue' },
+    // Lecture (Client) : pas d'onglet Déclarer, l'historique seulement
+    if (!declarable()) etat.onglet = 'historique'
+    const bascule = !declarable() ? h('div', { hidden: true }) : h('div', { className: 'choix choix-2 bascule-vue' },
       [['declarer', 'Déclarer'], ['historique', 'Historique']].map(([cle, libelle]) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle)))
     if (etat.onglet === 'historique') {

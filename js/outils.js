@@ -243,6 +243,13 @@ export function editeurPhotos({ ids = [], lien, max = Infinity, libelle = 'Photo
   }
 }
 
+// Formulaire ouvert en lecture seule : champs désactivés, boutons d'enregistrement et de suppression retirés
+export function figerFormulaire(formulaire) {
+  formulaire.querySelectorAll('input, select, textarea').forEach((c) => { c.disabled = true })
+  formulaire.querySelectorAll('button[type="submit"], .bouton-danger, .etiquette-retirer').forEach((b) => b.remove())
+  return formulaire
+}
+
 // Réduit une photo (1600 px max, JPEG) ; si le navigateur ne sait pas la décoder, renvoie l'original
 export async function reduirePhoto(fichier) {
   try {

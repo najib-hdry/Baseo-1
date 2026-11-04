@@ -2,7 +2,7 @@
 // Casiers, incidents, salariés (actifs, alertes de fin de contrat, de Pass IAE et de titre de séjour),
 // articles de stock à commander, nouvelles demandes de congé et d'acompte. Chaque tuile ouvre la page concernée.
 import { h, depuisGrist, enFrancais, etiqueterLignes, euros, icone } from './outils.js'
-import { estAdmin, idsDeListe, nomContact, ROLE_SALARIE } from './donnees.js'
+import { accesPage, idsDeListe, nomContact, ROLE_SALARIE } from './donnees.js'
 
 // Couleurs des graphiques (variables du thème)
 const TB_COULEURS = { occupes: 'var(--occupe)', libres: 'var(--libre)', hs: 'var(--hs)', ouvert: 'var(--hs)', en_cours: 'var(--signal)',
@@ -129,8 +129,8 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, 'tableau_bord')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     const p = perimetre()

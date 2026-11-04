@@ -42,9 +42,43 @@ async function lireProfil() {
 // Chef d'équipe et admin : hors service, suivi des incidents ; les autres rôles déclarent seulement
 export const peutGerer = (d) => ['Admin', 'Chef d’équipe'].includes(d.moi?.profil)
 // Marquer un incident résolu : chef d'équipe, admin, ou salarié dont le compte a « Gestion des incidents autorisée »
-export const peutResoudre = (d) => peutGerer(d) || Boolean(d.moi?.incidents)
+// (l'autorisation ne compte que pour le profil Salarié)
+export const peutResoudre = (d) => peutGerer(d) || (d.moi?.profil === ROLE_SALARIE && Boolean(d.moi.incidents))
 // Pages et actions réservées au profil Admin (`d` peut être null avant le premier chargement)
 export const estAdmin = (d) => d?.moi?.profil === 'Admin'
+
+// Matrice des pages par profil : 'gestion' (tout) ou 'lecture' ; un profil absent n'a pas la page.
+// Les pages du terrain (Mes tâches, Présence…) sont réservées par `profils` dans PAGES (app.js).
+// Chef d'équipe et Salarié gardent les pages du chantier ; leurs boutons dépendent de peutGerer et des autorisations.
+const GESTION = 'gestion'
+const LECTURE = 'lecture'
+const ACCES_PAGES = {
+  tableau_bord: { Admin: GESTION, RH: LECTURE, Client: LECTURE },
+  chantiers: { Admin: GESTION, RH: LECTURE },
+  casiers: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
+  incidents: { Admin: GESTION, RH: LECTURE, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE }, // RH : lecture et attribution
+  nettoyage: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
+  maintenance: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
+  communication: { Admin: GESTION, RH: GESTION, CIP: LECTURE },
+  utilisateurs: { Admin: GESTION, RH: GESTION },
+  postes: { Admin: GESTION, RH: GESTION, CIP: GESTION },
+  candidats: { Admin: GESTION, RH: GESTION, CIP: GESTION },
+  emargements: { Admin: GESTION, RH: GESTION, CIP: LECTURE },
+  conges: { Admin: GESTION, RH: GESTION },
+  acomptes: { Admin: GESTION, RH: GESTION },
+  stocks: { Admin: GESTION, Client: LECTURE },
+  catalogue: { Admin: GESTION },
+  entreprises: { Admin: GESTION },
+  sous_traitants: { Admin: GESTION },
+}
+// Accès de la personne connectée à la page `cle` : 'gestion', 'lecture' ou null
+export const accesPage = (d, cle) => ACCES_PAGES[cle]?.[d?.moi?.profil] ?? null
+// Page `cle` en gestion : boutons d'ajout, de modification et de suppression ; en lecture, la page se consulte seulement
+export const peutModifier = (d, cle) => accesPage(d, cle) === GESTION
+// Attribuer un incident à des salariés : chef d'équipe, admin et RH
+export const peutAttribuer = (d) => peutGerer(d) || d?.moi?.profil === 'RH'
+// Page ouverte au démarrage quand ce n'est pas la première du menu
+export const PAGE_ACCUEIL = { CIP: 'candidats' }
 
 // Charge toutes les tables et prépare les index utiles aux écrans ; `moi` null = pas d'accès
 export async function chargerTout() {

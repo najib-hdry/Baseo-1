@@ -9,7 +9,7 @@ import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEma
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
-import { estAdmin, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne } from './donnees.js'
+import { accesPage, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -33,8 +33,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, 'utilisateurs')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has('Utilisateurs')) {

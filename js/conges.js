@@ -1,7 +1,7 @@
 // Écran « Suivi des demandes de congé » (admin) : onglets par statut (Nouvelle, Acceptée, Refusée, Tous), tableau avec recherche,
 // fiche de demande (nouvelle ou modification) dont les dates suivent le type de congé, suppression.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versGrist, depuisGrist, enFrancais, compte } from './outils.js'
-import { estAdmin, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact, idsDeListe } from './donnees.js'
+import { accesPage, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact, idsDeListe } from './donnees.js'
 
 const TABLE_CONGES = 'Demande_de_conge'
 const TITRES_CONGES = ['Salarié', 'Type', 'Période', 'Créée le', 'Statut', '']
@@ -45,8 +45,8 @@ export function creerEcranConges(racine, recharger, options = {}) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, seul ? 'utilisateurs' : 'conges')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has(TABLE_CONGES)) {

@@ -1,7 +1,7 @@
 // Écran « Communication » (admin) : onglets Communication générale / par site, tableau (titre, contenu…) avec recherche,
 // fiche de communication (nouvelle ou modification) avec un fichier joint, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte } from './outils.js'
-import { estAdmin, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe } from './donnees.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte, figerFormulaire } from './outils.js'
+import { accesPage, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe, peutModifier } from './donnees.js'
 
 const TABLE_COMMUNICATION = 'Communication'
 const NIVEAU_GENERAL = 'Communication générale'
@@ -25,8 +25,8 @@ export function creerEcranCommunication(racine, recharger) {
   function rendre() {
     if (!d) return
     redessinerLignes = null // un message remplace le tableau : rien à redessiner
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, 'communication')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has(TABLE_COMMUNICATION)) {
@@ -61,7 +61,7 @@ export function creerEcranCommunication(racine, recharger) {
               ? h('a', { href: lien(fichier), target: '_blank', rel: 'noreferrer', onClick: (ev) => ev.stopPropagation() }, 'Ouvrir')
               : fichier ? 'Oui' : '—'),
             h('td', { className: 'tableau-actions' },
-              menuPlus([
+              peutModifier(d, 'communication') && menuPlus([
                 h('button', { className: 'bouton bouton-compact', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(c) } }, 'Modifier'),
                 h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')])))
         })))
@@ -80,7 +80,7 @@ export function creerEcranCommunication(racine, recharger) {
         h('div', { className: 'barre-outils' },
           h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (contenu, chantier, date…)', value: recherche,
             'aria-label': 'Rechercher une communication', onInput: (ev) => { recherche = ev.target.value; dessinerLignes() } }),
-          h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, '＋ Nouvelle communication')),
+          peutModifier(d, 'communication') && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, '＋ Nouvelle communication')),
         compteur,
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
@@ -183,6 +183,8 @@ export function creerEcranCommunication(racine, recharger) {
     erreur, valider,
     c && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(c)) }, 'Supprimer cette communication'))
 
+    // Lecture (CIP) : la fiche se consulte seulement
+    if (!peutModifier(d, 'communication')) figerFormulaire(formulaire)
     const { fermer, ouvrirDepuis } = ouvrirPanneau(c ? `Communication · ${c.Titre || 'Sans titre'}` : 'Nouvelle communication', formulaire)
   }
 

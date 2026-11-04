@@ -1,7 +1,7 @@
 // Écran « Gestion des postes » (admin) : tableau de tous les postes avec recherche et filtre par statut,
 // fiche de création / modification, suppression avec confirmation.
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte } from './outils.js'
-import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste, estAdmin, libelleHoraires } from './donnees.js'
+import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste, accesPage, libelleHoraires } from './donnees.js'
 
 const TITRES_POSTES = ['Poste', 'Chantiers', 'Démarrage', 'Personnes', 'Horaires', 'Statut', '']
 const CLASSES_STATUT_POSTE = { 'À venir': 'badge-en_cours', 'En cours': 'badge-resolu', 'Archives': 'badge-termine' }
@@ -16,8 +16,8 @@ export function creerEcranPostes(racine, recharger) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, 'postes')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has('Postes')) {

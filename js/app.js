@@ -2,7 +2,7 @@
 // et les deux écrans (casiers, incidents), comme l'application Supabase.
 /* global grist */
 import { h, icone, afficherErreur, logoMarque } from './outils.js'
-import { chargerTout, estAdmin, ROLE_SALARIE, ROLE_CHEF } from './donnees.js'
+import { chargerTout, accesPage, PAGE_ACCUEIL, ROLE_SALARIE, ROLE_CHEF } from './donnees.js'
 import { creerEcranCasiers } from './casiers.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
@@ -32,35 +32,35 @@ const GROUPES = [
   { cle: 'stocks', titre: 'Stocks', couleur: '#C9861A' },
   { cle: 'partenaires', titre: 'Partenaires', couleur: '#7E9A12' },
 ]
-// `groupe` : groupe du menu ; `admin` : page visible seulement par le profil Admin ; `profils` : seulement par ces profils
-// (et, avec `autorisation`, seulement si le compte a cette autorisation : clé de `moi`) ;
+// `groupe` : groupe du menu ; `profils` : page visible seulement par ces profils (et, avec `autorisation`, seulement si
+// le compte a cette autorisation : clé de `moi`) ; sans `profils`, la matrice ACCES_PAGES (donnees.js) décide ;
 // `parent` : sous-page, affichée décalée sous sa page. La première page visible s'ouvre au démarrage.
 const PAGES = [
   { cle: 'mes_taches', libelle: 'Mes tâches', icone: 'emargements', groupe: 'travail', profils: [ROLE_SALARIE] },
   { cle: 'presence', libelle: 'Présence', icone: 'crayon', groupe: 'travail', profils: [ROLE_SALARIE], autorisation: 'emargement' },
   { cle: 'demandes', libelle: 'Congé et acompte', icone: 'conges', groupe: 'travail', profils: [ROLE_SALARIE] },
   { cle: 'actualites', libelle: 'Communication', icone: 'communication', groupe: 'travail', profils: [ROLE_SALARIE, ROLE_CHEF] },
-  { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', groupe: 'pilotage', admin: true },
-  { cle: 'chantiers', libelle: 'Chantiers', icone: 'grue', groupe: 'chantiers', admin: true },
+  { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', groupe: 'pilotage' },
+  { cle: 'chantiers', libelle: 'Chantiers', icone: 'grue', groupe: 'chantiers' },
   { cle: 'casiers', libelle: 'Casiers', icone: 'total', groupe: 'chantiers' },
   { cle: 'incidents', libelle: 'Incidents', icone: 'hs', groupe: 'chantiers' },
   { cle: 'nettoyage', libelle: 'Nettoyage', icone: 'nettoyage', groupe: 'chantiers' },
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance', groupe: 'chantiers' },
-  { cle: 'entreprises', libelle: 'Entreprises', icone: 'entreprise', groupe: 'partenaires', admin: true },
-  { cle: 'sous_traitants', libelle: 'Sous-traitants', icone: 'sous_traitant', groupe: 'partenaires', admin: true },
-  { cle: 'utilisateurs', libelle: 'Utilisateurs', icone: 'utilisateurs', groupe: 'rh', admin: true },
-  { cle: 'postes', libelle: 'Postes', icone: 'poste', groupe: 'rh', admin: true },
-  { cle: 'candidats', libelle: 'Candidats', icone: 'occupes', groupe: 'rh', admin: true },
-  { cle: 'emargements', libelle: 'Émargements', icone: 'emargements', groupe: 'rh', admin: true },
-  { cle: 'conges', libelle: 'Congés', icone: 'conges', groupe: 'rh', admin: true },
-  { cle: 'acomptes', libelle: 'Acomptes', icone: 'acomptes', groupe: 'rh', admin: true },
-  { cle: 'communication', libelle: 'Communication', icone: 'communication', groupe: 'communication', admin: true },
-  { cle: 'stocks', libelle: 'Stocks', icone: 'stock', groupe: 'stocks', admin: true },
-  { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', groupe: 'stocks', admin: true, parent: 'stocks' },
+  { cle: 'entreprises', libelle: 'Entreprises', icone: 'entreprise', groupe: 'partenaires' },
+  { cle: 'sous_traitants', libelle: 'Sous-traitants', icone: 'sous_traitant', groupe: 'partenaires' },
+  { cle: 'utilisateurs', libelle: 'Utilisateurs', icone: 'utilisateurs', groupe: 'rh' },
+  { cle: 'postes', libelle: 'Postes', icone: 'poste', groupe: 'rh' },
+  { cle: 'candidats', libelle: 'Candidats', icone: 'occupes', groupe: 'rh' },
+  { cle: 'emargements', libelle: 'Émargements', icone: 'emargements', groupe: 'rh' },
+  { cle: 'conges', libelle: 'Congés', icone: 'conges', groupe: 'rh' },
+  { cle: 'acomptes', libelle: 'Acomptes', icone: 'acomptes', groupe: 'rh' },
+  { cle: 'communication', libelle: 'Communication', icone: 'communication', groupe: 'communication' },
+  { cle: 'stocks', libelle: 'Stocks', icone: 'stock', groupe: 'stocks' },
+  { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', groupe: 'stocks', parent: 'stocks' },
 ]
 const groupeDe = (page) => GROUPES.find((g) => g.cle === page.groupe) ?? GROUPES[0]
 const pagesVisibles = () => PAGES.filter((p) => (p.profils ? p.profils.includes(donnees?.moi?.profil) && (!p.autorisation || donnees.moi[p.autorisation])
-  : !p.admin || estAdmin(donnees)))
+  : accesPage(donnees, p.cle)))
 
 const principal = document.getElementById('app')
 const zones = Object.fromEntries(PAGES.map((p) => [p.cle, h('div')]))
@@ -87,9 +87,15 @@ const ecrans = {
   demandes: creerEcranDemandes(zones.demandes, () => recharger()),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
-// Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la première page visible
+// Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la page d'accueil du profil
+// ou la première page visible (avant le premier chargement, aucune : Casiers, qui affiche « Chargement… »)
 let choix = null
-const pageCourante = () => (pagesVisibles().some((p) => p.cle === choix) ? choix : pagesVisibles()[0].cle)
+const pageCourante = () => {
+  const visibles = pagesVisibles()
+  if (visibles.some((p) => p.cle === choix)) return choix
+  const accueil = PAGE_ACCUEIL[donnees?.moi?.profil]
+  return visibles.some((p) => p.cle === accueil) ? accueil : visibles[0]?.cle ?? 'casiers'
+}
 let donnees = null
 
 // ---- En-tête et menu ----
@@ -218,7 +224,7 @@ function afficherPage() {
   surTitre.textContent = groupeDe(infos).titre
   entete.style.setProperty('--groupe', groupeDe(infos).couleur) // couleur du groupe : icône et sur-titre
   iconeTitre.replaceChildren(icone(infos.icone, 24))
-  dessinerMenuLateral() // page active et pages visibles (admin) à jour
+  dessinerMenuLateral() // page active et pages visibles (selon le profil) à jour
   if (donnees && !donnees.moi) {
     principal.replaceChildren(h('h1', null, donnees.refus ? 'Profil non vérifié' : 'Accès non configuré'),
       h('p', { className: 'message' }, donnees.refus ?? 'Ton compte n’a pas encore de profil actif dans l’application. Demande à l’administrateur de t’ajouter dans la table Utilisateurs.'))

@@ -1,6 +1,6 @@
 // Écran « Gestion des casiers » de l'application Grist
 import { h, aujourdhui, enFrancais, ouvrirPanneau } from './outils.js'
-import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer } from './donnees.js'
+import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
 
 // Écran « Gestion des casiers », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -49,7 +49,7 @@ export function creerEcranCasiers(racine, recharger) {
   function ouvrirCasier(c) {
     const erreur = h('p', { className: 'erreur', hidden: true })
     const corps = h('div', { style: { display: 'grid', gap: '12px' } })
-    const titre = c.statut === 'disponible' ? `Affecter le casier n° ${c.Numero}` : `Casier ${c.Numero}`
+    const titre = c.statut === 'disponible' && peutModifier(d, 'casiers') ? `Affecter le casier n° ${c.Numero}` : `Casier ${c.Numero}`
     const { fermer } = ouvrirPanneau(titre, [corps, erreur])
 
     // Exécute une écriture Grist : attente, erreur ou fermeture + rechargement
@@ -68,8 +68,9 @@ export function creerEcranCasiers(racine, recharger) {
       }
     }
 
+    // Lecture (Client) : l'occupant ou « libre », sans attribution ni libération
     if (c.statut === 'occupe') corps.append(...blocOccupe(c, executer))
-    else if (c.statut === 'disponible') corps.append(...blocLibre(c, executer))
+    else if (c.statut === 'disponible') corps.append(...(peutModifier(d, 'casiers') ? blocLibre(c, executer) : [h('p', { className: 'message' }, 'Ce casier est libre.')]))
     else {
       corps.append(h('p', { className: 'message' }, 'Ce casier est signalé hors service.'))
       if (peutGerer(d)) {
@@ -100,7 +101,7 @@ export function creerEcranCasiers(racine, recharger) {
       confirmer.addEventListener('click', () => executer(confirmer, () => liberer(c.attributionId, date.value)))
       zone.replaceChildren(h('label', { className: 'champ-groupe' }, 'Date de libération', date), message, confirmer)
     })
-    zone.append(libererBtn)
+    if (peutModifier(d, 'casiers')) zone.append(libererBtn)
     return [
       h('p', { className: 'occupant' }, `${c.prenom} ${c.nom}`),
       h('p', { className: 'sous-texte' }, `${c.entreprise || 'Entreprise non renseignée'}${c.dateDebut ? `, depuis le ${enFrancais(c.dateDebut)}` : ''}`),

@@ -2,7 +2,7 @@
 // - « Gestion des stocks » (vue 'stocks') : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche, suppression ;
 // - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus } from './outils.js'
-import { estAdmin, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock } from './donnees.js'
+import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, peutModifier } from './donnees.js'
 
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
 const TITRES_ARTICLES = ['Photo', 'Source', 'Type', 'Article', 'Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Alerte', 'Commentaire']
@@ -25,14 +25,17 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
   const nomsBases = (s) => idsDeListe(s.Base_vie).map((id) => d.parId.Bases_vie.get(id)).filter(Boolean)
     .map((b) => `${b.Nom}${b.Chantier ? ` (${d.parId.Chantiers.get(b.Chantier)?.Nom ?? ''})` : ''}`).join(', ')
   const nomStock = (s) => s.Nom || `Stock n° ${s.id}`
-  const elementsDe = (s) => (d.Stock_Elements ?? []).filter((e) => e.Stock === s.id)
+  // Lecture (Client) : seulement les articles de propreté (les règles d'accès filtrent aussi)
+  const gestionStocks = () => peutModifier(d, 'stocks')
+  const visible = (e) => gestionStocks() || /propret/i.test((d.parId.Stock_Source.get(e.Source)?.Source ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+  const elementsDe = (s) => (d.Stock_Elements ?? []).filter((e) => e.Stock === s.id && visible(e))
   const source = (r) => d.parId.Stock_Source.get(r.Source)?.Source ?? ''
   const type = (r) => d.parId.Stock_Type.get(r.Type)?.Type ?? ''
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, vue)) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     const table = vue === 'stocks' ? 'Stock' : 'Stock_Reference'
@@ -71,7 +74,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
 
   function contenuStocks() {
     return tableau(TITRES_STOCKS, 'Rechercher (nom, chantier, base vie…)', () => [],
-      h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFicheStock(null) }, '＋ Nouveau stock'),
+      gestionStocks() && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFicheStock(null) }, '＋ Nouveau stock'),
       (corps, compteur) => {
         const filtre = recherche.trim().toLowerCase()
         const liste = d.Stock
@@ -82,18 +85,18 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
           ? ligneVide(6, d.Stock.length === 0
             ? 'Aucun stock pour l’instant. Crée le premier avec « ＋ Nouveau stock » : chaque ligne aura ensuite ses boutons Modifier et Supprimer.'
             : 'Aucun stock ne correspond à la recherche.')
-          : liste.map((s) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFicheStock(s) },
+          : liste.map((s) => h('tr', { className: 'tableau-ligne', onClick: () => (gestionStocks() ? ouvrirFicheStock(s) : ouvrirArticles(s)) },
             h('td', null, String(s.id)),
             h('td', { className: 'tableau-nom' }, s.Nom || '—'),
             h('td', null, nomsChantiers(s) || '—'),
             h('td', null, nomsBases(s) || '—'),
             h('td', null, h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirArticles(s) } },
               `Voir les articles (${elementsDe(s).length})`)),
-            h('td', { className: 'tableau-actions' },
+            h('td', { className: 'tableau-actions' }, gestionStocks() && [
               h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirEntreesSorties(s) } }, 'Entrées / sorties'),
               menuPlus([
                 h('button', { className: 'bouton bouton-compact', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheStock(s) } }, 'Modifier'),
-                h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); supprimerStock(s) } }, 'Supprimer')]))))))
+                h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); supprimerStock(s) } }, 'Supprimer')])])))))
       })
   }
 
@@ -308,9 +311,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       compteur,
       h('div', { className: 'tableau-defilant' },
         h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', { className: COLONNES_NOMBRES.has(t) ? 'tableau-centre' : null }, t)))), corps)),
-      h('div', { className: 'fiche-boutons' },
+      h('div', { className: 'fiche-boutons' }, gestionStocks() && [
         h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirEntreesSorties(s, rouvrirArticles)) }, 'Entrées / sorties'),
-        h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles du catalogue'),
+        h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles du catalogue')],
         h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Fermer')),
     ])
     section.classList.add('panneau-large', 'panneau-fiche')

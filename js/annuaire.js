@@ -1,7 +1,7 @@
 // Écrans « annuaire » (admin) : tableau avec recherche, fiche de création / modification, suppression.
 // Une même logique pour deux tables, décrites par ENTREPRISES et SOUS_TRAITANTS.
 import { h, ouvrirPanneau, etiqueterLignes, lienContact, fenetreSuppression, compte } from './outils.js'
-import { enregistrerFiche, supprimerFiche, estAdmin } from './donnees.js'
+import { enregistrerFiche, supprimerFiche, accesPage } from './donnees.js'
 
 const responsable = (r) => [r.Responsable_prenom, r.Responsable_nom].filter(Boolean).join(' ')
 const nomEntreprise = (d, r) => d.parId.Entreprises.get(r.Entreprise)?.Nom ?? ''
@@ -14,7 +14,7 @@ const nomEntreprise = (d, r) => d.parId.Entreprises.get(r.Entreprise)?.Nom ?? ''
  * - liens(d, r) : lignes d'autres tables rattachées, annoncées avant suppression ([nombre, libellé])
  */
 export const ENTREPRISES = {
-  table: 'Entreprises', titre: 'Gestion des entreprises', unite: 'entreprise', nouveau: 'Nouvelle entreprise', creer: 'Créer l’entreprise', ce: 'cette entreprise',
+  page: 'entreprises', table: 'Entreprises', titre: 'Gestion des entreprises', unite: 'entreprise', nouveau: 'Nouvelle entreprise', creer: 'Créer l’entreprise', ce: 'cette entreprise',
   champs: [
     ['Nom', 'Nom de l’entreprise', { required: true }],
     ['Adresse', 'Adresse', { multiligne: true }],
@@ -37,7 +37,7 @@ export const ENTREPRISES = {
 }
 
 export const SOUS_TRAITANTS = {
-  table: 'Sous_traitants', titre: 'Gestion des sous-traitants', unite: 'sous-traitant', nouveau: 'Nouveau sous-traitant', creer: 'Créer le sous-traitant', ce: 'ce sous-traitant',
+  page: 'sous_traitants', table: 'Sous_traitants', titre: 'Gestion des sous-traitants', unite: 'sous-traitant', nouveau: 'Nouveau sous-traitant', creer: 'Créer le sous-traitant', ce: 'ce sous-traitant',
   champs: [
     ['Nom', 'Nom du sous-traitant', { required: true }],
     ['Entreprise', 'Entreprise', { entreprise: true }],
@@ -65,8 +65,8 @@ export function creerEcranAnnuaire(racine, recharger, config) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, config.page)) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has(config.table)) {

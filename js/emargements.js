@@ -1,8 +1,8 @@
 // Écran « Suivi des émargements » (admin) : onglets par état (Présent, En retard, Absent, Tous), tableau avec recherche,
 // fiche de modification (les champs suivent l'état : absence autorisée si absent, durée si en retard ou parti plus tôt…),
 // validation et suppression des émargements cochés.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier, compte } from './outils.js'
-import { estAdmin, ROLE_SALARIE, modifierLigne, supprimerLignes, validerEmargements, nomContact } from './donnees.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier, compte, figerFormulaire } from './outils.js'
+import { accesPage, ROLE_SALARIE, modifierLigne, supprimerLignes, validerEmargements, nomContact, peutModifier } from './donnees.js'
 
 const TABLE_EMARGEMENTS = 'Emargement_Salarie'
 const TITRES_EMARGEMENTS = ['', 'Salarié', 'Arrivée/Départ', 'Heure début', 'Heure fin', 'État', 'Absence autorisée', 'Retard', 'Parti tôt', 'Heures sup', 'Validé', '']
@@ -38,8 +38,8 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
 
   function rendre() {
     if (!d) return
-    if (!estAdmin(d)) {
-      racine.replaceChildren(h('p', { className: 'message' }, 'Page réservée aux administrateurs.'))
+    if (!accesPage(d, seul ? 'utilisateurs' : 'emargements')) {
+      racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
     if (d.absentes.has(TABLE_EMARGEMENTS)) {
@@ -47,6 +47,7 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
       return
     }
     const tous = d[TABLE_EMARGEMENTS].filter((e) => !seul || e.Salarie === seul)
+    const gestion = peutModifier(d, seul ? 'utilisateurs' : 'emargements') // lecture (CIP) : ni sélection, ni validation, ni suppression
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     const supprimerSelection = h('button', { className: 'bouton bouton-compact bouton-danger', type: 'button',
@@ -88,7 +89,7 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : 'Aucun émargement dans cet onglet.'))]
         : liste.map((e) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(e) },
-          h('td', { onClick: (ev) => ev.stopPropagation() },
+          h('td', { onClick: (ev) => ev.stopPropagation() }, gestion &&
             h('input', { type: 'checkbox', 'aria-label': `Sélectionner l’émargement de ${nomSalarie(e)}`, checked: choisis.has(e.id),
               onChange: (ev) => { ev.target.checked ? choisis.add(e.id) : choisis.delete(e.id); dessinerLignes() } })),
           !seul && h('td', { className: 'tableau-nom' }, nomSalarie(e)),
@@ -102,8 +103,8 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
           h('td', null, e.Heures_sup_faites ? duree(e.Duree_heures_sup) || 'Oui' : '—'),
           h('td', null, e.Emargement_valide ? 'Oui' : 'Non'),
           h('td', { className: 'tableau-actions' },
-            h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(e) } }, 'Modifier'),
-            h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression([e]) } }, 'Supprimer'))))))
+            h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(e) } }, gestion ? 'Modifier' : 'Voir'),
+            gestion && h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression([e]) } }, 'Supprimer'))))))
       etiqueterLignes(corps, titres)
     }
     toutCocher.addEventListener('change', () => {
@@ -121,11 +122,11 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
         h('div', { className: 'barre-outils' },
           h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (salarié, date, arrivée / départ…)', value: recherche,
             'aria-label': 'Rechercher un émargement', onInput: (ev) => { recherche = ev.target.value; dessinerLignes() } }),
-          validerSelection, supprimerSelection),
+          gestion && [validerSelection, supprimerSelection]),
         compteur,
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, titres.map((t, i) => h('th', null, i === 0 ? toutCocher : t)))),
+            h('thead', null, h('tr', null, titres.map((t, i) => h('th', null, i === 0 ? gestion && toutCocher : t)))),
             corps))))
   }
 
@@ -230,6 +231,7 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
     erreur, valider,
     h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression([e])) }, 'Supprimer cet émargement'))
 
+    if (!peutModifier(d, seul ? 'utilisateurs' : 'emargements')) figerFormulaire(formulaire)
     const { fermer, ouvrirDepuis, section } = ouvrirPanneau(`${e.Arrivee_Depart || 'Émargement'} · ${nomSalarie(e)}`, formulaire)
     section.classList.add('panneau-large')
   }
