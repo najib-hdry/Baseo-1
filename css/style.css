@@ -1049,3 +1049,40 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .tache-incident-picto { display: grid; }
 .tache-resolution { margin-top: 4px; }
 .tache-resolu { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; font-size: 1.05rem; }
+
+/* ---- Présence (salarié avec auto-émargement) : fiche de présence violette, fiche d'émargement à gros pictogrammes ---- */
+.presence { --violet: #7C3AED; }
+.presence .taches-pastille { border-color: #ddd0fb; background: #f3edff; color: #4c1d95; }
+.presence .taches-pastille::before { background: var(--violet); }
+.presence .taches-entete h1 { color: #2e1065; }
+.presence-fiche { background: var(--surface); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgb(76 29 149 / .12); border: 1px solid #e9e1fb; }
+.presence-fiche-haut { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+  color: #fff; font-weight: 700; font-size: 1.1rem; }
+.presence-fiche-picto { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: rgb(255 255 255 / .2); border: 1px solid rgb(255 255 255 / .35); }
+.presence-fiche-corps { display: grid; gap: 0; padding: 6px 18px 18px; }
+.presence-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid #efeaf8; }
+.presence-ligne-libelle { display: inline-flex; align-items: center; gap: 8px; color: #6b5a8e; font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.presence-ligne-libelle svg { color: var(--violet); }
+.presence-ligne strong { font-size: 1.1rem; color: #2e1065; }
+.presence-type { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: #f3edff; border: 1px solid #ddd0fb;
+  color: #4c1d95; font-size: .85rem; text-transform: uppercase; }
+.presence-type::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--violet); }
+.presence-resume { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 14px; }
+.presence-pastille { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-weight: 700; color: var(--couleur);
+  background: color-mix(in srgb, var(--couleur) 12%, white); }
+.presence-valide { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; color: var(--encre-douce); font-weight: 600; }
+.presence-emarger { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; margin-top: 16px; font-size: 1.1rem;
+  background: #7C3AED; border-color: #7C3AED; }
+.presence-choix { display: grid; gap: 14px; }
+.presence-tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.presence-tuiles-2 { grid-template-columns: repeat(2, 1fr); }
+.presence-tuile { display: grid; justify-items: center; gap: 8px; padding: 14px 6px; border: 2px solid var(--trait); border-radius: 16px; background: var(--surface);
+  font: inherit; font-weight: 700; color: var(--encre); cursor: pointer; }
+.presence-tuile-picto { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; color: var(--couleur);
+  background: color-mix(in srgb, var(--couleur) 12%, white); }
+.presence-tuile[aria-pressed="true"] { border-color: var(--couleur); background: color-mix(in srgb, var(--couleur) 8%, white); }
+.presence-tuile[aria-pressed="true"] .presence-tuile-picto { background: var(--couleur); color: #fff; }
+.presence-question { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; color: #4c1d95; }
+.presence-durees { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.presence-duree { min-height: 48px; border: 2px solid var(--trait); border-radius: 12px; background: var(--surface); font: inherit; font-weight: 700; cursor: pointer; }
+.presence-duree[aria-pressed="true"] { border-color: #7C3AED; background: #7C3AED; color: #fff; }

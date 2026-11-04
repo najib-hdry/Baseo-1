@@ -35,7 +35,8 @@ async function lireProfil() {
   const moi = miennes[0]?.Actif ? miennes[0] : null
   if (moi?.Profil === 'Admin') return { refus: 'Ton compte a le rôle Admin dans Utilisateurs, mais pas l’accès administrateur du document. Préviens l’administrateur.' }
   return ROLES.includes(moi?.Profil) ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null, id: moi.id,
-    incidents: Boolean(moi.Gestion_incidents_autorisee), casiers: Boolean(moi.Gestion_casiers_autorisee) } : null
+    incidents: Boolean(moi.Gestion_incidents_autorisee), casiers: Boolean(moi.Gestion_casiers_autorisee),
+    emargement: Boolean(moi.Auto_emargement_autorise) } : null
 }
 
 // Chef d'équipe et admin : hors service, suivi des incidents ; les autres rôles déclarent seulement
