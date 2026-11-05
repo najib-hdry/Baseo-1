@@ -51,6 +51,10 @@ const TRACES = {
   main: '<path d="M9 11V5a1.5 1.5 0 0 1 3 0v5M12 10V4a1.5 1.5 0 0 1 3 0v6M15 10V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-2.7L3 14.5a1.5 1.5 0 0 1 2.4-1.8L9 15V8a1.5 1.5 0 0 0-3 0"/>',
   note: '<path d="M6 3h9l4 4v14H6Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/>',
   fleche: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  goutte: '<path d="M12 3s-6 6.5-6 11a6 6 0 0 0 12 0c0-4.5-6-11-6-11Z"/>',
+  eclair: '<path d="M13 2 4 14h7l-1 8 9-12h-7Z"/>',
+  casque: '<path d="M3 17h18M5 17v-3a7 7 0 0 1 14 0v3M10 7V5h4v2"/><path d="M12 7v4"/>',
+  question: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/>',
   croix: '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>',
   sortie: '<path d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
   heures_sup: '<circle cx="11" cy="13" r="8"/><path d="M11 9v4l2 2M19 2v6M16 5h6"/>',
@@ -434,11 +438,15 @@ export function etiqueterLignes(tbody, titres) {
 }
 
 // Barre d'onglets ; un seul élément s'affiche comme simple texte
-export function onglets(libelle, elements, actifId, onChoisir) {
+// Rangée de choix (zones, bases vie, étages, vestiaires) précédée de son titre et de son pictogramme `picto` ;
+// un seul élément : son nom seulement, sans bouton à toucher
+export function onglets(libelle, elements, actifId, onChoisir, picto) {
   if (elements.length === 0) return null
-  if (elements.length === 1) return h('p', { className: 'sous-texte' }, elements[0].Nom)
-  return h('div', { className: 'onglets', role: 'tablist', 'aria-label': libelle },
-    elements.map((e) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(e.id === actifId), onClick: () => onChoisir(e) }, e.Nom)))
+  return h('div', { className: 'rangee-lieu' },
+    h('span', { className: 'rangee-titre' }, picto && icone(picto, 18), libelle),
+    elements.length === 1 ? h('p', { className: 'rangee-seul' }, elements[0].Nom)
+      : h('div', { className: 'onglets', role: 'tablist', 'aria-label': libelle },
+        elements.map((e) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(e.id === actifId), onClick: () => onChoisir(e) }, e.Nom))))
 }
 
 // Erreur inattendue (pas de console dans Grist) : message lisible, bouton Recharger, détail technique replié

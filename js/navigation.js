@@ -67,9 +67,9 @@ function memoriserPlanMasque(valeur) {
 }
 
 const FILTRES = [
-  { cle: 'tous', libelle: 'Tous' },
-  { cle: 'disponible', libelle: 'Libres' },
-  { cle: 'occupe', libelle: 'Occupés' },
+  { cle: 'tous', libelle: 'Tous', picto: 'total' },
+  { cle: 'disponible', libelle: 'Libres', picto: 'libres' },
+  { cle: 'occupe', libelle: 'Occupés', picto: 'occupes' },
 ]
 const detail = (c) =>
   c.statut === 'occupe' ? `${c.prenom?.[0] ?? ''}. ${c.nom}` : c.statut === 'disponible' ? 'Libre' : 'Hors service'
@@ -109,7 +109,7 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
   // empilés sur téléphone, côte à côte sur ordinateur (voir .vue-chantier dans le CSS)
   // Zones et bases vie au-dessus des deux blocs : sur ordinateur, les étages (gauche) et les vestiaires (droite)
   // commencent ainsi à la même hauteur
-  const haut = [onglets('Zones', zones, etat.zoneId, choisirZone), onglets('Bases vie', bases, etat.baseId, choisirBase)]
+  const haut = [onglets('Zone', zones, etat.zoneId, choisirZone, 'lieu'), onglets('Base vie', bases, etat.baseId, choisirBase, 'entreprise')]
   const plan = []
   const noeuds = []
 
@@ -123,7 +123,8 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
       !masque && plan3d({ etages: etagesBase, vestiaires: vestiairesPlan, pieces: d.Pieces, etageId: etat.etageId,
         vestiaireId: etat.vestiaireId, onEtage: choisirEtage, onVestiaire: choisirVestiaire, vue: etat.vue3d }),
       !masque && h('p', { className: 'plan3d-aide' }, 'Glisse pour tourner · touche un étage ou un vestiaire'),
-      onglets('Étages', [...etagesBase].reverse(), etat.etageId, choisirEtage),
+      onglets('Étage', [...etagesBase].reverse(), etat.etageId, choisirEtage, 'etage'),
+      mode !== 'lieux' && piecesEtage.length > 0 && h('span', { className: 'rangee-titre' }, icone('porte', 18), 'Pièces'),
       mode !== 'lieux' && piecesEtage.length > 0 && h('ul', { className: 'pieces', 'aria-label': 'Autres pièces de l’étage' },
         piecesEtage.map((p) => h('li', { className: `piece piece-${p.Type}` },
           onPiece
@@ -149,10 +150,10 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
     const compte = (cle) => (cle === 'tous' ? casiers.length : casiers.filter((c) => c.statut === cle).length)
     const visibles = casiers.filter((c) => etat.filtre === 'tous' || c.statut === etat.filtre)
     noeuds.push(
-      onglets('Vestiaires', vestiairesEtage, etat.vestiaireId, choisirVestiaire),
+      onglets('Vestiaire', vestiairesEtage, etat.vestiaireId, choisirVestiaire, 'total'),
       h('div', { className: 'filtres' }, FILTRES.map((f) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.filtre === f.cle), onClick: () => { etat.filtre = f.cle; rafraichir() } },
-          `${f.libelle} ${compte(f.cle)}`))),
+          icone(f.picto, 18), `${f.libelle} ${compte(f.cle)}`))),
       visibles.length === 0
         ? h('p', { className: 'message' }, 'Aucun casier dans cette catégorie.')
         : h('div', { className: 'grille' }, visibles.map((c) =>

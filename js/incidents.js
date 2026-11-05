@@ -1,6 +1,6 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
-import { h, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
+import { h, icone, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
 import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE, peutModifier, peutAttribuer } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
@@ -16,6 +16,9 @@ export function creerEcranIncidents(racine, recharger) {
 
   const STATUTS = { Ouvert: 'ouvert', 'En cours': 'en_cours', Résolu: 'resolu' }
   const MAX_PHOTOS_INCIDENT = 4 // par incident, avant comme après réparation
+  // Pictogramme et couleur de chaque catégorie (boutons du signalement)
+  const PICTOS_CATEGORIES = { Plomberie: ['goutte', '#007EBD'], Électricité: ['eclair', '#D99A00'], Serrure: ['cadenas', '#3D5A73'],
+    Propreté: ['nettoyage', '#1F8A4C'], Sécurité: ['casque', '#C8382E'], Autre: ['question', '#5B6B78'] }
   const chantierIncident = (i) => {
     const casier = d.parId.Casiers.get(i.Casier)
     const piece = d.parId.Pieces.get(i.Piece)
@@ -87,8 +90,10 @@ export function creerEcranIncidents(racine, recharger) {
     const envoyer = h('button', { className: 'bouton bouton-principal', type: 'submit', disabled: true }, 'Envoyer')
     const majBouton = () => { envoyer.disabled = !(form.categorie && form.description.trim()) }
 
-    const categories = h('div', { className: 'choix choix-3' }, CATEGORIES.map((cat) => {
-      const b = h('button', { className: 'filtre', type: 'button', 'aria-pressed': 'false' }, cat)
+    const categories = h('div', { className: 'presence-tuiles' }, CATEGORIES.map((cat) => {
+      const [picto, couleur] = PICTOS_CATEGORIES[cat] ?? ['question', '#5B6B78']
+      const b = h('button', { className: 'presence-tuile', type: 'button', 'aria-pressed': 'false', style: { '--couleur': couleur } },
+        h('span', { className: 'presence-tuile-picto' }, icone(picto, 30)), h('span', null, cat))
       b.addEventListener('click', () => {
         form.categorie = cat
         categories.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))

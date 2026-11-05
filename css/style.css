@@ -1116,3 +1116,14 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 /* Statut et « Annuler » sur leur ligne, sous le texte */
 .demande-droite { flex: 1 0 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid var(--trait); }
 .demande-droite .bouton { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---- Rangées de choix des pages du chantier : titre à pictogramme au-dessus de chaque rangée ---- */
+.rangee-lieu { margin-top: 14px; }
+.rangee-lieu .onglets { margin-top: 6px; }
+.rangee-titre { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: .8rem; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--encre-douce); }
+.rangee-lieu > .rangee-titre { margin-top: 0; }
+.rangee-titre svg { color: var(--marque-vert); }
+.rangee-seul { margin: 4px 0 0; font-weight: 700; }
+.filtre { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.filtres .filtre { gap: 4px; padding: 0 4px; white-space: nowrap; }
