@@ -1128,3 +1128,6 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .rangee-seul { margin: 4px 0 0; font-weight: 700; }
 .filtre { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .filtres .filtre { gap: 4px; padding: 0 4px; white-space: nowrap; }
+/* Menu ☰ du téléphone : le haut (logo, ✕) reste en place, la liste des pages défile sur un petit écran */
+.tiroir { height: 100dvh; max-height: 100dvh; }
+.tiroir-liste { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
