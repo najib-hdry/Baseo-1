@@ -831,6 +831,8 @@ h1, h2, h3, .stat-valeur, .tb-valeur, .anneau-taux { font-family: 'Titillium Web
 .entete-titre::after { content: ""; display: block; width: 48px; height: 4px; margin-top: 4px; background: var(--jaune); border-radius: 2px; }
 .entete-logo { width: auto; }
 .entete-logo .logo-marque { font-size: 1.3rem; }
+/* Le logo est en haut du menu (latéral sur ordinateur, ☰ sur téléphone) : la barre du haut garde la place pour le titre */
+.entete-logo { display: none; }
 
 /* Menu (tiroir du téléphone et menu latéral) : titres de groupe avec pastille de couleur */
 .menu-groupe { display: flex; align-items: center; gap: 8px; margin: 14px 8px 4px; font-family: 'Titillium Web', sans-serif; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--encre-douce); }
@@ -844,7 +846,6 @@ button.tiroir-lien { font-weight: 500; }
 .tiroir-lien.sous-lien { width: calc(100% - 22px); margin-left: 22px; }
 
 @media (min-width: 900px) {
-  .entete-logo { display: none; } /* le logo est déjà dans le menu */
   .menu-lateral { padding: 0 10px 12px; color: var(--encre); background: #fff; border: 1px solid var(--trait-clair); border-radius: var(--rayon); }
   .menu-logo { width: auto; margin: 0 -10px 4px; padding: 20px 18px 14px; border-bottom: 4px solid var(--jaune); }
   .menu-sous-titre { display: block; margin-top: 4px; font-size: .78rem; color: var(--encre-douce); }

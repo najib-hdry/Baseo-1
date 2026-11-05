@@ -124,8 +124,10 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
         vestiaireId: etat.vestiaireId, onEtage: choisirEtage, onVestiaire: choisirVestiaire, vue: etat.vue3d }),
       !masque && h('p', { className: 'plan3d-aide' }, 'Glisse pour tourner · touche un étage ou un vestiaire'),
       onglets('Étage', [...etagesBase].reverse(), etat.etageId, choisirEtage, 'etage'),
-      mode !== 'lieux' && piecesEtage.length > 0 && h('span', { className: 'rangee-titre' }, icone('porte', 18), 'Pièces'),
-      mode !== 'lieux' && piecesEtage.length > 0 && h('ul', { className: 'pieces', 'aria-label': 'Autres pièces de l’étage' },
+      // Pièces de l'étage : seulement pour signaler un incident (une pièce n'a pas de casiers ; Nettoyage et Maintenance
+      // les proposent en boutons avec les vestiaires)
+      mode === 'incidents' && piecesEtage.length > 0 && h('span', { className: 'rangee-titre' }, icone('porte', 18), 'Pièces'),
+      mode === 'incidents' && piecesEtage.length > 0 && h('ul', { className: 'pieces', 'aria-label': 'Autres pièces de l’étage' },
         piecesEtage.map((p) => h('li', { className: `piece piece-${p.Type}` },
           onPiece
             ? h('button', { className: 'piece-bouton', onClick: () => onPiece(p) }, p.Nom,
@@ -148,10 +150,12 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
   else {
     const casiers = d.Casiers.filter((c) => c.Vestiaire === etat.vestiaireId).map((c) => detailCasier(d, c))
     const compte = (cle) => (cle === 'tous' ? casiers.length : casiers.filter((c) => c.statut === cle).length)
-    const visibles = casiers.filter((c) => etat.filtre === 'tous' || c.statut === etat.filtre)
+    // Filtres Tous / Libres / Occupés : seulement pour attribuer (page Casiers) ; pour un incident, tous les casiers
+    const filtrable = mode === 'casiers'
+    const visibles = casiers.filter((c) => !filtrable || etat.filtre === 'tous' || c.statut === etat.filtre)
     noeuds.push(
       onglets('Vestiaire', vestiairesEtage, etat.vestiaireId, choisirVestiaire, 'total'),
-      h('div', { className: 'filtres' }, FILTRES.map((f) =>
+      filtrable && h('div', { className: 'filtres' }, FILTRES.map((f) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.filtre === f.cle), onClick: () => { etat.filtre = f.cle; rafraichir() } },
           icone(f.picto, 18), `${f.libelle} ${compte(f.cle)}`))),
       visibles.length === 0

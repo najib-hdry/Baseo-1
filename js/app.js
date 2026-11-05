@@ -152,7 +152,7 @@ function ouvrirMenu() {
   const voile = h('div', { className: 'voile voile-tiroir', onClick: fermer },
     h('nav', { className: 'tiroir', 'aria-label': 'Mes pages', onClick: (e) => e.stopPropagation() },
       h('div', { className: 'tiroir-haut' },
-        h('span', { className: 'tiroir-titre' }, 'Mes pages'),
+        h('span', { className: 'tiroir-titre' }, logoMarque()),
         h('button', { className: 'bouton bouton-fermer', 'aria-label': 'Fermer', onClick: fermer }, '✕')),
       liste))
   const dessiner = () => liste.replaceChildren(...liensMenu(fermer, true, dessiner).flat(Infinity).filter(Boolean))
