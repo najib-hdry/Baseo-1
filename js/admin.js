@@ -5,11 +5,14 @@ import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSupp
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, accesPage, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE, peutModifier } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, accesPage, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE, peutModifier, chantierDeIncident } from './donnees.js'
+import { cartesChantiers } from './navigation.js'
 
 const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Détail du chantier', '']
 // Ordre des onglets de la page
 const ONGLETS_CHANTIERS = ['En cours', 'Terminé', 'À venir', 'Nouveau']
+// Onglets de la fiche que le chef d'équipe ne voit pas (pages qu'il n'a pas)
+const ONGLETS_HORS_CHEF = ['entreprises', 'sous_traitants', 'postes']
 const LIBELLES_CONTENU = {
   Zones: 'zones', Bases_vie: 'bases vie', Etages: 'étages', Vestiaires: 'vestiaires', Casiers: 'casiers', Pieces: 'pièces',
   Attributions: 'attributions', Incidents: 'incidents', Controles_nettoyage: 'contrôles nettoyage', Maintenance: 'interventions de maintenance',
@@ -31,6 +34,21 @@ export function creerEcranAdmin(racine, recharger) {
     if (!d) return
     if (!accesPage(d, 'chantiers')) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
+      return
+    }
+    // Chef d'équipe (téléphone) : une carte par chantier (les siens), qui ouvre la fiche en lecture
+    if (d.moi.profil === ROLE_CHEF) {
+      racine.replaceChildren(...cartesChantiers(d, {
+        stats: (c) => {
+          const casiers = d.Casiers.filter((k) => k.Chantier === c.id)
+          return [
+            { type: 'libres', valeur: casiers.filter((k) => !k.Hors_service && !d.activeParCasier.has(k.id)).length, libelle: 'Casiers libres' },
+            { type: 'ouverts', valeur: d.Incidents.filter((i) => i.Statut !== 'Résolu' && chantierDeIncident(d, i) === c.id).length, libelle: 'Incidents' },
+            { type: 'occupes', valeur: equipeDuChantier(d, c.id).filter((u) => u.Actif && u.Profil === ROLE_SALARIE).length, libelle: 'Salariés' },
+          ]
+        },
+        onOuvrir: (c) => ouvrirFiche(c, 'informations'),
+      }))
       return
     }
     // Onglets dans l'ordre demandé ; « Sans statut » n'apparaît que s'il en reste
@@ -101,7 +119,7 @@ export function creerEcranAdmin(racine, recharger) {
     let ongletCourant = ongletInitial
     const afficherOnglet = (cle) => {
       ongletCourant = cle
-      onglets.replaceChildren(...ONGLETS_FICHE.map(([k, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle),
+      onglets.replaceChildren(...ONGLETS_FICHE.filter(([k]) => d.moi.profil !== ROLE_CHEF || !ONGLETS_HORS_CHEF.includes(k)).map(([k, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(k === cle),
         onClick: () => afficherOnglet(k) }, libelle)))
       contenu.replaceChildren(...[
         cle === 'composants' && peutModifier(d, 'chantiers') && h('div', { className: 'fiche-actions' },

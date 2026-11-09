@@ -1,7 +1,7 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
 import { h, icone, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
-import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE, peutModifier, peutAttribuer } from './donnees.js'
+import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE, peutModifier, peutAttribuer, chantierDeIncident } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
 // Écran « Gestion des incidents », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -19,11 +19,7 @@ export function creerEcranIncidents(racine, recharger) {
   // Pictogramme et couleur de chaque catégorie (boutons du signalement)
   const PICTOS_CATEGORIES = { Plomberie: ['goutte', '#007EBD'], Électricité: ['eclair', '#D99A00'], Serrure: ['cadenas', '#3D5A73'],
     Propreté: ['nettoyage', '#1F8A4C'], Sécurité: ['casque', '#C8382E'], Autre: ['question', '#5B6B78'] }
-  const chantierIncident = (i) => {
-    const casier = d.parId.Casiers.get(i.Casier)
-    const piece = d.parId.Pieces.get(i.Piece)
-    return casier?.Chantier ?? piece?.Chantier ?? i.Chantier
-  }
+  const chantierIncident = (i) => chantierDeIncident(d, i)
   const photoId = (v) => idsDeListe(v)[0] ?? null
 
   function rendre() {

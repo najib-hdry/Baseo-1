@@ -1,8 +1,10 @@
 // Écrans des stocks (admin), deux pages du menu :
 // - « Gestion des stocks » (vue 'stocks') : tableau des stocks (chantiers servis, bases vie où ils sont rangés), fiche, suppression ;
 // - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus } from './outils.js'
-import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, peutModifier, estSourceProprete, limiteAuStockProprete } from './donnees.js'
+// Chef d'équipe (téléphone) : les stocks de ses chantiers en cartes ; entrées / sorties, ajout d'articles du catalogue
+// et nouvel article au catalogue, sans créer, modifier ni supprimer de stock.
+import { h, icone, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus } from './outils.js'
+import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, peutModifier, estSourceProprete, limiteAuStockProprete, ROLE_CHEF } from './donnees.js'
 
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
 const TITRES_ARTICLES = ['Photo', 'Source', 'Type', 'Article', 'Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Alerte', 'Commentaire']
@@ -43,7 +45,29 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       racine.replaceChildren(h('p', { className: 'message' }, `Ce document n’a pas de table ${table}.`))
       return
     }
+    if (vue === 'stocks' && d.moi.profil === ROLE_CHEF) return racine.replaceChildren(...cartesStocks())
     racine.replaceChildren(h('section', { className: 'carte-tableau' }, ...(vue === 'stocks' ? contenuStocks() : contenuCatalogue())))
+  }
+
+  // Chef d'équipe : une carte par stock de ses chantiers (d.Chantiers ne contient que les siens), qui ouvre ses articles
+  function cartesStocks() {
+    const actuelle = (e) => (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
+    const stocks = d.Stock.filter((s) => idsDeListe(s.Chantiers).some((id) => d.parId.Chantiers.has(id)))
+      .sort((a, b) => String(a.Nom ?? '').localeCompare(String(b.Nom ?? ''), 'fr', { numeric: true }))
+    if (stocks.length === 0) return [h('p', { className: 'message' }, 'Aucun stock sur tes chantiers.')]
+    return [h('ul', { className: 'cartes' }, stocks.map((s) => {
+      const elements = elementsDe(s)
+      const aCommander = elements.filter((e) => e.Quantite_seuil && actuelle(e) <= e.Quantite_seuil).length
+      return h('li', null, h('button', { className: 'carte-chantier', onClick: () => ouvrirArticles(s) },
+        h('div', { className: 'carte-haut' },
+          h('span', { className: 'carte-icone' }, icone('stock', 30)),
+          h('div', { className: 'carte-titre' }, h('h2', null, nomStock(s)), h('div', { className: 'sous-texte' }, nomsBases(s) || nomsChantiers(s))),
+          h('span', { className: 'carte-fleche', 'aria-hidden': 'true' }, '›')),
+        h('div', { className: 'stats stats-2' },
+          [['stock', elements.length, 'Articles'], ['hs', aCommander, 'À commander']].map(([type, valeur, libelle]) =>
+            h('div', { className: `stat stat-${type}${valeur === 0 ? ' stat-nul' : ''}` },
+              icone(type), h('span', { className: 'stat-valeur' }, valeur), h('span', { className: 'stat-libelle' }, libelle))))))
+    }))]
   }
 
   // Recherche, bouton d'ajout, compteur et tableau ; `dessiner(corps, compteur)` remplit les lignes
@@ -237,8 +261,11 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     majResume()
 
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
-    const { fermer, annuler, section } = ouvrirPanneau(`Articles du stock « ${nomStock(s)} »`, [
+    // Article absent du catalogue : on le crée, puis cette fenêtre se rouvre avec le catalogue à jour
+    const nouvelArticle = () => ouvrirDepuis(() => ouvrirFicheArticle(null, () => { const aJour = d.parId.Stock.get(s.id); if (aJour) ouvrirChoixArticles(aJour, apres) }))
+    const { fermer, annuler, ouvrirDepuis, section } = ouvrirPanneau(`Articles du stock « ${nomStock(s)} »`, [
       h('p', null, 'Coche les articles de ce stock et saisis leur quantité de départ et leur seuil. Les quantités temporaires du catalogue (initiale et seuil) sont reprises ici ; elles sont remises à 0 après l’ajout.'),
+      h('button', { className: 'bouton bouton-compact', type: 'button', onClick: nouvelArticle }, '＋ Nouvel article au catalogue'),
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (descriptif, type, format…)', 'aria-label': 'Rechercher un article',
           onInput: (e) => { filtreTexte = e.target.value; dessiner() } }),
@@ -300,7 +327,13 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     dessiner()
 
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
+    // Chef d'équipe : boutons en haut de la fenêtre, articles en fiches courtes (stock-terrain, style.css)
+    const terrain = d.moi.profil === ROLE_CHEF
+    const boutonsTerrain = terrain && h('div', { className: 'fiche-boutons' },
+      h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirEntreesSorties(s, rouvrirArticles)) }, 'Entrées / sorties'),
+      h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles'))
     const { annuler, ouvrirDepuis, section } = ouvrirPanneau(`Articles — ${nomStock(s)}`, [
+      boutonsTerrain,
       h('div', { className: 'barre-outils' },
         h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (article, type, commentaire…)', 'aria-label': 'Rechercher un article',
           onInput: (ev) => { filtreTexte = ev.target.value; dessiner() } }),
@@ -311,12 +344,13 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       compteur,
       h('div', { className: 'tableau-defilant' },
         h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', { className: COLONNES_NOMBRES.has(t) ? 'tableau-centre' : null }, t)))), corps)),
-      h('div', { className: 'fiche-boutons' }, gestionStocks() && [
+      h('div', { className: 'fiche-boutons' }, gestionStocks() && !terrain && [
         h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirEntreesSorties(s, rouvrirArticles)) }, 'Entrées / sorties'),
         h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles du catalogue')],
         h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Fermer')),
-    ])
+    ].filter(Boolean))
     section.classList.add('panneau-large', 'panneau-fiche')
+    if (terrain) section.classList.add('stock-terrain')
   }
 
   /**
@@ -405,6 +439,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       h('div', { className: 'fiche-boutons' }, valider, h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Annuler')),
     ])
     section.classList.add('panneau-large', 'panneau-fiche')
+    if (d.moi.profil === ROLE_CHEF) section.classList.add('stock-terrain')
   }
 
   function supprimerStock(s) {
@@ -448,7 +483,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
   }
 
   // Fiche d'un article : création (`r` null) ou modification. Le type est choisi parmi ceux de la source.
-  function ouvrirFicheArticle(r) {
+  // `apres()` : après l'enregistrement (ex. rouvrir le choix des articles d'un stock)
+  function ouvrirFicheArticle(r, apres = null) {
     const champs = { Source: r?.Source || 0, Type: r?.Type || 0, Descriptif: r?.Descriptif ?? '', Format_ou_taille: r?.Format_ou_taille ?? '', Commentaire: r?.Commentaire ?? '' }
     let nouvellePhoto = null
     const photo = idsDeListe(r?.Photo)[0]
@@ -483,6 +519,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         await enregistrerLigne('Stock_Reference', r?.id ?? null, valeurs)
         fermer()
         await recharger()
+        apres?.()
       } catch (err) {
         erreur.textContent = err.message || 'L’enregistrement a échoué.'
         erreur.hidden = false

@@ -6,8 +6,8 @@ import { h, icone, ouvrirPanneau } from './outils.js'
 import { ROLE_SALARIE, modifierLigne } from './donnees.js'
 
 const TABLE_PRESENCE = 'Emargement_Salarie'
-// [état, libellé, pictogramme, couleur]
-const ETATS_PRESENCE = [
+// [état, libellé, pictogramme, couleur] (aussi pour la page Équipe du chef d'équipe)
+export const ETATS_PRESENCE = [
   ['Présent', 'Présent', 'libres', '#1F8A4C'],
   ['En retard', 'En retard', 'en_cours', '#E07B2E'],
   ['Absent', 'Absent', 'croix', '#C8382E'],
@@ -15,14 +15,97 @@ const ETATS_PRESENCE = [
 const DUREES_PRESENCE = [15, 30, 45, 60, 90, 120] // minutes proposées en un toucher
 const datePresence = (v) => (v ? new Date(v * 1000) : null) // colonnes Date et heure : secondes depuis 1970
 const heurePresence = (v) => (v ? datePresence(v).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—')
-const dureePresence = (min) => (min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}` : `${min} min`)
+export const dureePresence = (min) => (min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}` : `${min} min`)
+// Heure prévue d'un émargement : début pour l'arrivée, fin pour le départ
+export const heurePrevueEmargement = (e) => (e.Arrivee_Depart === 'Départ' ? e.Heure_fin || e.Heure_debut : e.Heure_debut || e.Heure_fin)
 const memeJourPresence = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+// Fiche d'émargement : un gros bouton par état, puis les cases parti plus tôt / heures sup ; durées en un toucher.
+// Salarié (pour lui-même) et chef d'équipe (pour son équipe, `chef` : garde l'heure d'un émargement déjà signé,
+// bouton « Enregistrer et valider ») ; `question` : ligne de rappel (date, heure prévue)
+export function ouvrirFicheEmargement(e, { titre, question, recharger, chef = false }) {
+  const champs = {
+    Etat: e.Emarge_le ? e.Etat || 'Présent' : 'Présent', Duree_retard: e.Duree_retard || 0,
+    Parti_plus_tot: Boolean(e.Parti_plus_tot), Duree_parti_tot: e.Duree_parti_tot || 0,
+    Heures_sup_faites: Boolean(e.Heures_sup_faites), Duree_heures_sup: e.Duree_heures_sup || 0,
+  }
+  const erreur = h('p', { className: 'erreur', hidden: true })
+  const valider = h('button', { className: 'bouton bouton-principal presence-emarger', type: 'submit' }, icone('libres', 22), chef ? 'Enregistrer' : 'Valider')
+  // Chef d'équipe : enregistrer et valider en un geste (l'émargement se verrouille)
+  const etValider = chef && h('button', { className: 'bouton presence-emarger', type: 'submit' }, icone('cadenas', 22), 'Enregistrer et valider')
+  const zone = h('div', { className: 'presence-choix' })
+
+  // Durée : boutons de minutes ; `col` : colonne de la durée
+  const durees = (col) => h('div', { className: 'presence-durees' },
+    DUREES_PRESENCE.map((min) => h('button', { className: 'presence-duree', type: 'button', 'aria-pressed': String(champs[col] === min),
+      onClick: () => { champs[col] = min; dessiner() } }, dureePresence(min))))
+  // Gros bouton à pictogramme ; `actif` : choisi ou coché
+  const tuile = (libelle, picto, couleur, actif, choisir) => h('button', { className: 'presence-tuile', type: 'button',
+    style: { '--couleur': couleur }, 'aria-pressed': String(actif), onClick: choisir },
+  h('span', { className: 'presence-tuile-picto' }, icone(picto, 34)), h('span', null, libelle))
+
+  function dessiner() {
+    const absent = champs.Etat === 'Absent'
+    // Les parties absentes (false) sont ignorées : replaceChildren les écrirait en texte
+    zone.replaceChildren(...[
+      h('div', { className: 'presence-tuiles' }, ETATS_PRESENCE.map(([etat, libelle, picto, couleur]) =>
+        tuile(libelle, picto, couleur, champs.Etat === etat, () => { champs.Etat = etat; dessiner() }))),
+      champs.Etat === 'En retard' && [h('p', { className: 'presence-question' }, icone('en_cours', 20), 'Combien de retard ?'), durees('Duree_retard')],
+      !absent && h('div', { className: 'presence-tuiles presence-tuiles-2' },
+        tuile('Parti plus tôt', 'sortie', '#7C3AED', champs.Parti_plus_tot, () => { champs.Parti_plus_tot = !champs.Parti_plus_tot; dessiner() }),
+        tuile('Heures sup', 'heures_sup', '#007EBD', champs.Heures_sup_faites, () => { champs.Heures_sup_faites = !champs.Heures_sup_faites; dessiner() })),
+      !absent && champs.Parti_plus_tot && [h('p', { className: 'presence-question' }, icone('sortie', 20), 'Parti combien de temps plus tôt ?'), durees('Duree_parti_tot')],
+      !absent && champs.Heures_sup_faites && [h('p', { className: 'presence-question' }, icone('heures_sup', 20), 'Combien d’heures sup ?'), durees('Duree_heures_sup')],
+    ].flat().filter(Boolean))
+  }
+  dessiner()
+
+  const formulaire = h('form', { className: 'formulaire', onSubmit: async (ev) => {
+    ev.preventDefault()
+    erreur.hidden = true
+    const absent = champs.Etat === 'Absent'
+    const parti = !absent && champs.Parti_plus_tot
+    const sup = !absent && champs.Heures_sup_faites
+    const probleme = champs.Etat === 'En retard' && !champs.Duree_retard ? 'Choisis la durée du retard.'
+      : parti && !champs.Duree_parti_tot ? 'Choisis de combien tu es parti plus tôt.'
+        : sup && !champs.Duree_heures_sup ? 'Choisis la durée des heures sup.' : null
+    if (probleme) {
+      erreur.textContent = probleme
+      erreur.hidden = false
+      return
+    }
+    valider.disabled = true
+    if (etValider) etValider.disabled = true
+    try {
+      // Les choix masqués sont vidés (un « Présent » ne garde pas une ancienne durée de retard) ;
+      // une correction du chef garde l'heure à laquelle le salarié a émargé
+      await modifierLigne(TABLE_PRESENCE, e.id, {
+        Etat: champs.Etat, Duree_retard: champs.Etat === 'En retard' ? champs.Duree_retard : null,
+        Parti_plus_tot: parti, Duree_parti_tot: parti ? champs.Duree_parti_tot : null,
+        Heures_sup_faites: sup, Duree_heures_sup: sup ? champs.Duree_heures_sup : null,
+        ...(chef && e.Emarge_le ? {} : { Emarge_le: Date.now() / 1000 }),
+        ...(etValider && ev.submitter === etValider ? { Emargement_valide: true } : {}),
+      })
+      fermer()
+      await recharger()
+    } catch (err) {
+      erreur.textContent = /access|blocked|permission/i.test(err?.message ?? '')
+        ? `Ton compte ne peut pas ${chef ? 'modifier cet émargement' : 'émarger'} (droits). Préviens ${chef ? 'le bureau' : 'ton responsable'}.`
+        : err.message || 'L’émargement n’a pas pu être enregistré.'
+      erreur.hidden = false
+      valider.disabled = false
+      if (etValider) etValider.disabled = false
+    }
+  } },
+  h('p', { className: 'presence-question' }, icone('conges', 20), question),
+  zone, erreur, valider, etValider)
+  const { fermer } = ouvrirPanneau(titre, formulaire)
+}
 
 export function creerEcranPresence(racine, recharger) {
   let d = null
 
-  // Heure prévue : début pour l'arrivée, fin pour le départ
-  const heurePrevue = (e) => (e.Arrivee_Depart === 'Départ' ? e.Heure_fin || e.Heure_debut : e.Heure_debut || e.Heure_fin)
+  const heurePrevue = heurePrevueEmargement
   const ligneFiche = (picto, libelle, valeur) => h('div', { className: 'presence-ligne' },
     h('span', { className: 'presence-ligne-libelle' }, icone(picto, 18), libelle), h('strong', null, valeur))
 
@@ -54,79 +137,11 @@ export function creerEcranPresence(racine, recharger) {
             icone('crayon', 22), emarge ? 'Modifier mon émargement' : 'Émarger')))
   }
 
-  // Fiche d'émargement : un gros bouton par état, puis les cases parti plus tôt / heures sup ; durées en un toucher
-  function ouvrirEmargement(e) {
-    const depart = e.Arrivee_Depart === 'Départ'
-    const champs = {
-      Etat: e.Emarge_le ? e.Etat || 'Présent' : 'Présent', Duree_retard: e.Duree_retard || 0,
-      Parti_plus_tot: Boolean(e.Parti_plus_tot), Duree_parti_tot: e.Duree_parti_tot || 0,
-      Heures_sup_faites: Boolean(e.Heures_sup_faites), Duree_heures_sup: e.Duree_heures_sup || 0,
-    }
-    const erreur = h('p', { className: 'erreur', hidden: true })
-    const valider = h('button', { className: 'bouton bouton-principal presence-emarger', type: 'submit' }, icone('libres', 22), 'Valider')
-    const zone = h('div', { className: 'presence-choix' })
-
-    // Durée : boutons de minutes ; `col` : colonne de la durée
-    const durees = (col) => h('div', { className: 'presence-durees' },
-      DUREES_PRESENCE.map((min) => h('button', { className: 'presence-duree', type: 'button', 'aria-pressed': String(champs[col] === min),
-        onClick: () => { champs[col] = min; dessiner() } }, dureePresence(min))))
-    // Gros bouton à pictogramme ; `actif` : choisi ou coché
-    const tuile = (libelle, picto, couleur, actif, choisir) => h('button', { className: 'presence-tuile', type: 'button',
-      style: { '--couleur': couleur }, 'aria-pressed': String(actif), onClick: choisir },
-    h('span', { className: 'presence-tuile-picto' }, icone(picto, 34)), h('span', null, libelle))
-
-    function dessiner() {
-      const absent = champs.Etat === 'Absent'
-      // Les parties absentes (false) sont ignorées : replaceChildren les écrirait en texte
-      zone.replaceChildren(...[
-        h('div', { className: 'presence-tuiles' }, ETATS_PRESENCE.map(([etat, libelle, picto, couleur]) =>
-          tuile(libelle, picto, couleur, champs.Etat === etat, () => { champs.Etat = etat; dessiner() }))),
-        champs.Etat === 'En retard' && [h('p', { className: 'presence-question' }, icone('en_cours', 20), 'Combien de retard ?'), durees('Duree_retard')],
-        !absent && h('div', { className: 'presence-tuiles presence-tuiles-2' },
-          tuile('Parti plus tôt', 'sortie', '#7C3AED', champs.Parti_plus_tot, () => { champs.Parti_plus_tot = !champs.Parti_plus_tot; dessiner() }),
-          tuile('Heures sup', 'heures_sup', '#007EBD', champs.Heures_sup_faites, () => { champs.Heures_sup_faites = !champs.Heures_sup_faites; dessiner() })),
-        !absent && champs.Parti_plus_tot && [h('p', { className: 'presence-question' }, icone('sortie', 20), 'Parti combien de temps plus tôt ?'), durees('Duree_parti_tot')],
-        !absent && champs.Heures_sup_faites && [h('p', { className: 'presence-question' }, icone('heures_sup', 20), 'Combien d’heures sup ?'), durees('Duree_heures_sup')],
-      ].flat().filter(Boolean))
-    }
-    dessiner()
-
-    const formulaire = h('form', { className: 'formulaire', onSubmit: async (ev) => {
-      ev.preventDefault()
-      erreur.hidden = true
-      const absent = champs.Etat === 'Absent'
-      const parti = !absent && champs.Parti_plus_tot
-      const sup = !absent && champs.Heures_sup_faites
-      const probleme = champs.Etat === 'En retard' && !champs.Duree_retard ? 'Choisis la durée du retard.'
-        : parti && !champs.Duree_parti_tot ? 'Choisis de combien tu es parti plus tôt.'
-          : sup && !champs.Duree_heures_sup ? 'Choisis la durée des heures sup.' : null
-      if (probleme) {
-        erreur.textContent = probleme
-        erreur.hidden = false
-        return
-      }
-      valider.disabled = true
-      try {
-        // Les choix masqués sont vidés (un « Présent » ne garde pas une ancienne durée de retard)
-        await modifierLigne(TABLE_PRESENCE, e.id, {
-          Etat: champs.Etat, Duree_retard: champs.Etat === 'En retard' ? champs.Duree_retard : null,
-          Parti_plus_tot: parti, Duree_parti_tot: parti ? champs.Duree_parti_tot : null,
-          Heures_sup_faites: sup, Duree_heures_sup: sup ? champs.Duree_heures_sup : null,
-          Emarge_le: Date.now() / 1000,
-        })
-        fermer()
-        await recharger()
-      } catch (err) {
-        erreur.textContent = /access|blocked|permission/i.test(err?.message ?? '')
-          ? 'Ton compte ne peut pas émarger (droits). Préviens ton responsable.' : err.message || 'L’émargement n’a pas pu être enregistré.'
-        erreur.hidden = false
-        valider.disabled = false
-      }
-    } },
-    h('p', { className: 'presence-question' }, icone('conges', 20), `${new Date().toLocaleDateString('fr-FR')} · ${depart ? 'Départ prévu' : 'Arrivée prévue'} à ${heurePresence(heurePrevue(e))}`),
-    zone, erreur, valider)
-    const { fermer } = ouvrirPanneau(depart ? 'Émarger mon départ' : 'Émarger mon arrivée', formulaire)
-  }
+  const ouvrirEmargement = (e) => ouvrirFicheEmargement(e, {
+    titre: e.Arrivee_Depart === 'Départ' ? 'Émarger mon départ' : 'Émarger mon arrivée',
+    question: `${new Date().toLocaleDateString('fr-FR')} · ${e.Arrivee_Depart === 'Départ' ? 'Départ prévu' : 'Arrivée prévue'} à ${heurePresence(heurePrevue(e))}`,
+    recharger,
+  })
 
   function rendre() {
     if (!d) return

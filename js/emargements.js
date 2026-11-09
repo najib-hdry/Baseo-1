@@ -2,7 +2,8 @@
 // fiche de modification (les champs suivent l'état : absence autorisée si absent, durée si en retard ou parti plus tôt…),
 // validation et suppression des émargements cochés.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier, compte, figerFormulaire } from './outils.js'
-import { accesPage, ROLE_SALARIE, modifierLigne, supprimerLignes, validerEmargements, nomContact, peutModifier } from './donnees.js'
+import { accesPage, ROLE_SALARIE, ROLE_CHEF, modifierLigne, supprimerLignes, validerEmargements, nomContact, peutModifier } from './donnees.js'
+import { creerEmargementsEquipe } from './emargements_equipe.js'
 
 const TABLE_EMARGEMENTS = 'Emargement_Salarie'
 const TITRES_EMARGEMENTS = ['', 'Salarié', 'Arrivée/Départ', 'Heure début', 'Heure fin', 'État', 'Absence autorisée', 'Retard', 'Parti tôt', 'Heures sup', 'Validé', '']
@@ -29,6 +30,9 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
   let recherche = ''
   let onglet = ongletDepart
   const choisis = new Set() // émargements cochés (suppression en masse)
+  // Chef d'équipe : sa vue de téléphone (son équipe, jour par jour), à la place du tableau du bureau
+  const vueChef = seul ? null : creerEmargementsEquipe(racine, recharger)
+  const pourChef = () => vueChef && d.moi.profil === ROLE_CHEF
 
   // Nom du salarié : colonne Nom complet (formule), sinon compte, sinon email
   const nomSalarie = (e) => {
@@ -46,6 +50,7 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Emargement Salarié.'))
       return
     }
+    if (pourChef()) return vueChef.afficher(d)
     const tous = d[TABLE_EMARGEMENTS].filter((e) => !seul || e.Salarie === seul)
     const gestion = peutModifier(d, seul ? 'utilisateurs' : 'emargements') // lecture (CIP) : ni sélection, ni validation, ni suppression
     const corps = h('tbody')
@@ -256,6 +261,7 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
       rendre()
     },
     accueil() {
+      if (d && pourChef()) return vueChef.accueil()
       recherche = ''
       onglet = ongletDepart
       choisis.clear()

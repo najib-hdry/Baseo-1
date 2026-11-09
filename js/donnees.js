@@ -54,7 +54,7 @@ const GESTION = 'gestion'
 const LECTURE = 'lecture'
 const ACCES_PAGES = {
   tableau_bord: { Admin: GESTION, RH: LECTURE, Client: LECTURE },
-  chantiers: { Admin: GESTION, RH: LECTURE },
+  chantiers: { Admin: GESTION, RH: LECTURE, 'Chef d’équipe': LECTURE },
   casiers: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
   incidents: { Admin: GESTION, RH: LECTURE, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE }, // RH : lecture et attribution
   nettoyage: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
@@ -63,10 +63,10 @@ const ACCES_PAGES = {
   utilisateurs: { Admin: GESTION, RH: GESTION },
   postes: { Admin: GESTION, RH: GESTION, CIP: GESTION },
   candidats: { Admin: GESTION, RH: GESTION, CIP: GESTION },
-  emargements: { Admin: GESTION, RH: GESTION, CIP: LECTURE },
+  emargements: { Admin: GESTION, RH: GESTION, CIP: LECTURE, 'Chef d’équipe': GESTION }, // Chef : son équipe, vue téléphone
   conges: { Admin: GESTION, RH: GESTION },
   acomptes: { Admin: GESTION, RH: GESTION },
-  stocks: { Admin: GESTION, Client: LECTURE },
+  stocks: { Admin: GESTION, 'Chef d’équipe': GESTION, Client: LECTURE }, // Chef : entrées / sorties, articles, pas les stocks eux-mêmes
   catalogue: { Admin: GESTION },
   entreprises: { Admin: GESTION },
   sous_traitants: { Admin: GESTION },
@@ -92,7 +92,9 @@ export const BLOCS_TABLEAU_BORD = {
 }
 
 // Page ouverte au démarrage quand ce n'est pas la première du menu
-export const PAGE_ACCUEIL = { CIP: 'candidats' }
+export const PAGE_ACCUEIL = { CIP: 'candidats', 'Chef d’équipe': 'chantiers' }
+// Chantier d'un incident : celui de son casier ou de sa pièce, sinon celui noté sur l'incident
+export const chantierDeIncident = (d, i) => d.parId.Casiers.get(i.Casier)?.Chantier ?? d.parId.Pieces.get(i.Piece)?.Chantier ?? i.Chantier
 
 // Charge toutes les tables et prépare les index utiles aux écrans ; `moi` null = pas d'accès
 export async function chargerTout() {
@@ -109,6 +111,8 @@ export async function chargerTout() {
   const d = Object.fromEntries(TABLES.map((t, i) => [t, enLignes(brutes[i])]))
   d.absentes = absentes
   d.moi = moi
+  // Chef d'équipe : seulement ses chantiers (colonne Chantiers de sa fiche), sur toutes ses pages
+  if (moi.profil === ROLE_CHEF) d.Chantiers = d.Chantiers.filter((c) => moi.chantiers.includes(c.id))
 
   d.parId = Object.fromEntries(TABLES.map((t) => [t, new Map(d[t].map((r) => [r.id, r]))]))
   d.Zones.sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
@@ -436,15 +440,17 @@ export function attribuerIncident(d, i, salaries, debut, fin, consigne) {
 
 /**
  * Tâche modifiée (`id`, `champs`), ses copies pour d'autres salariés (`copies`, même format) et les émargements, en un seul envoi.
- * `choix` : sort des émargements de l'ancienne journée restée sans tâche — 'deplacer' (vers la nouvelle), 'supprimer' ou 'garder'.
+ * `choix` : sort des émargements de l'ancienne journée restée sans tâche — 'deplacer' (vers la nouvelle), 'supprimer', 'garder',
+ * ou 'nonEmarges' : supprimer seulement ceux que le salarié n'a pas encore signés (tâche confiée à un autre par le chef d'équipe).
  */
 export function modifierTache(d, id, champs, copies = [], choix = 'garder') {
   const nouvelles = [champs, ...copies]
   const { recalculs, orphelins } = bilanEmargements(d, [id], nouvelles)
+  const aSupprimer = choix === 'supprimer' ? orphelins : choix === 'nonEmarges' ? orphelins.filter((e) => !e.Emarge_le) : []
   return action([['UpdateRecord', 'Emploi_du_temps', id, champs],
     ...(copies.length ? [ajoutGroupeLignes('Emploi_du_temps', copies)] : []),
     ...recalculs,
-    ...(choix === 'supprimer' && orphelins.length ? [['BulkRemoveRecord', 'Emargement_Salarie', orphelins.map((e) => e.id)]] : []),
+    ...(aSupprimer.length ? [['BulkRemoveRecord', 'Emargement_Salarie', aSupprimer.map((e) => e.id)]] : []),
     ...actionsEmargements(d, nouvelles, id, choix === 'deplacer' ? orphelins : [])])
 }
 
@@ -495,6 +501,10 @@ export async function attribuerPartenaires(d, p, chantierId, ids) {
 }
 
 export const equipeDuChantier = (d, chantierId) => d.Utilisateurs.filter((u) => idsDeListe(u.Chantiers).includes(chantierId))
+// Équipe du chef d'équipe connecté : salariés actifs d'au moins un de ses chantiers (d.Chantiers ne contient que les siens), par nom
+export const equipeDuChef = (d) => d.Utilisateurs
+  .filter((u) => u.Actif && u.Profil === ROLE_SALARIE && idsDeListe(u.Chantiers).some((id) => d.parId.Chantiers.has(id)))
+  .sort((a, b) => nomContact(a).localeCompare(nomContact(b)))
 
 // Affecte au chantier exactement les utilisateurs `ids` : le chantier est ajouté à la liste de chacun d'eux
 // et retiré de celle des autres, en un seul envoi (les autres chantiers de chaque personne ne changent pas)

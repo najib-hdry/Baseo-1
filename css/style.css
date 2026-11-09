@@ -320,6 +320,7 @@ select.champ:disabled { opacity: .55; }
 
 /* Incidents : compteurs des cartes, bascule Signaler/Suivi, pastilles */
 .stats-3 { grid-template-columns: repeat(3, 1fr); }
+.stats-2 { grid-template-columns: repeat(2, 1fr); }
 .stat-ouverts { color: var(--hs); background: #FBE9E7; }
 .stat-en_cours { color: #7A5B00; background: #FFF4CC; }
 .stat-resolus { color: var(--libre); background: #E1F2E8; }
@@ -1131,3 +1132,35 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 /* Menu ☰ du téléphone : le haut (logo, ✕) reste en place, la liste des pages défile sur un petit écran */
 .tiroir { height: 100dvh; max-height: 100dvh; }
 .tiroir-liste { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+/* Stock du chef d'équipe sur téléphone : fiches d'articles courtes (colonnes de bureau et cases vides masquées) */
+@media (max-width: 720px) {
+  .stock-terrain .tableau td:is([data-label="Type"], [data-label="Entrée totale"], [data-label="Sortie totale"]),
+  .stock-terrain .tableau td:is([data-label="Photo"], [data-label="Seuil"], [data-label="Alerte"], [data-label="Après"]):empty,
+  .stock-terrain .tableau td[data-label="Commentaire"]:has(> span:empty) { display: none; }
+}
+
+/* ---- Équipe du chef d'équipe (téléphone) : liste des salariés, fiche ---- */
+.equipe-etats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.equipe-etats .presence-pastille { padding: 3px 10px; font-size: .8rem; }
+.equipe-titre { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 1.05rem; color: var(--marque-fonce); }
+.equipe-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.equipe-liste > li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  padding: 10px 12px; border: 1px solid var(--trait); border-radius: 12px; background: var(--surface); }
+.equipe-photo { display: grid; place-items: center; }
+.equipe-photo .photo-candidat, .equipe-photo .photo-vide { width: 112px; height: 112px; border-radius: 50%; object-fit: cover; }
+.equipe-choix { display: grid; gap: 4px; }
+.equipe-choix .case { min-height: 48px; padding: 0 12px; border: 1px solid var(--trait); border-radius: 12px; }
+
+/* ---- Émargements du chef d'équipe (téléphone) : une carte par salarié, arrivée et départ ---- */
+.emarg-cartes, .emarg-lignes { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.emarg-carte { padding: 14px; border: 1px solid var(--trait); border-radius: 16px; background: var(--surface); }
+.emarg-carte h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 1.1rem; }
+.emarg-carte h2 .tache-ligne-picto { width: 40px; height: 40px; }
+.emarg-lignes { gap: 0; }
+.emarg-ligne { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--trait); }
+.emarg-ligne-haut { display: flex; align-items: baseline; gap: 8px; }
+.emarg-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
+.emarg-boutons .bouton { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.emarg-ligne .presence-valide { margin: 0; }
+.emarg-carte h2 .presence-pastille { margin-left: auto; padding: 3px 10px; font-size: .8rem; }

@@ -21,6 +21,7 @@ import { creerEcranMesTaches } from './mes_taches.js'
 import { creerEcranPresence } from './presence.js'
 import { creerEcranActualites } from './actualites.js'
 import { creerEcranDemandes } from './demandes.js'
+import { creerEcranEquipe } from './equipe.js'
 
 // Groupes du menu, dans l'ordre : titre et couleur (pastille, icônes, sur-titre de la page)
 const GROUPES = [
@@ -31,15 +32,17 @@ const GROUPES = [
   { cle: 'communication', titre: 'Communication', couleur: '#C8456B' },
   { cle: 'stocks', titre: 'Stocks', couleur: '#C9861A' },
   { cle: 'partenaires', titre: 'Partenaires', couleur: '#7E9A12' },
+  { cle: 'infos', titre: 'Communication', couleur: '#C8456B' }, // Communication du chef d'équipe, en fin de menu
 ]
 // `groupe` : groupe du menu ; `profils` : page visible seulement par ces profils (et, avec `autorisation`, seulement si
 // le compte a cette autorisation : clé de `moi`) ; sans `profils`, la matrice ACCES_PAGES (donnees.js) décide ;
-// `parent` : sous-page, affichée décalée sous sa page. La première page visible s'ouvre au démarrage.
+// `parent` : sous-page, affichée décalée sous sa page ; `groupes` : groupe propre à un profil (place dans son menu).
+// La première page visible s'ouvre au démarrage, sauf page d'accueil du profil (PAGE_ACCUEIL).
 const PAGES = [
   { cle: 'mes_taches', libelle: 'Mes tâches', icone: 'emargements', groupe: 'travail', profils: [ROLE_SALARIE] },
   { cle: 'presence', libelle: 'Présence', icone: 'crayon', groupe: 'travail', profils: [ROLE_SALARIE], autorisation: 'emargement' },
   { cle: 'demandes', libelle: 'Congé et acompte', icone: 'conges', groupe: 'travail', profils: [ROLE_SALARIE] },
-  { cle: 'actualites', libelle: 'Communication', icone: 'communication', groupe: 'travail', profils: [ROLE_SALARIE, ROLE_CHEF] },
+  { cle: 'actualites', libelle: 'Communication', icone: 'communication', groupe: 'travail', profils: [ROLE_SALARIE, ROLE_CHEF], groupes: { [ROLE_CHEF]: 'infos' } },
   { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', groupe: 'pilotage' },
   { cle: 'chantiers', libelle: 'Chantiers', icone: 'grue', groupe: 'chantiers' },
   { cle: 'casiers', libelle: 'Casiers', icone: 'total', groupe: 'chantiers' },
@@ -48,6 +51,7 @@ const PAGES = [
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance', groupe: 'chantiers' },
   { cle: 'entreprises', libelle: 'Entreprises', icone: 'entreprise', groupe: 'partenaires' },
   { cle: 'sous_traitants', libelle: 'Sous-traitants', icone: 'sous_traitant', groupe: 'partenaires' },
+  { cle: 'equipe', libelle: 'Équipe', icone: 'utilisateurs', groupe: 'rh', profils: [ROLE_CHEF] },
   { cle: 'utilisateurs', libelle: 'Utilisateurs', icone: 'utilisateurs', groupe: 'rh' },
   { cle: 'postes', libelle: 'Postes', icone: 'poste', groupe: 'rh' },
   { cle: 'candidats', libelle: 'Candidats', icone: 'occupes', groupe: 'rh' },
@@ -58,7 +62,7 @@ const PAGES = [
   { cle: 'stocks', libelle: 'Stocks', icone: 'stock', groupe: 'stocks' },
   { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', groupe: 'stocks', parent: 'stocks' },
 ]
-const groupeDe = (page) => GROUPES.find((g) => g.cle === page.groupe) ?? GROUPES[0]
+const groupeDe = (page) => GROUPES.find((g) => g.cle === (page.groupes?.[donnees?.moi?.profil] ?? page.groupe)) ?? GROUPES[0]
 const pagesVisibles = () => PAGES.filter((p) => (p.profils ? p.profils.includes(donnees?.moi?.profil) && (!p.autorisation || donnees.moi[p.autorisation])
   : accesPage(donnees, p.cle)))
 
@@ -85,6 +89,7 @@ const ecrans = {
   presence: creerEcranPresence(zones.presence, () => recharger()),
   actualites: creerEcranActualites(zones.actualites),
   demandes: creerEcranDemandes(zones.demandes, () => recharger()),
+  equipe: creerEcranEquipe(zones.equipe, () => recharger()),
   utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la page d'accueil du profil
