@@ -57,7 +57,6 @@ const BLOCS_CANDIDAT = [
   ]],
   ['Situation administrative', [
     ['Numero_securite_sociale', 'Numéro de sécurité sociale', 'texte'], ['Date_validite_piece_identite', 'Date de validité de la pièce d’identité', 'date'],
-    ['Date_validite_titre_sejour', 'Date validité titre de séjour', 'date'],
     ['CMU', 'CMU', 'choix', OUI_NON], ['RQTH', 'RQTH', 'choix', OUI_NON],
     ['Pass_IAE_debut', 'Pass IAE date début', 'date'], ['Pass_IAE_fin', 'Pass IAE date fin', 'date'],
   ]],

@@ -85,14 +85,16 @@ export function creerEcranCasiers(racine, recharger) {
     const zone = h('div', { style: { display: 'grid', gap: '12px' } })
     const libererBtn = h('button', { className: 'bouton' }, 'Libérer le casier')
     libererBtn.addEventListener('click', () => {
-      const date = h('input', { className: 'champ', type: 'date', value: aujourdhui(), min: c.dateDebut ?? undefined, max: aujourdhui(), required: true })
+      // Attribution qui commence dans le futur : on peut la clore à sa date de début
+      const dateMax = c.dateDebut && c.dateDebut > aujourdhui() ? c.dateDebut : aujourdhui()
+      const date = h('input', { className: 'champ', type: 'date', value: dateMax, min: c.dateDebut ?? undefined, max: dateMax, required: true })
       const message = h('p', { className: 'erreur', hidden: true })
       const confirmer = h('button', { className: 'bouton bouton-danger' }, 'Confirmer la libération')
       // Une attribution saisie dans Grist peut ne pas avoir de date de début
       const avantDebut = (v) => c.dateDebut && v < c.dateDebut
       const verifier = () => {
         const v = date.value
-        const ok = v && !avantDebut(v) && v <= aujourdhui()
+        const ok = v && !avantDebut(v) && v <= dateMax
         message.hidden = ok || !v
         message.textContent = avantDebut(v) ? `La date de fin ne peut pas précéder le ${enFrancais(c.dateDebut)}.` : 'La date de fin ne peut pas être dans le futur.'
         confirmer.disabled = !ok
@@ -104,7 +106,7 @@ export function creerEcranCasiers(racine, recharger) {
     if (peutModifier(d, 'casiers')) zone.append(libererBtn)
     return [
       h('p', { className: 'occupant' }, `${c.prenom} ${c.nom}`),
-      h('p', { className: 'sous-texte' }, `${c.entreprise || 'Entreprise non renseignée'}${c.dateDebut ? `, depuis le ${enFrancais(c.dateDebut)}` : ''}`),
+      h('p', { className: 'sous-texte' }, `${c.entreprise || 'Entreprise non renseignée'}${c.dateDebut ? `, ${c.dateDebut > aujourdhui() ? 'à partir du' : 'depuis le'} ${enFrancais(c.dateDebut)}` : ''}`),
       c.employeur && h('p', { className: 'sous-texte' }, `Employeur : ${c.employeur}`),
       c.coffre && h('p', { className: 'sous-texte' }, c.coffre === 'Oui' ? `Coffre : oui, clé n° ${c.cle || 'non renseignée'}` : 'Coffre : non'),
       zone,
@@ -113,16 +115,15 @@ export function creerEcranCasiers(racine, recharger) {
 
   function blocLibre(c, executer) {
     const dateMin = derniereLiberation(d, c.id)
-    const date = h('input', { className: 'champ', type: 'date', value: aujourdhui(), min: dateMin ?? undefined, max: aujourdhui(), required: true })
+    // Date de début : aujourd'hui, ou plus tard pour réserver le casier à l'avance
+    const date = h('input', { className: 'champ', type: 'date', value: aujourdhui(), min: dateMin ?? undefined, required: true })
     const messageDate = h('p', { className: 'erreur', hidden: true })
-    const dateValide = () => date.value && date.value <= aujourdhui() && (!dateMin || date.value >= dateMin)
+    const dateValide = () => date.value && (!dateMin || date.value >= dateMin)
     const zone = h('div', { style: { display: 'grid', gap: '12px' } })
 
     const majDate = () => {
       messageDate.hidden = dateValide() || !date.value
-      messageDate.textContent = dateMin
-        ? `La date doit être comprise entre le ${enFrancais(dateMin)} (dernière libération) et aujourd’hui.`
-        : 'La date ne peut pas être dans le futur.'
+      messageDate.textContent = `La date ne peut pas précéder le ${enFrancais(dateMin)} (dernière libération).`
       zone.querySelectorAll('[data-attribue]').forEach((b) => { b.disabled = !dateValide() })
     }
     date.addEventListener('input', majDate)

@@ -1,5 +1,5 @@
 // Écran « Tableau de bord » : chiffres clés et graphiques, pour tous les chantiers ou un seul.
-// Casiers, incidents, salariés (actifs, alertes de fin de contrat, de Pass IAE et de titre de séjour),
+// Casiers, incidents, salariés (actifs, alertes de fin de contrat, de Pass IAE et de pièce d'identité),
 // articles de stock à commander, nouvelles demandes de congé et d'acompte. Chaque tuile ouvre la page concernée.
 // Admin : tout ; RH : salariés, alertes et demandes ; Client : ses chantiers, casiers, incidents et stock de propreté
 // (BLOCS_TABLEAU_BORD, donnees.js).
@@ -193,7 +193,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     const alertes = [
       ...p.contrats.filter((k) => k.Alerte_fin_contrat).map((k) => [k.Salarie, 'Fin de contrat', k.Date_fin]),
       ...p.candidats.filter((c) => c.Alerte_Pass_IAE).map((c) => [c.Utilisateur, 'Fin du Pass IAE', c.Pass_IAE_fin]),
-      ...p.candidats.filter((c) => c.Alerte_titre_sejour).map((c) => [c.Utilisateur, 'Fin du titre de séjour', c.Date_validite_titre_sejour]),
+      ...p.candidats.filter((c) => c.Alerte_piece_identite).map((c) => [c.Utilisateur, 'Fin de la pièce d’identité', c.Date_validite_piece_identite]),
     ].sort((a, b) => (a[2] ?? Infinity) - (b[2] ?? Infinity))
     const nbAlerte = (type) => alertes.filter((a) => a[1] === type).length
 
@@ -230,7 +230,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
         voit('alertes') && tuile({ valeur: alertes.length, libelle: 'Alertes salariés', icone: 'emargements', couleur: '#D9480F', page: 'utilisateurs', aTraiter: true,
           puces: [[nbAlerte('Fin de contrat') && tbPluriel(nbAlerte('Fin de contrat'), 'contrat'), 'alerte'],
             [nbAlerte('Fin du Pass IAE') && `${nbAlerte('Fin du Pass IAE')} Pass IAE`, 'alerte'],
-            [nbAlerte('Fin du titre de séjour') && tbPluriel(nbAlerte('Fin du titre de séjour'), 'titre de séjour', 'titres de séjour'), 'alerte']] }),
+            [nbAlerte('Fin de la pièce d’identité') && tbPluriel(nbAlerte('Fin de la pièce d’identité'), 'pièce d’identité', 'pièces d’identité'), 'alerte']] }),
         voit('stock') && tuile({ valeur: alertesStock.length, libelle: 'Articles à commander', icone: 'stock', couleur: '#C9861A', page: 'stocks', aTraiter: true,
           puces: [...parSource].sort((a, b) => b[1] - a[1]).map(([src, n]) => [`${src} ${n}`, 'attention']) }),
         voit('conges') && tuile({ valeur: p.conges.length, libelle: 'Demandes de congé', icone: 'conges', couleur: '#00845A', page: 'conges', aTraiter: true,
@@ -255,9 +255,9 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
           anneau('Comptes salariés', [[actifs, TB_COULEURS.actif, 'Actifs'], [p.salaries.length - actifs, TB_COULEURS.inactif, 'Désactivés']], String(actifs), 'actifs'),
           barres('Alertes (un mois ou moins)', [['Fin de contrat', [[nbAlerte('Fin de contrat'), TB_COULEURS.alerte]]],
             ['Fin du Pass IAE', [[nbAlerte('Fin du Pass IAE'), TB_COULEURS.alerte]]],
-            ['Fin du titre de séjour', [[nbAlerte('Fin du titre de séjour'), TB_COULEURS.alerte]]]], 'Aucune alerte.')),
+            ['Fin de la pièce d’identité', [[nbAlerte('Fin de la pièce d’identité'), TB_COULEURS.alerte]]]], 'Aucune alerte.')),
         tableau(['Salarié', 'Alerte', 'Échéance'], alertes.map(([id, type, echeance]) => [h('strong', null, nomSalarie(id)), type, date(echeance)]),
-          'Aucune alerte : pas de fin de contrat, de Pass IAE ou de titre de séjour dans le mois.')),
+          'Aucune alerte : pas de fin de contrat, de Pass IAE ou de pièce d’identité dans le mois.')),
 
       voit('stock') && section('Stock à commander', 'stock',
         h('div', { className: 'graphiques' },

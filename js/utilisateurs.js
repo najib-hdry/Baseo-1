@@ -172,7 +172,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           infos([
             ['Nom', c.Nom || '—'], ['Prénom', c.Prenom || '—'],
             ['Téléphone', lienContact('tel', c.Telephone) || '—'],
-            ['Date titre de séjour', dateAvecAlerte(c.Date_validite_titre_sejour)],
+            ['Validité de la pièce d’identité', dateAvecAlerte(c.Date_validite_piece_identite)],
             ['Pass IAE', passIae],
             ['RQTH', c.RQTH || '—'],
           ]),
