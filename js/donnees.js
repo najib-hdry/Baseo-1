@@ -37,7 +37,8 @@ async function lireProfil() {
   return ROLES.includes(moi?.Profil) ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null, id: moi.id,
     incidents: Boolean(moi.Gestion_incidents_autorisee), casiers: Boolean(moi.Gestion_casiers_autorisee),
     emargement: Boolean(moi.Auto_emargement_autorise), chantiers: idsDeListe(moi.Chantiers),
-    pagesClient: AUTORISATIONS_CLIENT.filter(([col]) => moi[col]).map(([, , page]) => page) } : null
+    // `=== true` : une case masquée par les règles d'accès arrive en ['C'] et n'ouvre rien
+    pagesClient: AUTORISATIONS_CLIENT.filter(([col]) => moi[col] === true).map(([, , page]) => page) } : null
 }
 
 // Chef d'équipe et admin : hors service, suivi des incidents ; les autres rôles déclarent seulement
@@ -51,15 +52,18 @@ export const estAdmin = (d) => d?.moi?.profil === 'Admin'
 // Matrice des pages par profil : 'gestion' (tout) ou 'lecture' ; un profil absent n'a pas la page.
 // Les pages du terrain (Mes tâches, Présence…) sont réservées par `profils` dans PAGES (app.js).
 // Chef d'équipe et Salarié gardent les pages du chantier ; leurs boutons dépendent de peutGerer et des autorisations.
+export const ROLE_CHEF = 'Chef d’équipe'
+export const ROLE_SALARIE = 'Salarié'
+export const ROLE_CLIENT = 'Client'
 const GESTION = 'gestion'
 const LECTURE = 'lecture'
 const ACCES_PAGES = {
-  tableau_bord: { Admin: GESTION, RH: LECTURE, Client: LECTURE },
+  tableau_bord: { Admin: GESTION, RH: LECTURE, [ROLE_CLIENT]: LECTURE },
   chantiers: { Admin: GESTION, RH: LECTURE, 'Chef d’équipe': LECTURE },
-  casiers: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
-  incidents: { Admin: GESTION, RH: LECTURE, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE }, // RH : lecture et attribution
-  nettoyage: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
-  maintenance: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, Client: LECTURE },
+  casiers: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, [ROLE_CLIENT]: LECTURE },
+  incidents: { Admin: GESTION, RH: LECTURE, 'Chef d’équipe': GESTION, Salarié: GESTION, [ROLE_CLIENT]: LECTURE }, // RH : lecture et attribution
+  nettoyage: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, [ROLE_CLIENT]: LECTURE },
+  maintenance: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, [ROLE_CLIENT]: LECTURE },
   communication: { Admin: GESTION, RH: GESTION, CIP: LECTURE },
   utilisateurs: { Admin: GESTION, RH: GESTION },
   postes: { Admin: GESTION, RH: GESTION, CIP: GESTION },
@@ -67,7 +71,7 @@ const ACCES_PAGES = {
   emargements: { Admin: GESTION, RH: GESTION, CIP: LECTURE, 'Chef d’équipe': GESTION }, // Chef : son équipe, vue téléphone
   conges: { Admin: GESTION, RH: GESTION },
   acomptes: { Admin: GESTION, RH: GESTION },
-  stocks: { Admin: GESTION, 'Chef d’équipe': GESTION, Client: LECTURE }, // Chef : entrées / sorties, articles, pas les stocks eux-mêmes
+  stocks: { Admin: GESTION, 'Chef d’équipe': GESTION, [ROLE_CLIENT]: LECTURE }, // Chef : entrées / sorties, articles, pas les stocks eux-mêmes
   catalogue: { Admin: GESTION },
   entreprises: { Admin: GESTION },
   sous_traitants: { Admin: GESTION },
@@ -76,9 +80,11 @@ const ACCES_PAGES = {
 // Client : Casiers, Incidents, Stocks, Maintenance et Nettoyage seulement si la case de son compte est cochée
 export const accesPage = (d, cle) => {
   const acces = ACCES_PAGES[cle]?.[d?.moi?.profil] ?? null
-  const refuseAuClient = d?.moi?.profil === ROLE_CLIENT && AUTORISATIONS_CLIENT.some(([, , page]) => page === cle) && !d.moi.pagesClient?.includes(cle)
+  const refuseAuClient = d?.moi?.profil === ROLE_CLIENT && PAGES_CASE_CLIENT.has(cle) && !d.moi.pagesClient?.includes(cle)
   return refuseAuClient ? null : acces
 }
+// Blocs du tableau de bord qui dépendent d'une page : affichés seulement si la page est ouverte à la personne
+export const PAGE_DU_BLOC = { casiers: 'casiers', incidents: 'incidents', stock: 'stocks' }
 // Page `cle` en gestion : boutons d'ajout, de modification et de suppression ; en lecture, la page se consulte seulement
 export const peutModifier = (d, cle) => accesPage(d, cle) === GESTION
 // Attribuer un incident à des salariés : chef d'équipe, admin et RH
@@ -87,14 +93,14 @@ export const peutAttribuer = (d) => peutGerer(d) || d?.moi?.profil === 'RH'
 export const estSourceProprete = (d, sourceId) =>
   /propret/i.test((d.parId.Stock_Source?.get(sourceId)?.Source ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
 // Profils limités à leurs chantiers et au stock de propreté (tableau de bord, stocks) ; les autres voient tout
-const PROFILS_LIMITES = ['Client']
+const PROFILS_LIMITES = [ROLE_CLIENT]
 // Chantiers de la personne connectée (ensemble d'identifiants) si son profil y est limité, sinon null : tous les chantiers
 export const chantiersLimites = (d) => (PROFILS_LIMITES.includes(d?.moi?.profil) ? new Set(d.moi.chantiers) : null)
 export const limiteAuStockProprete = (d) => PROFILS_LIMITES.includes(d?.moi?.profil)
 // Blocs du tableau de bord par profil (tuile et section) ; l'Admin les voit tous
 export const BLOCS_TABLEAU_BORD = {
   RH: ['salaries', 'alertes', 'conges', 'acomptes'],
-  Client: ['casiers', 'incidents', 'stock'],
+  [ROLE_CLIENT]: ['casiers', 'incidents', 'stock'],
 }
 
 // Page ouverte au démarrage quand ce n'est pas la première du menu
@@ -317,16 +323,13 @@ export async function creerContact(champs) {
 
 // ---- Équipe d'un chantier : utilisateurs dont la colonne Chantiers (référence multiple) contient ce chantier ----
 
-export const ROLE_CHEF = 'Chef d’équipe'
-export const ROLE_SALARIE = 'Salarié'
-export const ROLE_CLIENT = 'Client'
-
 // Rôles de la colonne Utilisateurs.Profil (libellé « Rôle »), dans l'ordre des onglets
 export const ROLES = ['Admin', ROLE_CHEF, ROLE_SALARIE, 'RH', 'CIP', ROLE_CLIENT]
 
 // Pages ouvertes à un client (cases de la table Utilisateurs) : [colonne, libellé, page]
 export const AUTORISATIONS_CLIENT = [['Client_casiers_autorise', 'Casiers', 'casiers'], ['Client_incident_autorise', 'Incidents', 'incidents'],
   ['Client_stock_autorise', 'Stocks', 'stocks'], ['Client_maintenance_autorise', 'Maintenance', 'maintenance'], ['Client_nettoyage_autorise', 'Nettoyage', 'nettoyage']]
+const PAGES_CASE_CLIENT = new Set(AUTORISATIONS_CLIENT.map(([, , page]) => page))
 
 // Création (`id` null) ou modification d'un utilisateur ; renvoie son identifiant. L'email sert à reconnaître
 // la personne connectée (règles d'accès et profil) : il est obligatoire et unique.

@@ -4,7 +4,7 @@
 // Admin : tout ; RH : salariés, alertes et demandes ; Client : ses chantiers, casiers, incidents et stock de propreté
 // (BLOCS_TABLEAU_BORD, donnees.js).
 import { h, depuisGrist, enFrancais, etiqueterLignes, euros, icone } from './outils.js'
-import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, ROLE_CLIENT,estSourceProprete, BLOCS_TABLEAU_BORD, chantiersLimites, limiteAuStockProprete } from './donnees.js'
+import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, estSourceProprete, BLOCS_TABLEAU_BORD, PAGE_DU_BLOC, chantiersLimites, limiteAuStockProprete } from './donnees.js'
 
 // Couleurs des graphiques (variables du thème)
 const TB_COULEURS = { occupes: 'var(--occupe)', libres: 'var(--libre)', hs: 'var(--hs)', ouvert: 'var(--hs)', en_cours: 'var(--signal)',
@@ -106,9 +106,9 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
 
   // Chantiers proposés dans le choix : tous, ou ceux de la personne si son profil y est limité (Client)
   const chantiersVisibles = () => { const limites = chantiersLimites(d); return limites ? d.Chantiers.filter((c) => limites.has(c.id)) : d.Chantiers }
-  // Bloc `cle` (tuile et section) affiché pour ce profil ; Client : seulement si la page du bloc lui est ouverte
+  // Bloc `cle` (tuile et section) affiché pour ce profil, et seulement si sa page lui est ouverte (cases du Client)
   const voit = (cle) => d.moi.profil === 'Admin' || ((BLOCS_TABLEAU_BORD[d.moi.profil] ?? []).includes(cle)
-    && (d.moi.profil !== ROLE_CLIENT || Boolean(accesPage(d, cle === 'stock' ? 'stocks' : cle))))
+    && (!PAGE_DU_BLOC[cle] || Boolean(accesPage(d, PAGE_DU_BLOC[cle]))))
 
   function perimetre() {
     // Un chantier choisi : ses lignes. « Tous les chantiers » : tout, y compris les lignes sans chantier (incident sans lieu),
