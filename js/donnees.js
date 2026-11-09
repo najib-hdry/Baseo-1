@@ -36,7 +36,8 @@ async function lireProfil() {
   if (moi?.Profil === 'Admin') return { refus: 'Ton compte a le rôle Admin dans Utilisateurs, mais pas l’accès administrateur du document. Préviens l’administrateur.' }
   return ROLES.includes(moi?.Profil) ? { profil: moi.Profil, nom: [moi.Prenom, moi.Nom].filter(Boolean).join(' ') || null, id: moi.id,
     incidents: Boolean(moi.Gestion_incidents_autorisee), casiers: Boolean(moi.Gestion_casiers_autorisee),
-    emargement: Boolean(moi.Auto_emargement_autorise), chantiers: idsDeListe(moi.Chantiers) } : null
+    emargement: Boolean(moi.Auto_emargement_autorise), chantiers: idsDeListe(moi.Chantiers),
+    pagesClient: AUTORISATIONS_CLIENT.filter(([col]) => moi[col]).map(([, , page]) => page) } : null
 }
 
 // Chef d'équipe et admin : hors service, suivi des incidents ; les autres rôles déclarent seulement
@@ -71,8 +72,13 @@ const ACCES_PAGES = {
   entreprises: { Admin: GESTION },
   sous_traitants: { Admin: GESTION },
 }
-// Accès de la personne connectée à la page `cle` : 'gestion', 'lecture' ou null
-export const accesPage = (d, cle) => ACCES_PAGES[cle]?.[d?.moi?.profil] ?? null
+// Accès de la personne connectée à la page `cle` : 'gestion', 'lecture' ou null.
+// Client : Casiers, Incidents, Stocks, Maintenance et Nettoyage seulement si la case de son compte est cochée
+export const accesPage = (d, cle) => {
+  const acces = ACCES_PAGES[cle]?.[d?.moi?.profil] ?? null
+  const refuseAuClient = d?.moi?.profil === ROLE_CLIENT && AUTORISATIONS_CLIENT.some(([, , page]) => page === cle) && !d.moi.pagesClient?.includes(cle)
+  return refuseAuClient ? null : acces
+}
 // Page `cle` en gestion : boutons d'ajout, de modification et de suppression ; en lecture, la page se consulte seulement
 export const peutModifier = (d, cle) => accesPage(d, cle) === GESTION
 // Attribuer un incident à des salariés : chef d'équipe, admin et RH
@@ -313,9 +319,14 @@ export async function creerContact(champs) {
 
 export const ROLE_CHEF = 'Chef d’équipe'
 export const ROLE_SALARIE = 'Salarié'
+export const ROLE_CLIENT = 'Client'
 
 // Rôles de la colonne Utilisateurs.Profil (libellé « Rôle »), dans l'ordre des onglets
-export const ROLES = ['Admin', ROLE_CHEF, ROLE_SALARIE, 'RH', 'CIP', 'Client']
+export const ROLES = ['Admin', ROLE_CHEF, ROLE_SALARIE, 'RH', 'CIP', ROLE_CLIENT]
+
+// Pages ouvertes à un client (cases de la table Utilisateurs) : [colonne, libellé, page]
+export const AUTORISATIONS_CLIENT = [['Client_casiers_autorise', 'Casiers', 'casiers'], ['Client_incident_autorise', 'Incidents', 'incidents'],
+  ['Client_stock_autorise', 'Stocks', 'stocks'], ['Client_maintenance_autorise', 'Maintenance', 'maintenance'], ['Client_nettoyage_autorise', 'Nettoyage', 'nettoyage']]
 
 // Création (`id` null) ou modification d'un utilisateur ; renvoie son identifiant. L'email sert à reconnaître
 // la personne connectée (règles d'accès et profil) : il est obligatoire et unique.

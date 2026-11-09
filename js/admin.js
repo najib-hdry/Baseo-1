@@ -139,7 +139,7 @@ export function creerEcranAdmin(racine, recharger) {
     afficherOnglet(ongletInitial)
     const panneau = ouvrirPanneau(c.Nom || 'Chantier', [onglets, contenu])
     ouvrirDepuis = panneau.ouvrirDepuis
-    panneau.section.classList.add('panneau-large', 'panneau-fiche')
+    panneau.section.classList.add('panneau-large', 'panneau-fiche', 'panneau-onglets')
   }
 
   // ---- Entreprises / sous-traitants du chantier (`p` : PARTENAIRES) : attribution, un partenaire pouvant l'être à plusieurs chantiers ----

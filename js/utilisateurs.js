@@ -9,7 +9,7 @@ import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEma
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
-import { accesPage, ROLES, ROLE_SALARIE, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne } from './donnees.js'
+import { accesPage, ROLES, ROLE_SALARIE, ROLE_CLIENT, AUTORISATIONS_CLIENT, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -98,7 +98,12 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       // Nouvel utilisateur : rôle de l'onglet ouvert, actif par défaut
       Profil: u ? u.Profil ?? '' : (ROLES.includes(onglet) ? onglet : ''),
       Actif: u ? Boolean(u.Actif) : true,
+      ...Object.fromEntries(AUTORISATIONS_CLIENT.map(([col]) => [col, Boolean(u?.[col])])),
     }
+    // Pages ouvertes au client : cases visibles seulement pour le rôle Client
+    const casesClient = h('div', { className: 'champ-groupe', hidden: champs.Profil !== ROLE_CLIENT }, 'Pages autorisées au client',
+      h('div', { className: 'cases-ligne' }, AUTORISATIONS_CLIENT.map(([col, libelle]) => h('label', { className: 'case' },
+        h('input', { type: 'checkbox', checked: champs[col], onChange: (e) => { champs[col] = e.target.checked } }), libelle))))
     const choixChantiers = choixEtiquettes({
       elements: () => d.Chantiers.map((c) => ({ id: c.id, libelle: c.Nom || 'Sans nom' })),
       choisis: idsDeListe(u?.Chantiers),
@@ -115,6 +120,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       valider.disabled = true
       try {
         const propres = Object.fromEntries(Object.entries(champs).map(([col, v]) => [col, typeof v === 'string' ? v.trim() : v]))
+        if (propres.Profil !== ROLE_CLIENT) AUTORISATIONS_CLIENT.forEach(([col]) => delete propres[col]) // cases d'un autre rôle : inchangées
         await enregistrerUtilisateur(d, u?.id ?? null, { ...propres, Profil: propres.Profil || null, Chantiers: choixChantiers.ids() })
         fermer()
         await recharger()
@@ -130,12 +136,13 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       texte('Email (compte Grist)', 'Email', { type: 'email', required: true }),
       texte('Téléphone', 'Telephone', { type: 'tel' }),
       h('label', { className: 'champ-groupe' }, 'Rôle',
-        h('select', { className: 'champ', onChange: (e) => { champs.Profil = e.target.value } },
+        h('select', { className: 'champ', onChange: (e) => { champs.Profil = e.target.value; casesClient.hidden = champs.Profil !== ROLE_CLIENT } },
           h('option', { value: '', selected: !champs.Profil }, 'Sans rôle (pas d’accès)'),
           ROLES.map((r) => h('option', { value: r, selected: r === champs.Profil }, r)))),
       h('label', { className: 'case' },
         h('input', { type: 'checkbox', checked: champs.Actif, onChange: (e) => { champs.Actif = e.target.checked } }), 'Actif (peut utiliser l’application)')),
     h('div', { className: 'champ-groupe' }, 'Chantiers', choixChantiers.element),
+    casesClient,
     h('p', { className: 'sous-texte' }, 'L’email doit être celui du compte Grist de la personne : c’est lui qui donne son rôle et ses droits.'),
     erreur, valider,
     u && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(u)) }, 'Supprimer cet utilisateur'))
@@ -284,7 +291,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)),
       nomContact(u) || (c && nomContact(c)) || u.Email || 'Sans nom')
     const { fermer, ouvrirDepuis, section } = ouvrirPanneau(titre, [barre, contenu])
-    section.classList.add('panneau-large', 'panneau-fiche')
+    section.classList.add('panneau-large', 'panneau-fiche', 'panneau-onglets')
   }
 
   // Confirmation de la désactivation : motif enregistré sur le candidat lié et compte désactivé ; la fiche se rouvre à jour
