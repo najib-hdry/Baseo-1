@@ -147,11 +147,12 @@ export function creerEcranIncidents(racine, recharger) {
   }
 
   // Boutons de changement de statut d'un incident : toutes les actions pour le chef d'équipe et l'admin ;
-  // « Marquer résolu » seulement pour un salarié autorisé (« Gestion des incidents autorisée ») ; aucun sinon.
+  // « Marquer résolu » seulement pour un salarié autorisé (« Gestion des incidents autorisée ») et attribué à l'incident ; aucun sinon.
   // `apres` : appelé après l'écriture réussie, `surErreur(message)` en cas d'échec ;
   // « Marquer résolu » ouvre la fenêtre de résolution (photos et commentaire), par `ouvrirDepuis` depuis une fiche
+  // Le salarié ne résout que les incidents qui lui sont attribués (une tâche de son emploi du temps liée à l'incident)
   const actionsStatut = (i) => (peutGerer(d) ? ACTIONS[i.Statut] ?? ACTIONS.Ouvert
-    : peutResoudre(d) && i.Statut !== 'Résolu' ? [['Résolu', 'Marquer résolu', 'bouton-principal']] : [])
+    : peutResoudre(d) && i.Statut !== 'Résolu' && tachesIncident(i).some((t) => t.Salarie === d.moi.id) ? [['Résolu', 'Marquer résolu', 'bouton-principal']] : [])
   const boutonsStatut = (i, { compact = false, apres = () => {}, surErreur, ouvrirDepuis = (ouvrir) => ouvrir() }) =>
     actionsStatut(i).map(([statut, libelle, classe]) => {
       const b = h('button', { className: `bouton ${classe}${compact ? ' bouton-compact' : ''}` }, libelle)
@@ -221,7 +222,8 @@ export function creerEcranIncidents(racine, recharger) {
               resolu && i.Resolu_par && h('span', { className: 'sous-texte cellule-resolu-par' }, `par ${i.Resolu_par}`)),
             // Action principale du statut, puis fiche, modification et suppression
             h('td', { className: 'tableau-actions' },
-              boutonsStatut(i, { compact: true, surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } }).slice(0, 1),
+              // Salarié : « Marquer résolu » seulement depuis la fiche
+              peutGerer(d) && boutonsStatut(i, { compact: true, surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } }).slice(0, 1),
               h('button', { className: 'bouton bouton-compact', onClick: sansClic(() => ouvrirDetail(i, lieu(i), lien)) }, 'Fiche'),
               peutGerer(d) && h('button', { className: 'bouton bouton-compact', onClick: sansClic(() => ouvrirModification(i, lieu(i), lien)) }, 'Modifier'),
               estAdmin(d) && h('button', { className: 'bouton bouton-compact bouton-danger', onClick: sansClic(() => ouvrirSuppression(i, lieu(i))) }, 'Supprimer')))
