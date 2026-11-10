@@ -1,4 +1,5 @@
-// Onglets « Historique » et « Occupation par société » de la page Casiers (Admin et Client).
+// Onglets « Vue générale », « Historique » et « Occupation par société » de la page Casiers (Admin et Client).
+// Vue générale : libres, occupés, HS et total du chantier avec un anneau, puis taux d'occupation par base vie et par étage.
 // Historique : toutes les attributions d'un chantier, passées, en cours et à venir, avec leur emplacement, l'intervenant
 // et son employeur. Filtre par statut et par période, recherche, tri des colonnes (commun à tous les tableaux) et export
 // Excel des lignes affichées.
@@ -6,6 +7,7 @@
 // leur responsable, le nombre de casiers occupés (passés et en cours), les jours occupés et le prix.
 import { h, enFrancais, depuisGrist, aujourdhui, etiqueterLignes, compte, notifier, menuPlus, lienContact, euros } from './outils.js'
 import { chargerXlsx } from './taches.js'
+import { occupation, anneau, legende } from './chantier.js'
 
 const TITRES_HISTORIQUE = ['Casier', 'Emplacement', 'Intervenant', 'Badge', 'Employeur', 'Début', 'Fin', 'Durée (j)', 'Statut', 'Clé', 'Commentaire']
 const STATUTS_HISTORIQUE = [['tous', 'Toutes'], ['En cours', 'En cours'], ['À venir', 'À venir'], ['Terminée', 'Terminées']]
@@ -144,4 +146,46 @@ export function occupationSocietes(d, chantierId) {
         corps)),
     lignes.length > 0 && h('p', { className: 'societes-total' },
       `Total : ${somme((l) => l.Nbr_casiers)} casiers · ${somme((l) => l.Nbr_jours_occupes)} jours · ${euros.format(somme(prixSociete))}`))
+}
+
+// ---- Vue générale : chiffres clés et anneau du chantier, taux d'occupation par base vie et par étage ----
+
+const COLONNES_OCCUPATION = [['libres', 'Libre'], ['occupes', 'Occupé'], ['hs', 'HS'], ['taux', 'Taux d’occupation'], ['total', 'Total']]
+const tauxPrecis = (o) => `${(o.total ? (100 * o.occupes) / o.total : 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
+
+// Tableau d'occupation : une ligne par élément ([libellé, occupation]), colonnes colorées comme les graphiques
+function tableauOccupation(premiere, lignes, titre) {
+  const titres = [premiere, ...COLONNES_OCCUPATION.map(([, libelle]) => libelle)]
+  const valeur = (o, cle) => (cle === 'taux' ? tauxPrecis(o) : String(o[cle]))
+  return h('div', { className: 'tableau-defilant' },
+    h('table', { className: 'tableau tableau-occupation' },
+      titre && h('caption', null, titre),
+      h('thead', null, h('tr', null, h('th', null, premiere), COLONNES_OCCUPATION.map(([cle, libelle]) => h('th', { className: `occ-${cle}` }, libelle)))),
+      etiqueterLignes(h('tbody', null, lignes.map(([libelle, o]) => h('tr', null, h('td', { className: 'tableau-nom' }, libelle),
+        COLONNES_OCCUPATION.map(([cle]) => h('td', { className: `occ-${cle}` }, valeur(o, cle)))))), titres)))
+}
+
+export function vueGeneraleCasiers(d, chantierId) {
+  const casiers = d.Casiers.filter((k) => k.Chantier === chantierId)
+  const global = occupation(d, casiers)
+  const etageDe = (k) => d.parId.Vestiaires.get(k.Vestiaire)?.Etage
+  const plusieursZones = d.Zones.filter((z) => z.Chantier === chantierId).length > 1
+  const nomBase = (b) => [plusieursZones && d.parId.Zones.get(b.Zone)?.Nom, b.Nom].filter(Boolean).join(' · ')
+  const bases = d.Bases_vie.filter((b) => b.Chantier === chantierId).sort((a, b) => nomBase(a).localeCompare(nomBase(b), 'fr', { numeric: true }))
+  // Étages du plus haut au plus bas, comme sur le bâtiment
+  const etagesDe = (b) => d.Etages.filter((e) => e.Base_vie === b.id).sort((x, y) => (y.Niveau ?? 0) - (x.Niveau ?? 0))
+  const casiersEtage = (e) => casiers.filter((k) => etageDe(k) === e.id)
+
+  return h('div', { className: 'vue-generale-casiers' },
+    h('div', { className: 'stats' },
+      [['libres', global.libres, 'Libres'], ['occupes', global.occupes, 'Occupés'], ['hs', global.hs, 'HS'], ['total', global.total, 'Total']]
+        .map(([type, n, libelle]) => h('div', { className: `stat stat-${type}${n === 0 ? ' stat-nul' : ''}` },
+          h('span', { className: 'stat-valeur' }, n), h('span', { className: 'stat-libelle' }, libelle)))),
+    h('section', { className: 'graph' }, h('h3', null, 'Occupation du chantier'), legende(), anneau(global)),
+    h('h2', { className: 'occupation-titre' }, 'Taux d’occupation par base vie'),
+    bases.length === 0 ? h('p', { className: 'message' }, 'Ce chantier n’a pas encore de base vie.')
+      : tableauOccupation('Base vie', bases.map((b) => [nomBase(b), occupation(d, etagesDe(b).flatMap(casiersEtage))])),
+    h('h2', { className: 'occupation-titre' }, 'Taux d’occupation par étage'),
+    bases.filter((b) => etagesDe(b).length > 0).map((b) =>
+      tableauOccupation('Étage', etagesDe(b).map((e) => [e.Nom || 'Sans nom', occupation(d, casiersEtage(e))]), nomBase(b))))
 }

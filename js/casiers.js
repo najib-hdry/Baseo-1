@@ -2,9 +2,9 @@
 import { h, aujourdhui, enFrancais, ouvrirPanneau, depuisGrist, versGrist, fenetreSuppression } from './outils.js'
 import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier, ROLE_CLIENT, estAdmin, enregistrerLigne, supprimerFiche } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
-import { historiqueCasiers, occupationSocietes } from './historique_casiers.js'
+import { historiqueCasiers, occupationSocietes, vueGeneraleCasiers } from './historique_casiers.js'
 
-// Onglets « Historique » et « Occupation par société » : Admin et Client seulement
+// Onglets « Vue générale », « Historique » et « Occupation par société » : Admin et Client seulement
 const voitHistoriqueCasiers = (d) => ['Admin', ROLE_CLIENT].includes(d.moi?.profil)
 
 // Écran « Gestion des casiers », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -48,11 +48,12 @@ export function creerEcranCasiers(racine, recharger) {
         h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
         h('h1', null, chantier?.Nom ?? '')),
       voitHistoriqueCasiers(d) && h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Casiers du chantier' },
-        [['casiers', 'Casiers'], ['historique', 'Historique'], ['societes', 'Occupation par société']].map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab',
+        [['casiers', 'Casiers'], ['generale', 'Vue générale'], ['historique', 'Historique'], ['societes', 'Occupation par société']].map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab',
           'aria-selected': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle))),
       ...(onglet === 'historique' ? [historiqueCasiers(d, etat.chantierId, etat.historique,
         estAdmin(d) ? { modifier: ouvrirModifAttribution, supprimer: supprimerAttribution } : null)]
         : onglet === 'societes' ? [occupationSocietes(d, etat.chantierId)]
+        : onglet === 'generale' ? [vueGeneraleCasiers(d, etat.chantierId)]
         : vueChantier(d, etat, { mode: 'casiers', onCasier: ouvrirCasier, rafraichir: rendre })),
     ].filter(Boolean))
   }

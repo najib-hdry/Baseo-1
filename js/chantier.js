@@ -22,7 +22,7 @@ export const ONGLETS_FICHE = [
 const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`
 
 // Occupation d'une liste de casiers : total, occupés, hors service, libres
-function occupation(d, casiers) {
+export function occupation(d, casiers) {
   const hs = casiers.filter((c) => c.Hors_service).length
   const occupes = casiers.filter((c) => !c.Hors_service && d.activeParCasier.has(c.id)).length
   return { total: casiers.length, occupes, hs, libres: casiers.length - occupes - hs }
@@ -212,11 +212,11 @@ function partenaires(d, c, p) {
 
 const PARTS = [['occupes', 'Occupés'], ['libres', 'Libres'], ['hs', 'HS']]
 const taux = (o) => (o.total ? `${Math.round((100 * o.occupes) / o.total)} %` : '—')
-const legende = () => h('div', { className: 'graph-legende' },
+export const legende = () => h('div', { className: 'graph-legende' },
   PARTS.map(([type, libelle]) => h('span', null, h('i', { className: `graph-pastille graph-${type}` }), libelle)))
 
 // Anneau d'occupation du chantier (les valeurs injectées dans le SVG ne sont que des nombres)
-function anneau(o) {
+export function anneau(o) {
   const r = 42
   const tour = 2 * Math.PI * r
   let deja = 0
