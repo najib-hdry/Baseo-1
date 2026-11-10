@@ -148,7 +148,7 @@ export function creerEcranCasiers(racine, recharger) {
     const champ = (cle, libelle, extra) => h('label', { className: 'champ-groupe' }, libelle,
       h('input', { className: 'champ', autocomplete: 'off', ...extra, onInput: (e) => { form[cle] = e.target.value } }))
     // Entreprise : liste déroulante des entreprises existantes, comme l'employeur (la valeur est le nom, retrouvé à l'enregistrement)
-    const entreprise = h('label', { className: 'champ-groupe' }, 'Entreprise',
+    const entreprise = h('label', { className: 'champ-groupe' }, 'Entreprise *',
       h('select', { className: 'champ', required: true, onChange: (e) => { form.entreprise = e.target.value } },
         h('option', { value: '', disabled: true, selected: true }, d.Entreprises.length ? 'Choisir…' : 'Aucune entreprise : à créer dans Partenaires › Entreprises'),
         d.Entreprises.filter((e) => e.Nom).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr'))
@@ -161,8 +161,8 @@ export function creerEcranCasiers(racine, recharger) {
           .map((s) => h('option', { value: String(s.id) }, s.Nom || 'Sans nom'))))
     // Numéro de clé : demandé seulement s'il y a un coffre
     const saisieCle = h('input', { className: 'champ', autocomplete: 'off', onInput: (e) => { form.cle = e.target.value } })
-    const cle = h('label', { className: 'champ-groupe', hidden: true }, 'Si oui, entrez le numéro de clé', saisieCle)
-    const coffre = h('label', { className: 'champ-groupe' }, 'Y a-t-il un coffre ?',
+    const cle = h('label', { className: 'champ-groupe', hidden: true }, 'Si oui, entrez le numéro de clé *', saisieCle)
+    const coffre = h('label', { className: 'champ-groupe' }, 'Y a-t-il un coffre ? *',
       h('select', { className: 'champ', required: true, onChange: (e) => {
         form.coffre = e.target.value
         cle.hidden = form.coffre !== 'Oui'
@@ -178,10 +178,10 @@ export function creerEcranCasiers(racine, recharger) {
       if (!manque.hidden) return
       executer(valider, () => creerEtAttribuer(d, c.id, form, date.value))
     } },
-    h('label', { className: 'champ-groupe' }, 'Date d’attribution', date), messageDate,
-    champ('prenom', 'Prénom', { required: true }),
-    champ('nom', 'Nom', { required: true }),
-    champ('badge', 'N° de badge', { required: true }),
+    h('label', { className: 'champ-groupe' }, 'Date d’attribution *', date), messageDate,
+    champ('prenom', 'Prénom *', { required: true }),
+    champ('nom', 'Nom *', { required: true }),
+    champ('badge', 'N° de badge *', { required: true }),
     entreprise,
     employeur, coffre, cle, manque,
     valider)
