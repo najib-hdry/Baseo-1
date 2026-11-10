@@ -284,6 +284,8 @@ try {
   const disposition = h('div', { className: 'disposition' })
   principal.replaceWith(disposition)
   disposition.append(menuLateral, h('div', { className: 'colonne-principale' }, entete, principal))
+  // Hauteur de la barre du haut, pour coller les cartes de tableau juste en dessous (--hauteur-entete, style.css)
+  new ResizeObserver(() => document.documentElement.style.setProperty('--hauteur-entete', `${entete.offsetHeight}px`)).observe(entete)
   afficherPage()
   grist.ready({ requiredAccess: 'full' })
   grist.onRecords(() => recharger()) // toute modification de la table liée relance l'affichage

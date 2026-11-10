@@ -448,6 +448,16 @@ button.tiroir-lien.active { background: var(--signal); }
   .tableau-defilant { max-height: max(320px, calc(100dvh - 240px)); overflow: auto; }
   .tableau thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -2px 0 var(--trait); }
 }
+/* Carte d'un tableau dans une page (pas dans une fenêtre) : elle tient dans la hauteur de l'écran et reste collée sous
+   l'en-tête de la page (hauteur mesurée dans app.js) ; onglets, recherche et filtres restent visibles, seules les lignes défilent */
+.colonne-principale .carte-tableau {
+  position: sticky; top: calc(var(--hauteur-entete, 110px) + 12px);
+  display: flex; flex-direction: column;
+  /* 84 px : marge au-dessus de l'en-tête (12), écart en-tête → carte (32) et bas de page (40) */
+  max-height: calc(100dvh - var(--hauteur-entete, 110px) - 84px);
+}
+.colonne-principale .carte-tableau > * { flex: none; }
+.colonne-principale .carte-tableau > .tableau-defilant { flex: 1 1 auto; min-height: 180px; max-height: none; overflow: auto; }
 
 /* Fiche détail d'un chantier (admin) */
 .fiche-entete { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
