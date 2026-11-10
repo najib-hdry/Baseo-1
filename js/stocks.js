@@ -12,7 +12,7 @@ const TITRES_ES = ['Source', 'Type', 'Article', 'Actuelle', 'Seuil', 'Entrée', 
 // Colonnes de nombres des articles et des entrées/sorties : centrées (titre et valeurs)
 const COLONNES_NOMBRES = new Set(['Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Entrée', 'Sortie', 'Après'])
 const TITRES_CHOIX = ['', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Déjà dans le stock', 'Quantité', 'Seuil']
-const TITRES_CATALOGUE = ['Photo', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Commentaire', '']
+const TITRES_CATALOGUE = ['Photo', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Commentaire', 'Q. actuelle des stocks', '']
 
 // Écran affiché dans `racine` ; `recharger()` relit les données après une écriture ; `vue` : 'stocks' ou 'catalogue'
 export function creerEcranStocks(racine, recharger, vue = 'stocks') {
@@ -467,7 +467,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
           .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || String(a.Descriptif).localeCompare(String(b.Descriptif), 'fr', { numeric: true }))
         compteur.textContent = compte(liste.length, d.Stock_Reference.filter((r) => !filtreSource || r.Source === filtreSource).length, 'article')
         corps.replaceChildren(...(liste.length === 0
-          ? ligneVide(7, d.Stock_Reference.length === 0 ? 'Aucun article pour l’instant. Ajoute le premier avec « ＋ Nouvel article ».' : 'Aucun article ne correspond à la recherche ou à la source choisie.')
+          ? ligneVide(TITRES_CATALOGUE.length, d.Stock_Reference.length === 0 ? 'Aucun article pour l’instant. Ajoute le premier avec « ＋ Nouvel article ».' : 'Aucun article ne correspond à la recherche ou à la source choisie.')
           : liste.map((r) => {
             const photo = idsDeListe(r.Photo)[0]
             return h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFicheArticle(r) },
@@ -477,6 +477,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
               h('td', { className: 'tableau-nom' }, r.Descriptif || '—'),
               h('td', null, r.Format_ou_taille ?? ''),
               h('td', null, h('span', { className: 'cellule-description' }, r.Commentaire ?? '')),
+              // Colonne formule de Grist : quantité actuelle de l'article, tous stocks confondus
+              h('td', null, (Number(r.Stock_Elements_Quantite_actuelle) || 0).toLocaleString('fr-FR')),
               actions(() => ouvrirFicheArticle(r), () => supprimerArticle(r)))
           })))
       })

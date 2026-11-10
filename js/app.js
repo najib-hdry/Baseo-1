@@ -166,13 +166,22 @@ function ouvrirMenu() {
   window.addEventListener('keydown', touche)
 }
 
-// Ordinateur : le bouton ☰ replie le menu latéral en une colonne d'icônes (choix gardé dans ce navigateur)
+// Ordinateur : la flèche à côté du logo replie le menu latéral en une colonne d'icônes (choix gardé dans ce navigateur) ;
+// téléphone : le bouton ☰ de la barre du haut ouvre le menu en tiroir
 const CLE_MENU_REPLIE = 'id-pilote:menu-replie'
 const ecranLarge = () => window.matchMedia('(min-width: 900px)').matches
 function basculerMenu() {
   if (!ecranLarge()) return ouvrirMenu()
   const replie = document.body.classList.toggle('menu-replie')
+  menuLateral.querySelector('.menu-replier')?.setAttribute('aria-expanded', String(!replie))
   try { localStorage.setItem(CLE_MENU_REPLIE, replie ? '1' : '') } catch {}
+}
+// Flèche « ‹ » (menu déplié) ; le CSS la retourne quand le menu est replié
+const boutonReplier = () => {
+  const b = h('button', { className: 'menu-replier', type: 'button', 'aria-label': 'Replier ou déplier le menu', title: 'Replier ou déplier le menu',
+    'aria-expanded': String(!document.body.classList.contains('menu-replie')), onClick: basculerMenu })
+  b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>'
+  return b
 }
 try { if (localStorage.getItem(CLE_MENU_REPLIE)) document.body.classList.add('menu-replie') } catch {}
 
@@ -185,7 +194,7 @@ function dessinerMenuLateral() {
   const position = menuLateral.querySelector('.menu-liens')?.scrollTop ?? 0
   const liste = h('div', { className: 'menu-liens' }, liensMenu(undefined, false, dessinerMenuLateral))
   menuLateral.replaceChildren(
-    h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des chantiers')),
+    h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des chantiers'), boutonReplier()),
     liste,
     ...(donnees?.moi ? [h('div', { className: 'menu-utilisateur' },
       h('span', { className: 'menu-avatar' }, icone('occupes', 22)),
@@ -201,7 +210,8 @@ function dessinerMenuLateral() {
 }
 
 const entete = h('header', { className: 'entete' },
-  h('button', { className: 'burger', 'aria-label': 'Menu', title: 'Replier ou déplier le menu', onClick: basculerMenu },
+  // Téléphone seulement (le CSS le masque sur ordinateur, où la flèche du menu latéral le remplace)
+  h('button', { className: 'burger', 'aria-label': 'Menu', title: 'Ouvrir le menu', onClick: ouvrirMenu },
     (() => {
       const span = document.createElement('span')
       span.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'

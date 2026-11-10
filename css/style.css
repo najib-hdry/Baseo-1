@@ -888,12 +888,21 @@ button.tiroir-lien { font-weight: 500; }
   .menu-utilisateur { color: var(--encre); background: var(--fond); border-radius: var(--rayon); }
 }
 
-/* Menu pliable (ordinateur) : le bouton ☰ de la barre du haut replie le menu en une colonne d'icônes */
+/* Menu pliable (ordinateur) : la flèche en haut à droite du logo replie le menu en une colonne d'icônes */
+.menu-replier { display: none; }
 @media (min-width: 900px) {
-  .burger { display: grid; border: 1px solid var(--trait); border-radius: var(--rayon); }
+  .burger { display: none; }
+  .menu-logo { position: relative; padding-right: 48px; }
+  .menu-replier { position: absolute; top: 14px; right: 8px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    color: var(--encre-douce); cursor: pointer; background: #fff; border: 1px solid var(--trait-clair); border-radius: var(--rayon); }
+  .menu-replier:hover { color: var(--encre); background: #F1F3EF; }
+  .menu-replier:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .menu-replier svg { transition: transform .15s ease; }
+  .menu-replie .menu-replier { position: static; margin: 8px auto 0; }
+  .menu-replie .menu-replier svg { transform: rotate(180deg); }
   .menu-lateral { transition: width .15s ease; }
   .menu-replie .menu-lateral { width: 66px; padding: 0 6px 12px; }
-  .menu-replie .menu-logo { margin: 0 -6px 4px; padding: 14px 4px 10px; text-align: center; }
+  .menu-replie .menu-logo { display: grid; margin: 0 -6px 4px; padding: 14px 4px 10px; text-align: center; }
   .menu-replie .menu-logo .logo-marque { font-size: .95rem; line-height: 1.05; white-space: normal; }
   .menu-replie .menu-sous-titre, .menu-replie .tiroir-libelle, .menu-replie .menu-utilisateur-texte { display: none; }
   .menu-replie .menu-lateral .menu-groupe { justify-content: center; margin: 10px 0 2px; font-size: 0; }
