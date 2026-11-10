@@ -497,6 +497,14 @@ button.tiroir-lien.active { background: var(--signal); }
 .tableau-occupation .occ-hs { background: #FBE6D2; }
 .tableau-occupation .occ-taux { background: #E9DDF2; }
 .tableau-occupation .occ-total { background: #D4E7EB; }
+/* Vue générale des incidents : colonnes par statut (ouvert rouge, en cours jaune, résolu vert), total bleu */
+.tableau-occupation .occ-inc-ouvert { background: #FBE4E1; }
+.tableau-occupation .occ-inc-en_cours { background: #FFF3C4; }
+.tableau-occupation .occ-inc-resolu { background: #E1F2E8; }
+.tableau-occupation .occ-inc-total { background: #D4E7EB; }
+.graphiques-incidents { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin: 0; }
+.incident-categorie { display: inline-flex; align-items: center; gap: 6px; }
+.incident-categorie svg { color: var(--couleur); }
 .historique-date { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 @media (max-width: 720px) { .historique-date { width: 100%; } .historique-casiers .historique-date .champ { flex: 1; width: auto; min-width: 0; } }
 .bouton-detail { border-color: var(--trait); }

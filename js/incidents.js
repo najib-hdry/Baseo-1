@@ -1,7 +1,7 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
 import { h, icone, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
-import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE, peutModifier, peutAttribuer, chantierDeIncident } from './donnees.js'
+import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE, ROLE_CLIENT, peutModifier, peutAttribuer, chantierDeIncident } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
 // Écran « Gestion des incidents », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -44,10 +44,11 @@ export function creerEcranIncidents(racine, recharger) {
     }
 
     const chantier = d.parId.Chantiers.get(etat.chantierId)
-    // Lecture (RH, Client) : pas d'onglet Signaler, le suivi seulement
-    if (!peutModifier(d, 'incidents')) etat.onglet = 'suivi'
-    const bascule = !peutModifier(d, 'incidents') ? h('div', { hidden: true }) : h('div', { className: 'choix choix-2 bascule-vue' },
-      [['signaler', 'Signaler'], ['suivi', 'Suivi']].map(([cle, libelle]) =>
+    // Lecture (RH, Client) : pas d'onglet Signaler ; Vue générale : Admin et Client
+    const vues = [peutModifier(d, 'incidents') && ['signaler', 'Signaler'], ['suivi', 'Suivi'], voitVueGenerale() && ['generale', 'Vue générale']].filter(Boolean)
+    if (!vues.some(([cle]) => cle === etat.onglet)) etat.onglet = 'suivi'
+    const bascule = vues.length < 2 ? h('div', { hidden: true }) : h('div', { className: `choix choix-${vues.length} bascule-vue` },
+      vues.map(([cle, libelle]) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle)))
 
     const entete = [
@@ -63,6 +64,10 @@ export function creerEcranIncidents(racine, recharger) {
       rendreSuivi(zone)
       return
     }
+    if (etat.onglet === 'generale') {
+      racine.replaceChildren(...entete, vueGeneraleIncidents())
+      return
+    }
 
     // Lieux qui ont un incident non résolu : pastille « ! »
     const actifs = d.Incidents.filter((i) => i.Statut !== 'Résolu')
@@ -76,6 +81,100 @@ export function creerEcranIncidents(racine, recharger) {
         onPiece: (piece) => ouvrirSignalement({ piece }),
         rafraichir: rendre,
       }))
+  }
+
+  // ---- Vue générale (Admin et Client) : chiffres par statut, anneau des statuts, barres des catégories,
+  // puis incidents par base vie et par étage (même présentation que la Vue générale des casiers) ----
+
+  const voitVueGenerale = () => estAdmin(d) || d.moi?.profil === ROLE_CLIENT
+  const COULEURS_STATUTS = [['Ouvert', 'Ouverts', '#B42318'], ['En cours', 'En cours', '#E0A800'], ['Résolu', 'Résolus', '#1F8A4C']]
+  const statutDe = (i) => i.Statut || 'Ouvert'
+  // Étage d'un incident : celui de son casier (par le vestiaire) ou de sa pièce, sinon celui noté sur l'incident
+  const etageIncident = (i) => {
+    const casier = d.parId.Casiers.get(i.Casier)
+    return d.parId.Vestiaires.get(casier?.Vestiaire)?.Etage ?? d.parId.Pieces.get(i.Piece)?.Etage ?? i.Etage ?? null
+  }
+
+  // Anneau : une part par [n, couleur] ; au centre, le total (seules des valeurs numériques et des couleurs fixes entrent dans le SVG)
+  function anneauIncidents(parts, total) {
+    const r = 42
+    const tour = 2 * Math.PI * r
+    let deja = 0
+    const arcs = parts.filter(([n]) => n > 0).map(([n, couleur]) => {
+      const long = (tour * n) / total
+      const arc = `<circle cx="60" cy="60" r="${r}" fill="none" stroke-width="18" stroke="${couleur}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"/>`
+      deja += long
+      return arc
+    }).join('')
+    const dessin = h('span', { className: 'anneau-dessin' })
+    dessin.innerHTML = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="${r}" class="graph-arc graph-vide"/>`
+      + `<g transform="rotate(-90 60 60)">${arcs}</g></svg>`
+    return dessin
+  }
+
+  function vueGeneraleIncidents() {
+    const incidents = d.Incidents.filter((i) => chantierIncident(i) === etat.chantierId)
+    const parStatut = (liste) => Object.fromEntries(COULEURS_STATUTS.map(([s]) => [s, liste.filter((i) => statutDe(i) === s).length]))
+    const total = parStatut(incidents)
+    const legende = (elements) => h('div', { className: 'graph-legende' },
+      elements.map(([libelle, couleur]) => h('span', null, h('i', { className: 'graph-pastille', style: { background: couleur } }), libelle)))
+
+    // Graphique 1 : anneau des statuts
+    const grapheStatuts = h('section', { className: 'graph' }, h('h3', null, 'Par statut'),
+      legende(COULEURS_STATUTS.map(([, libelle, couleur]) => [libelle, couleur])),
+      incidents.length === 0 ? h('p', { className: 'sous-texte' }, 'Aucun incident sur ce chantier.')
+        : h('div', { className: 'anneau' }, anneauIncidents(COULEURS_STATUTS.map(([s, , couleur]) => [total[s], couleur]), incidents.length),
+          h('div', null, h('strong', { className: 'anneau-taux' }, String(incidents.length)), h('span', { className: 'sous-texte' }, incidents.length > 1 ? ' incidents' : ' incident'),
+            h('p', { className: 'sous-texte' }, COULEURS_STATUTS.map(([s, libelle]) => `${total[s]} ${(total[s] > 1 ? libelle : s).toLowerCase()}`).join(' · ')))))
+
+    // Graphique 2 : une barre par catégorie, à sa couleur, longueur proportionnelle au nombre d'incidents
+    const parCategorie = CATEGORIES.map((cat) => [cat, incidents.filter((i) => i.Categorie === cat).length])
+    const max = Math.max(1, ...parCategorie.map(([, n]) => n))
+    const grapheCategories = h('section', { className: 'graph' }, h('h3', null, 'Par catégorie'),
+      parCategorie.map(([cat, n]) => {
+        const [picto, couleur] = PICTOS_CATEGORIES[cat] ?? ['question', '#5B6B78']
+        return h('div', { className: 'graph-ligne' },
+          h('span', { className: 'graph-libelle incident-categorie', style: { '--couleur': couleur } }, icone(picto, 16), cat),
+          h('div', { className: 'graph-piste' }, n > 0 && h('div', { className: 'graph-barre', style: { width: `${(100 * n) / max}%`, background: couleur } })),
+          h('span', { className: 'graph-valeur' }, String(n)))
+      }))
+
+    // Tableaux par base vie et par étage : colonnes colorées comme la Vue générale des casiers
+    const plusieursZones = d.Zones.filter((z) => z.Chantier === etat.chantierId).length > 1
+    const nomBase = (b) => [plusieursZones && d.parId.Zones.get(b.Zone)?.Nom, b.Nom].filter(Boolean).join(' · ')
+    const bases = d.Bases_vie.filter((b) => b.Chantier === etat.chantierId).sort((a, b) => nomBase(a).localeCompare(nomBase(b), 'fr', { numeric: true }))
+    const etagesDe = (b) => d.Etages.filter((e) => e.Base_vie === b.id).sort((x, y) => (y.Niveau ?? 0) - (x.Niveau ?? 0))
+    const COLONNES = [...COULEURS_STATUTS.map(([s, libelle]) => [s, libelle]), ['total', 'Total']]
+    const tableauStatuts = (premiere, lignes, titre) => {
+      const titres = [premiere, ...COLONNES.map(([, libelle]) => libelle)]
+      const classe = (cle) => `occ-inc-${cle === 'total' ? 'total' : STATUTS[cle]}`
+      return h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau tableau-occupation' },
+          titre && h('caption', null, titre),
+          h('thead', null, h('tr', null, h('th', null, premiere), COLONNES.map(([cle, libelle]) => h('th', { className: classe(cle) }, libelle)))),
+          etiqueterLignes(h('tbody', null, lignes.map(([libelle, liste]) => {
+            const n = parStatut(liste)
+            return h('tr', null, h('td', { className: 'tableau-nom' }, libelle),
+              COLONNES.map(([cle]) => h('td', { className: classe(cle) }, String(cle === 'total' ? liste.length : n[cle]))))
+          })), titres)))
+    }
+    const incidentsEtage = (e) => incidents.filter((i) => etageIncident(i) === e.id)
+    const sansLieu = incidents.filter((i) => !etageIncident(i)).length
+
+    return h('div', { className: 'vue-generale-casiers' },
+      h('div', { className: 'stats' },
+        // Mêmes couleurs que les cartes des chantiers (stat-ouverts, stat-en_cours, stat-resolus)
+        [['ouverts', total.Ouvert, 'Ouverts'], ['en_cours', total['En cours'], 'En cours'], ['resolus', total.Résolu, 'Résolus'], ['total', incidents.length, 'Total']]
+          .map(([type, n, libelle]) => h('div', { className: `stat stat-${type}${n === 0 ? ' stat-nul' : ''}` },
+            h('span', { className: 'stat-valeur' }, n), h('span', { className: 'stat-libelle' }, libelle)))),
+      h('div', { className: 'graphiques graphiques-incidents' }, grapheStatuts, grapheCategories),
+      h('h2', { className: 'occupation-titre' }, 'Incidents par base vie'),
+      bases.length === 0 ? h('p', { className: 'message' }, 'Ce chantier n’a pas encore de base vie.')
+        : tableauStatuts('Base vie', bases.map((b) => [nomBase(b), etagesDe(b).flatMap(incidentsEtage)])),
+      h('h2', { className: 'occupation-titre' }, 'Incidents par étage'),
+      bases.filter((b) => etagesDe(b).length > 0).map((b) =>
+        tableauStatuts('Étage', etagesDe(b).map((e) => [e.Nom || 'Sans nom', incidentsEtage(e)]), nomBase(b))),
+      sansLieu > 0 && h('p', { className: 'sous-texte' }, `${sansLieu} incident${sansLieu > 1 ? 's' : ''} sans lieu précis (ni casier ni pièce) : compté${sansLieu > 1 ? 's' : ''} dans le total, pas dans les tableaux.`))
   }
 
   // ---- Signalement ----
