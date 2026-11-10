@@ -444,10 +444,10 @@ export function etiqueterLignes(tbody, titres) {
 
 // Barre d'onglets ; un seul élément s'affiche comme simple texte
 // Rangée de choix (zones, bases vie, étages, vestiaires) précédée de son titre et de son pictogramme `picto` ;
-// un seul élément : son nom seulement, sans bouton à toucher
-export function onglets(libelle, elements, actifId, onChoisir, picto) {
+// un seul élément : son nom seulement, sans bouton à toucher ; `important` : titre plus grand et plus foncé (base vie, vestiaire)
+export function onglets(libelle, elements, actifId, onChoisir, picto, important = false) {
   if (elements.length === 0) return null
-  return h('div', { className: 'rangee-lieu' },
+  return h('div', { className: important ? 'rangee-lieu rangee-importante' : 'rangee-lieu' },
     h('span', { className: 'rangee-titre' }, picto && icone(picto, 18), libelle),
     elements.length === 1 ? h('p', { className: 'rangee-seul' }, elements[0].Nom)
       : h('div', { className: 'onglets', role: 'tablist', 'aria-label': libelle },

@@ -109,7 +109,7 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
   // empilés sur téléphone, côte à côte sur ordinateur (voir .vue-chantier dans le CSS)
   // Zones et bases vie au-dessus des deux blocs : sur ordinateur, les étages (gauche) et les vestiaires (droite)
   // commencent ainsi à la même hauteur
-  const haut = [onglets('Zone', zones, etat.zoneId, choisirZone, 'lieu'), onglets('Base vie', bases, etat.baseId, choisirBase, 'entreprise')]
+  const haut = [onglets('Zone', zones, etat.zoneId, choisirZone, 'lieu'), onglets('Base vie', bases, etat.baseId, choisirBase, 'entreprise', true)]
   const plan = []
   const noeuds = []
 
@@ -154,7 +154,7 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
     const filtrable = mode === 'casiers'
     const visibles = casiers.filter((c) => !filtrable || etat.filtre === 'tous' || c.statut === etat.filtre)
     noeuds.push(
-      onglets('Vestiaire', vestiairesEtage, etat.vestiaireId, choisirVestiaire, 'total'),
+      onglets('Vestiaire', vestiairesEtage, etat.vestiaireId, choisirVestiaire, 'total', true),
       filtrable && h('div', { className: 'filtres' }, FILTRES.map((f) =>
         h('button', { className: 'filtre', 'aria-pressed': String(etat.filtre === f.cle), onClick: () => { etat.filtre = f.cle; rafraichir() } },
           icone(f.picto, 18), `${f.libelle} ${compte(f.cle)}`))),

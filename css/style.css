@@ -1161,6 +1161,9 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .rangee-lieu > .rangee-titre { margin-top: 0; }
 .rangee-titre svg { color: var(--marque-vert); }
 .rangee-seul { margin: 4px 0 0; font-weight: 700; }
+/* Base vie et Vestiaire : titres plus grands et plus foncés */
+.rangee-importante > .rangee-titre { font-size: 1rem; font-weight: 800; color: var(--encre); }
+.rangee-importante > .rangee-titre svg { width: 22px; height: 22px; }
 .filtre { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .filtres .filtre { gap: 4px; padding: 0 4px; white-space: nowrap; }
 /* Menu ☰ du téléphone : le haut (logo, ✕) reste en place, la liste des pages défile sur un petit écran */
