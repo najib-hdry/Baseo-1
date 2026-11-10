@@ -2,9 +2,9 @@
 import { h, aujourdhui, enFrancais, ouvrirPanneau, depuisGrist, versGrist, fenetreSuppression } from './outils.js'
 import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier, ROLE_CLIENT, estAdmin, enregistrerLigne, supprimerFiche } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
-import { historiqueCasiers } from './historique_casiers.js'
+import { historiqueCasiers, occupationSocietes } from './historique_casiers.js'
 
-// Onglet « Historique » des attributions : Admin et Client seulement
+// Onglets « Historique » et « Occupation par société » : Admin et Client seulement
 const voitHistoriqueCasiers = (d) => ['Admin', ROLE_CLIENT].includes(d.moi?.profil)
 
 // Écran « Gestion des casiers », affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -41,17 +41,18 @@ export function creerEcranCasiers(racine, recharger) {
       return
     }
     const chantier = d.parId.Chantiers.get(etat.chantierId)
-    const historique = voitHistoriqueCasiers(d) && etat.onglet === 'historique'
+    const onglet = voitHistoriqueCasiers(d) ? etat.onglet : 'casiers'
     racine.replaceChildren(...[
       // Retour et nom du chantier sur une même ligne
       h('div', { className: 'entete-chantier' },
         h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
         h('h1', null, chantier?.Nom ?? '')),
       voitHistoriqueCasiers(d) && h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Casiers du chantier' },
-        [['casiers', 'Casiers'], ['historique', 'Historique']].map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab',
+        [['casiers', 'Casiers'], ['historique', 'Historique'], ['societes', 'Occupation par société']].map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab',
           'aria-selected': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle))),
-      ...(historique ? [historiqueCasiers(d, etat.chantierId, etat.historique,
+      ...(onglet === 'historique' ? [historiqueCasiers(d, etat.chantierId, etat.historique,
         estAdmin(d) ? { modifier: ouvrirModifAttribution, supprimer: supprimerAttribution } : null)]
+        : onglet === 'societes' ? [occupationSocietes(d, etat.chantierId)]
         : vueChantier(d, etat, { mode: 'casiers', onCasier: ouvrirCasier, rafraichir: rendre })),
     ].filter(Boolean))
   }

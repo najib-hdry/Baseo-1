@@ -470,6 +470,7 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Historique des casiers d'un chantier : statuts sur une ligne, période « Du / Au » à côté de la recherche */
 .historique-casiers .filtres { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); margin-top: 0; }
 .historique-casiers .barre-outils { align-items: center; }
+.societes-total { margin: 12px 0 0; font-weight: 700; text-align: right; }
 .historique-date { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 @media (max-width: 720px) { .historique-date { width: 100%; } .historique-casiers .historique-date .champ { flex: 1; width: auto; min-width: 0; } }
 .bouton-detail { border-color: var(--trait); }

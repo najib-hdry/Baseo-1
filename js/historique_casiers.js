@@ -1,7 +1,10 @@
-// Onglet « Historique » de la page Casiers (Admin et Client) : toutes les attributions d'un chantier, passées, en cours
-// et à venir, avec leur emplacement, l'intervenant et son employeur. Filtre par statut et par période, recherche,
-// tri des colonnes (commun à tous les tableaux) et export Excel des lignes affichées.
-import { h, enFrancais, depuisGrist, aujourdhui, etiqueterLignes, compte, notifier, menuPlus } from './outils.js'
+// Onglets « Historique » et « Occupation par société » de la page Casiers (Admin et Client).
+// Historique : toutes les attributions d'un chantier, passées, en cours et à venir, avec leur emplacement, l'intervenant
+// et son employeur. Filtre par statut et par période, recherche, tri des colonnes (commun à tous les tableaux) et export
+// Excel des lignes affichées.
+// Occupation par société : les entreprises du chantier (table Chantier_Entreprise, colonnes formules de Grist) avec
+// leur responsable, le nombre de casiers occupés (passés et en cours), les jours occupés et le prix.
+import { h, enFrancais, depuisGrist, aujourdhui, etiqueterLignes, compte, notifier, menuPlus, lienContact, euros } from './outils.js'
 import { chargerXlsx } from './taches.js'
 
 const TITRES_HISTORIQUE = ['Casier', 'Emplacement', 'Intervenant', 'Badge', 'Employeur', 'Début', 'Fin', 'Durée (j)', 'Statut', 'Clé', 'Commentaire']
@@ -111,4 +114,34 @@ export function historiqueCasiers(d, chantierId, filtres, actions = null) {
       h('table', { className: 'tableau' },
         h('thead', null, h('tr', null, titres.map((t) => h('th', null, t)))),
         corps)))
+}
+
+const TITRES_SOCIETES = ['Entreprise', 'Responsable', 'Téléphone', 'Email', 'Nbr casiers', 'Nbr jours', 'Prix']
+// Prix : colonne formule de type Any (un nombre, ou une erreur si le prix du casier manque)
+const prixSociete = (l) => (typeof l.Prix === 'number' ? l.Prix : null)
+
+// Occupation par société du chantier `chantierId` : une ligne par entreprise rattachée au chantier, total en dessous
+export function occupationSocietes(d, chantierId) {
+  const lignes = (d.Chantier_Entreprise ?? []).filter((l) => l.Chantier === chantierId).map((l) => {
+    const e = d.parId.Entreprises.get(l.Entreprise)
+    return { ...l, e, nom: e?.Nom || 'Sans nom', responsable: [e?.Responsable_prenom, e?.Responsable_nom].filter(Boolean).join(' ') }
+  }).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+  const somme = (f) => lignes.reduce((t, l) => t + (Number(f(l)) || 0), 0)
+  const prixCasier = d.parId.Chantiers.get(chantierId)?.Prix_casier
+  const corps = h('tbody', null, lignes.length === 0
+    ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_SOCIETES.length }, 'Aucune entreprise rattachée à ce chantier.'))
+    : lignes.map((l) => h('tr', null,
+      h('td', { className: 'tableau-nom' }, l.nom), h('td', null, l.responsable || '—'),
+      h('td', null, lienContact('tel', l.e?.Telephone) || '—'), h('td', null, lienContact('mailto', l.e?.Email) || '—'),
+      h('td', null, String(l.Nbr_casiers ?? 0)), h('td', null, String(l.Nbr_jours_occupes ?? 0)),
+      h('td', null, prixSociete(l) == null ? '—' : euros.format(prixSociete(l))))))
+  etiqueterLignes(corps, TITRES_SOCIETES)
+  return h('section', { className: 'carte-tableau' },
+    h('p', { className: 'sous-texte' }, prixCasier ? `Prix du casier : ${euros.format(prixCasier)} par jour` : 'Prix du casier non renseigné dans la fiche du chantier : les prix restent à 0.'),
+    h('div', { className: 'tableau-defilant' },
+      h('table', { className: 'tableau' },
+        h('thead', null, h('tr', null, TITRES_SOCIETES.map((t) => h('th', null, t)))),
+        corps)),
+    lignes.length > 0 && h('p', { className: 'societes-total' },
+      `Total : ${somme((l) => l.Nbr_casiers)} casiers · ${somme((l) => l.Nbr_jours_occupes)} jours · ${euros.format(somme(prixSociete))}`))
 }
