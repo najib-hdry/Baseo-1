@@ -92,7 +92,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
 
   // ---- Fiche : création (`u` null) ou modification ----
 
-  function ouvrirFiche(u) {
+  // `apres()` : appelé après l'enregistrement et le rechargement (ex. rouvrir la fiche salarié d'où vient la modification)
+  function ouvrirFiche(u, apres = null) {
     const champs = {
       Prenom: u?.Prenom ?? '', Nom: u?.Nom ?? '', Email: u?.Email ?? '', Telephone: u?.Telephone ?? '',
       // Nouvel utilisateur : rôle de l'onglet ouvert, actif par défaut
@@ -124,6 +125,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         await enregistrerUtilisateur(d, u?.id ?? null, { ...propres, Profil: propres.Profil || null, Chantiers: choixChantiers.ids() })
         fermer()
         await recharger()
+        apres?.()
       } catch (err) {
         erreur.textContent = err.message || 'L’enregistrement a échoué.'
         erreur.hidden = false
@@ -240,7 +242,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           ['Gestion des incidents', autorisation('Gestion_incidents_autorisee', 'Gestion des incidents')],
         ]))),
       h('div', { className: 'fiche-actions' },
-        h('button', { className: 'bouton', onClick: () => ouvrirDepuis(() => ouvrirFiche(u)) }, 'Modifier le compte')))
+        // Après l'enregistrement, la fiche (fermée avec le formulaire) se rouvre sur cet onglet
+        h('button', { className: 'bouton', onClick: () => ouvrirDepuis(() => ouvrirFiche(u, () => ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u, 'compte'))) }, 'Modifier le compte')))
 
     // Motif de sortie (colonne du candidat lié, CDDI uniquement) et désactivation du compte, après confirmation
     const ongletSortie = () => {
