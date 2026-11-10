@@ -90,7 +90,7 @@ const ecrans = {
   actualites: creerEcranActualites(zones.actualites),
   demandes: creerEcranDemandes(zones.demandes, () => recharger()),
   equipe: creerEcranEquipe(zones.equipe, () => recharger()),
-  utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id) => ecrans.candidats.modifier(donnees, id)),
+  utilisateurs: creerEcranUtilisateurs(zones.utilisateurs, () => recharger(), (id, apres) => ecrans.candidats.modifier(donnees, id, apres)),
 }
 // Page choisie dans le menu ; tant qu'il n'y en a pas (ou si elle n'est pas visible), la page d'accueil du profil
 // ou la première page visible (avant le premier chargement, aucune : Casiers, qui affiche « Chargement… »)

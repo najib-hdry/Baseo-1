@@ -231,7 +231,8 @@ export function creerEcranCandidats(racine, recharger) {
 
   // ---- Formulaire : ajout (`c` null) ou modification d'un candidat ----
 
-  function ouvrirFormulaire(c) {
+  // `apres()` : appelé une fois l'enregistrement fait et les données rechargées (ex. rouvrir la fiche salarié)
+  function ouvrirFormulaire(c, apres = null) {
     const valeurs = {} // saisies en cours, au format du formulaire (texte, ISO, nombre, identifiant)
     const fichiers = {} // fichiers choisis, par colonne
     const erreur = h('p', { className: 'erreur', hidden: true })
@@ -309,6 +310,7 @@ export function creerEcranCandidats(racine, recharger) {
         await enregistrerCandidat(c?.id ?? null, champs)
         fermer()
         await recharger()
+        apres?.()
       } catch (err) {
         erreur.textContent = err.message || 'L’enregistrement a échoué.'
         erreur.hidden = false
@@ -585,11 +587,12 @@ export function creerEcranCandidats(racine, recharger) {
       recherche = ''
       rendre()
     },
-    // Formulaire de modification ouvert depuis une autre page (fiche salarié) : `donnees` à jour, même si cette page n'a pas encore été affichée
-    modifier(donnees, candidatId) {
+    // Formulaire de modification ouvert depuis une autre page (fiche salarié) : `donnees` à jour, même si cette page n'a pas encore été affichée ;
+    // `apres()` : appelé après l'enregistrement
+    modifier(donnees, candidatId, apres) {
       d = donnees
       const c = d.parId.Candidats.get(candidatId)
-      if (c) ouvrirFormulaire(c)
+      if (c) ouvrirFormulaire(c, apres)
     },
   }
 }

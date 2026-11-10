@@ -18,7 +18,7 @@ const TITRES_CONTRATS = ['N° de contrat', 'Sites', 'Intitulé de poste', 'Date 
 // Fichiers d'un contrat : [colonne, libellé]
 const FICHIERS_CONTRAT = [['Fichier_contrat', 'Contrat'], ['Fichier_DPAE', 'DPAE']]
 
-// `modifierCandidat(id)` : ouvre le formulaire du candidat (page Gestion des candidats)
+// `modifierCandidat(id, apres)` : ouvre le formulaire du candidat (page Gestion des candidats) ; `apres()` après l'enregistrement
 export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
   let d = null
   let recherche = ''
@@ -168,14 +168,10 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       if (!c) return h('section', { className: 'bloc-candidat' },
         infos([['Nom', u.Nom || '—'], ['Prénom', u.Prenom || '—'], ['Téléphone', lienContact('tel', u.Telephone) || '—']]),
         h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Ressources humaines › Candidats).'))
-      const photo = idsDeListe(c.Photo)[0]
       // Photo à gauche, informations au centre, bouton à droite
       return h('section', { className: 'bloc-candidat' },
         h('div', { className: 'fiche-salarie' },
-          h('div', { className: 'fiche-salarie-photo' }, photo && lien
-            ? h('a', { href: lien(photo), target: '_blank', rel: 'noreferrer', title: 'Ouvrir la photo en grand' },
-              h('img', { className: 'photo-candidat', src: lien(photo), alt: `Photo de ${nom(u)}` }))
-            : h('span', { className: 'photo-vide', 'aria-label': 'Pas de photo' }, icone('occupes', 48))),
+          photoSalarie(),
           infos([
             ['Nom', c.Nom || '—'], ['Prénom', c.Prenom || '—'],
             ['Téléphone', lienContact('tel', c.Telephone) || '—'],
@@ -183,7 +179,17 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
             ['Pass IAE', passIae],
             ['RQTH', c.RQTH || '—'],
           ]),
-          h('button', { className: 'bouton bouton-principal bouton-compact fiche-salarie-modifier', onClick: () => ouvrirDepuis(() => modifierCandidat(c.id)) }, 'Modifier les infos')))
+          // Après l'enregistrement, la fiche (fermée avec le formulaire) se rouvre à jour
+          h('button', { className: 'bouton bouton-principal bouton-compact fiche-salarie-modifier',
+            onClick: () => ouvrirDepuis(() => modifierCandidat(c.id, () => ouvrirFicheSalarie(d.parId.Utilisateurs.get(u.id) ?? u))) }, 'Modifier les infos')))
+    }
+    // Photo du candidat lié (lien vers la photo en grand), ou pictogramme
+    const photoSalarie = () => {
+      const photo = idsDeListe(c?.Photo)[0]
+      return h('div', { className: 'fiche-salarie-photo' }, photo && lien
+        ? h('a', { href: lien(photo), target: '_blank', rel: 'noreferrer', title: 'Ouvrir la photo en grand' },
+          h('img', { className: 'photo-candidat', src: lien(photo), alt: `Photo de ${nom(u)}` }))
+        : h('span', { className: 'photo-vide', 'aria-label': 'Pas de photo' }, icone('occupes', 48)))
     }
 
     // Tableau d'une page de suivi (émargements, congés, acomptes) limité à ce salarié ; après un enregistrement,
@@ -195,9 +201,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       return zone
     }
 
-    // Toutes les informations du candidat lié, en lecture, sans le suivi de la candidature
+    // Toutes les informations du candidat lié, en lecture, sans le suivi de la candidature ; la photo en tête
     const ongletDetail = () => (c
-      ? blocsCandidatLecture(d, c, lien, ['Suivi de la candidature'])
+      ? [photoSalarie(), blocsCandidatLecture(d, c, lien, ['Suivi de la candidature', 'Photo'])]
       : h('p', { className: 'message' }, 'Aucun candidat n’est lié à ce compte. Lie-le depuis la fiche d’embauche du candidat (Ressources humaines › Candidats).'))
 
     // Compte à gauche, autorisations (cases de la table Utilisateurs) à droite : un interrupteur par case,
@@ -434,7 +440,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
             .map((p) => h('option', { value: String(p.id), selected: p.id === champs.Poste }, p.Titre || 'Sans titre')))),
       date('Date début', 'Date_debut'), date('Date fin', 'Date_fin'), date('Date signature', 'Date_signature')),
     h('div', { className: 'champ-groupe' }, 'Sites (chantiers)', choixSites.element),
-    h('div', { className: 'grille-2' }, FICHIERS_CONTRAT.map(([col, libelle]) => {
+    h('div', { className: 'grille-2 grille-fichiers' }, FICHIERS_CONTRAT.map(([col, libelle]) => {
       const id = idsDeListe(k?.[col])[0]
       return h('div', { className: 'champ-groupe' }, `Fichier ${libelle}`,
         zoneFichier((f) => { nouveaux[col] = f }, { deja: Boolean(id), lien: id && lien ? lien(id) : null }))
@@ -495,7 +501,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const erreur = h('p', { className: 'erreur', hidden: true })
     const libelleValider = typeInitial ? 'Enregistrer' : 'Ajouter le document'
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, libelleValider)
-    const zones = h('div', { className: 'grille-2' })
+    const zones = h('div', { className: 'grille-2 grille-fichiers' })
     const note = h('p', { className: 'sous-texte' })
     // Changer de type efface les fichiers déjà choisis
     const dessinerFaces = () => {

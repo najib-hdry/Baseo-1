@@ -515,6 +515,8 @@ button.tiroir-lien.active { background: var(--signal); }
 .bloc-document h4 { margin: 0; font-size: .95rem; }
 .bloc-document p { margin: 0; }
 .zone-avec-lien { display: grid; gap: 4px; }
+/* Zones de fichiers côte à côte (recto / verso, contrat / DPAE) : calées en haut, même si leurs textes n'ont pas la même longueur */
+.grille-fichiers > .champ-groupe { align-content: start; }
 .bouton-embauche { color: #fff; background: #1F6F6A; border-color: #1F6F6A; }
 .badge-embauche { margin-left: 6px; color: #fff; background: #1F6F6A; }
 /* Fiche d'entretien */
