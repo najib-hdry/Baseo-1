@@ -408,7 +408,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
           majApres()
           const caseNombre = (cle, libelleCase) => h('td', { className: 'tableau-centre' }, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:90px',
             value: saisie[cle] || '', 'aria-label': libelleCase, onInput: (ev) => { saisie[cle] = Math.max(0, Number(ev.target.value) || 0); majApres(); majResume() } }))
-          const enAlerte = e.Quantite_seuil && actuelle(e) <= e.Quantite_seuil
+          // Booléen : un seuil à 0 ne doit pas s'afficher comme « 0 » collé à la quantité
+          const enAlerte = Boolean(e.Quantite_seuil) && actuelle(e) <= e.Quantite_seuil
           return h('tr', null,
             h('td', null, source(e)),
             h('td', null, type(e)),
