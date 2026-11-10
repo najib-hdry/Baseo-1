@@ -1,13 +1,18 @@
 // Écran « Gestion des casiers » de l'application Grist
-import { h, aujourdhui, enFrancais, ouvrirPanneau } from './outils.js'
-import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier } from './donnees.js'
+import { h, aujourdhui, enFrancais, ouvrirPanneau, depuisGrist, versGrist, fenetreSuppression } from './outils.js'
+import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier, ROLE_CLIENT, estAdmin, enregistrerLigne, supprimerFiche } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
+import { historiqueCasiers } from './historique_casiers.js'
+
+// Onglet « Historique » des attributions : Admin et Client seulement
+const voitHistoriqueCasiers = (d) => ['Admin', ROLE_CLIENT].includes(d.moi?.profil)
 
 // Écran « Gestion des casiers », affiché dans `racine` ; `recharger()` relit les données après une écriture
 export function creerEcranCasiers(racine, recharger) {
   let d = null
 
-  const etat = { chantierId: null, zoneId: null, baseId: null, etageId: null, vestiaireId: null, filtre: 'tous', vue3d: { rotation: -35, inclinaison: 55 } }
+  const etat = { chantierId: null, zoneId: null, baseId: null, etageId: null, vestiaireId: null, filtre: 'tous', vue3d: { rotation: -35, inclinaison: 55 },
+    onglet: 'casiers', historique: { statut: 'tous', recherche: '', du: '', au: '' } }
 
   function rendre() {
     if (!d) return
@@ -29,19 +34,26 @@ export function creerEcranCasiers(racine, recharger) {
           return casiers.length ? casiers.filter((k) => d.activeParCasier.has(k.id)).length / casiers.length : 0
         },
         onOuvrir: (c) => {
-          Object.assign(etat, { filtre: 'tous' }, selectionPourChantier(d, c.id))
+          Object.assign(etat, { filtre: 'tous', onglet: 'casiers', historique: { statut: 'tous', recherche: '', du: '', au: '' } }, selectionPourChantier(d, c.id))
           rendre()
         },
       }))
       return
     }
     const chantier = d.parId.Chantiers.get(etat.chantierId)
-    racine.replaceChildren(
+    const historique = voitHistoriqueCasiers(d) && etat.onglet === 'historique'
+    racine.replaceChildren(...[
       // Retour et nom du chantier sur une même ligne
       h('div', { className: 'entete-chantier' },
         h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
         h('h1', null, chantier?.Nom ?? '')),
-      ...vueChantier(d, etat, { mode: 'casiers', onCasier: ouvrirCasier, rafraichir: rendre }))
+      voitHistoriqueCasiers(d) && h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Casiers du chantier' },
+        [['casiers', 'Casiers'], ['historique', 'Historique']].map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab',
+          'aria-selected': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle))),
+      ...(historique ? [historiqueCasiers(d, etat.chantierId, etat.historique,
+        estAdmin(d) ? { modifier: ouvrirModifAttribution, supprimer: supprimerAttribution } : null)]
+        : vueChantier(d, etat, { mode: 'casiers', onCasier: ouvrirCasier, rafraichir: rendre })),
+    ].filter(Boolean))
   }
 
   // ---- Fenêtre d'un casier ----
@@ -170,6 +182,72 @@ export function creerEcranCasiers(racine, recharger) {
     }
 
     return [zone]
+  }
+
+  // ---- Historique (Admin) : modifier ou supprimer une attribution ----
+
+  // Autre attribution du même casier qui chevaucherait [debut, fin] (fin vide = toujours en cours) ;
+  // une attribution peut commencer le jour où la précédente se termine
+  function chevauchement(a, debut, fin) {
+    return d.Attributions.find((b) => b.id !== a.id && b.Casier === a.Casier
+      && debut < (depuisGrist(b.Date_fin) ?? '9999-12-31') && (depuisGrist(b.Date_debut) ?? '0000-01-01') < (fin || '9999-12-31'))
+  }
+
+  function ouvrirModifAttribution(a) {
+    const i = d.parId.Intervenants.get(a.Intervenant)
+    const casier = d.parId.Casiers.get(a.Casier)
+    const champs = { debut: depuisGrist(a.Date_debut) ?? '', fin: depuisGrist(a.Date_fin) ?? '', coffre: a.Coffre === 'Oui' ? 'Oui' : 'Non', cle: a.Numero_cle ?? '', commentaire: a.Commentaire ?? '' }
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, 'Enregistrer')
+    const saisieCle = h('input', { className: 'champ', autocomplete: 'off', value: champs.cle, onInput: (e) => { champs.cle = e.target.value } })
+    const cle = h('label', { className: 'champ-groupe', hidden: champs.coffre !== 'Oui' }, 'Numéro de clé', saisieCle)
+    const date = (col, libelle, extra) => h('label', { className: 'champ-groupe' }, libelle,
+      h('input', { className: 'champ', type: 'date', value: champs[col], ...extra, onInput: (e) => { champs[col] = e.target.value } }))
+
+    const formulaire = h('form', { className: 'formulaire', onSubmit: async (ev) => {
+      ev.preventDefault()
+      erreur.hidden = true
+      const autre = chevauchement(a, champs.debut, champs.fin)
+      const message = !champs.debut ? 'La date de début est obligatoire.'
+        : champs.fin && champs.fin < champs.debut ? 'La date de fin ne peut pas précéder la date de début.'
+          : autre ? `Ces dates chevauchent une autre attribution de ce casier (du ${enFrancais(depuisGrist(autre.Date_debut)) || '?'}${autre.Date_fin ? ` au ${enFrancais(depuisGrist(autre.Date_fin))}` : ', toujours en cours'}).`
+            : null
+      if (message) { erreur.textContent = message; erreur.hidden = false; return }
+      valider.disabled = true
+      try {
+        await enregistrerLigne('Attributions', a.id, { Date_debut: versGrist(champs.debut), Date_fin: versGrist(champs.fin), Coffre: champs.coffre,
+          Numero_cle: champs.coffre === 'Oui' ? champs.cle.trim() : '', Commentaire: champs.commentaire.trim() })
+        fermer()
+        await recharger()
+      } catch (err) {
+        erreur.textContent = err.message || 'L’enregistrement a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+      }
+    } },
+    h('p', { className: 'sous-texte' }, `${[i?.Prenom, i?.Nom].filter(Boolean).join(' ') || 'Intervenant'} · casier ${casier?.Numero ?? '?'}`),
+    h('div', { className: 'grille-2' },
+      date('debut', 'Date de début', { required: true }),
+      date('fin', 'Date de fin (vide = toujours en cours)')),
+    h('label', { className: 'champ-groupe' }, 'Y a-t-il un coffre ?',
+      h('select', { className: 'champ', onChange: (e) => { champs.coffre = e.target.value; cle.hidden = champs.coffre !== 'Oui' } },
+        ['Non', 'Oui'].map((v) => h('option', { value: v, selected: v === champs.coffre }, v.toUpperCase())))),
+    cle,
+    h('label', { className: 'champ-groupe' }, 'Commentaire',
+      h('textarea', { className: 'champ', rows: 3, onInput: (e) => { champs.commentaire = e.target.value } }, champs.commentaire)),
+    erreur, valider)
+    const { fermer } = ouvrirPanneau('Modifier l’attribution', formulaire)
+  }
+
+  function supprimerAttribution(a) {
+    const i = d.parId.Intervenants.get(a.Intervenant)
+    const casier = d.parId.Casiers.get(a.Casier)
+    const debut = enFrancais(depuisGrist(a.Date_debut)) || '?'
+    fenetreSuppression('Supprimer cette attribution ?',
+      `${[i?.Prenom, i?.Nom].filter(Boolean).join(' ') || 'Intervenant'} · casier ${casier?.Numero ?? '?'} · du ${debut}${a.Date_fin ? ` au ${enFrancais(depuisGrist(a.Date_fin))}` : ''}. `
+        + (a.Date_fin ? 'Elle disparaîtra de l’historique.' : 'Elle est en cours : le casier redeviendra libre, et elle disparaîtra de l’historique.')
+        + ' Pour garder une trace, préfère « Modifier » et une date de fin.',
+      [['Supprimer', 'bouton-danger', () => supprimerFiche('Attributions', a.id)]], recharger)
   }
 
   return {

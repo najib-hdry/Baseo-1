@@ -184,7 +184,7 @@ function choisirSortEmargements(bilan, nouvelle) {
 
 const URL_XLSX = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 let chargementXlsx = null
-function chargerXlsx() {
+export function chargerXlsx() {
   if (window.XLSX) return Promise.resolve(window.XLSX)
   chargementXlsx ??= new Promise((ok, ko) => {
     const script = h('script', { src: URL_XLSX })

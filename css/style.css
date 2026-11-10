@@ -467,6 +467,11 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Fiche salarié et fiche chantier : titre, ✕ et onglets restent en haut, seul le contenu de l'onglet défile */
 .panneau.panneau-onglets { overflow: hidden; grid-template-rows: auto auto minmax(0, 1fr); }
 .panneau-onglets > .fiche-contenu { overflow-y: auto; align-content: start; padding-bottom: 4px; }
+/* Historique des casiers d'un chantier : statuts sur une ligne, période « Du / Au » à côté de la recherche */
+.historique-casiers .filtres { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); margin-top: 0; }
+.historique-casiers .barre-outils { align-items: center; }
+.historique-date { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+@media (max-width: 720px) { .historique-date { width: 100%; } .historique-casiers .historique-date .champ { flex: 1; width: auto; min-width: 0; } }
 .bouton-detail { border-color: var(--trait); }
 
 /* ---- Écrans étroits (téléphone, petite fenêtre) ---- */
