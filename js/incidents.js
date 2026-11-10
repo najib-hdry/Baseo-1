@@ -217,7 +217,8 @@ export function creerEcranIncidents(racine, recharger) {
             h('td', null, h('span', { className: 'cellule-description' }, i.Description ?? '')),
             h('td', null, h('span', { className: `badge badge-${STATUTS[i.Statut] ?? 'ouvert'}` }, i.Statut ?? 'Ouvert')),
             h('td', null, attribuesA(i) || '—'),
-            h('td', null, resolu ? enFrancais(resolu) : '—'),
+            h('td', null, resolu ? enFrancais(resolu) : '—',
+              resolu && i.Resolu_par && h('span', { className: 'sous-texte cellule-resolu-par' }, `par ${i.Resolu_par}`)),
             // Action principale du statut, puis fiche, modification et suppression
             h('td', { className: 'tableau-actions' },
               boutonsStatut(i, { compact: true, surErreur: (m) => { erreur.textContent = m; erreur.hidden = false } }).slice(0, 1),
@@ -264,15 +265,18 @@ export function creerEcranIncidents(racine, recharger) {
       ['Signalé le', i.Signale_le ? dateHeure(i.Signale_le) : '—'],
       ['Signalé par', i.Signale_par || '—'],
       ['Résolu le', resolu ? enFrancais(resolu) : '—'],
+      ['Résolu par', (i.Statut === 'Résolu' && i.Resolu_par) || '—'],
       ['Commentaire de résolution', i.Commentaire_resolution || '—'],
     ]
-    const taches = tachesIncident(i)
+    // Un salarié une seule fois, avec tous ses créneaux (attributions faites avant le contrôle des doublons)
+    const parSalarie = new Map()
+    for (const t of tachesIncident(i)) parSalarie.set(t.Salarie, [...(parSalarie.get(t.Salarie) ?? []), t])
     const creneau = (t) => `${dateHeure(t.Date_debut)}${t.Date_fin ? ` → ${new Date(t.Date_fin * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}`
     const { fermer, ouvrirDepuis, section } = ouvrirPanneau(`Incident · ${i.Categorie ?? ''}`, [
       h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
-      h('h3', { className: 'titre-section' }, `Attribué à (${taches.length})`),
-      taches.length === 0 ? h('p', { className: 'sous-texte' }, 'Personne pour l’instant.')
-        : h('ul', { className: 'liste-attribution' }, taches.map((t) => h('li', null, h('strong', null, nomSalarie(t.Salarie)), ` · ${creneau(t)}`))),
+      h('h3', { className: 'titre-section' }, `Attribué à (${parSalarie.size})`),
+      parSalarie.size === 0 ? h('p', { className: 'sous-texte' }, 'Personne pour l’instant.')
+        : h('ul', { className: 'liste-attribution' }, [...parSalarie].map(([s, taches]) => h('li', null, h('strong', null, nomSalarie(s)), ` · ${taches.map(creneau).join(' ; ')}`))),
       h('h3', { className: 'titre-section' }, `Photos du signalement (${ids.length})`),
       galeriePhotos(ids, lien),
       (idsResolution.length > 0 || i.Statut === 'Résolu') && [
@@ -290,11 +294,14 @@ export function creerEcranIncidents(racine, recharger) {
   // Attribution : salariés (ceux du chantier de l'incident d'abord), date, heures, consigne ; une tâche par salarié
   function ouvrirAttribution(i, lieu) {
     const duChantier = (u) => idsDeListe(u.Chantiers).includes(i.Chantier)
+    // Un salarié déjà attribué à cet incident n'est plus proposé
+    const dejaAttribues = new Set(tachesIncident(i).map((t) => t.Salarie))
     const choix = choixEtiquettes({
-      elements: () => d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && u.Actif)
+      elements: () => d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && u.Actif && !dejaAttribues.has(u.id))
         .sort((a, b) => duChantier(b) - duChantier(a))
         .map((u) => ({ id: u.id, libelle: `${nomSalarie(u.id)}${duChantier(u) ? '' : ' (autre chantier)'}` })),
-      textes: { aucun: 'Aucun salarié choisi.', choisir: 'Ajouter un salarié…', tous: 'Tous les salariés sont ajoutés', vide: 'Aucun salarié actif' },
+      textes: { aucun: 'Aucun salarié choisi.', choisir: 'Ajouter un salarié…', tous: 'Tous les salariés sont ajoutés',
+        vide: dejaAttribues.size ? 'Tous les salariés actifs sont déjà attribués à cet incident' : 'Aucun salarié actif' },
     })
     const demain = new Date(Date.now() + 86400000)
     const z = (n) => String(n).padStart(2, '0')

@@ -442,6 +442,9 @@ export const importerTaches = (d, taches) => action([ajoutGroupeLignes('Emploi_d
  * un incident « Ouvert » passe « En cours ». Un seul envoi.
  */
 export function attribuerIncident(d, i, salaries, debut, fin, consigne) {
+  // Un salarié n'est attribué qu'une fois à un incident
+  const deja = salaries.filter((s) => (d.Emploi_du_temps ?? []).some((t) => t.Incident === i.id && t.Salarie === s))
+  if (deja.length) throw new Error(`${deja.map((s) => nomContact(d.parId.Utilisateurs.get(s)) || 'Ce salarié').join(', ')} : déjà attribué à cet incident.`)
   const casier = d.parId.Casiers.get(i.Casier)
   const lieu = { Chantier: i.Chantier || 0, Zone: i.Zone || 0, Base_vie: i.Base_vie || 0, Etage: i.Etage || 0,
     Piece: i.Piece || 0, Vestiaire: casier?.Vestiaire || 0 }
