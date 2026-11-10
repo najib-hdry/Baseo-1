@@ -746,6 +746,7 @@ export const supprimerFiche = (table, ligneId) => action([['RemoveRecord', table
 // ---- Gestion des postes (admin) ----
 
 export const STATUTS_POSTE = ['À venir', 'En cours', 'Archives']
+export const POSTE_ARCHIVE = 'Archives' // poste qui n'est plus proposé dans les formulaires (candidat, contrat)
 const HORAIRES_AUTRE = 'Autre'
 export const HORAIRES_POSTE = ['4', '5', '6', '7', HORAIRES_AUTRE]
 // Horaires lisibles d'un poste : la précision quand le choix est « Autre » ; `vide` sans horaires
@@ -753,6 +754,8 @@ export const libelleHoraires = (p, vide = '') => (p.Horaires === HORAIRES_AUTRE 
 
 // Liste de références Grist (['L', 1, 2]) ↔ tableau d'identifiants
 export const idsDeListe = (v) => (Array.isArray(v) ? v.filter((x) => x !== 'L') : [])
+// Chantiers d'une communication (colonne liste de chantiers ; une ancienne valeur seule est acceptée aussi)
+export const chantiersCommunication = (c) => (Array.isArray(c.Chantier) ? idsDeListe(c.Chantier) : c.Chantier ? [c.Chantier] : [])
 
 // `champs` : Titre, Date_demarrage (ISO), Nb_personnes, Statut, Chantiers (ids), Mission, Horaires, Horaires_precision
 const posteVersGrist = (champs) => ({

@@ -1,7 +1,7 @@
 // Écran « Communication » (admin) : onglets Communication générale / par site, tableau (titre, contenu…) avec recherche,
 // fiche de communication (nouvelle ou modification) avec un fichier joint, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte, figerFormulaire } from './outils.js'
-import { accesPage, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe, peutModifier } from './donnees.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte, figerFormulaire, choixEtiquettes } from './outils.js'
+import { accesPage, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe, peutModifier, chantiersCommunication } from './donnees.js'
 
 const TABLE_COMMUNICATION = 'Communication'
 const NIVEAU_GENERAL = 'Communication générale'
@@ -19,7 +19,8 @@ export function creerEcranCommunication(racine, recharger) {
   let onglet = NIVEAU_GENERAL
   let redessinerLignes = null // lignes du tableau seules, quand l'adresse des fichiers arrive
 
-  const nomChantier = (c) => d.parId.Chantiers.get(c.Chantier)?.Nom ?? ''
+  // Colonne Chantier : liste de chantiers (une communication par site peut en viser plusieurs)
+  const nomChantier = (c) => chantiersCommunication(c).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
   const fichierDe = (c) => idsDeListe(c.Fichier)[0] ?? null
 
   function rendre() {
@@ -94,7 +95,6 @@ export function creerEcranCommunication(racine, recharger) {
     const champs = {
       Titre: c?.Titre ?? '',
       Niveau: c?.Niveau || onglet,
-      Chantier: c?.Chantier && d.parId.Chantiers.has(c.Chantier) ? c.Chantier : 0, // chantier supprimé : à choisir de nouveau
       Type: c?.Type || 'Permanente',
       Date: depuisGrist(c?.Date) ?? aujourdhui(),
       Date_expiration: depuisGrist(c?.Date_expiration) ?? '',
@@ -109,10 +109,13 @@ export function creerEcranCommunication(racine, recharger) {
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, libelleValider)
 
     // Le chantier n'a de sens que par site, la date d'expiration que pour une communication temporaire
-    const groupeChantier = h('label', { className: 'champ-groupe', hidden: champs.Niveau !== NIVEAU_SITE }, 'Chantier *',
-      h('select', { className: 'champ', onChange: (ev) => { champs.Chantier = Number(ev.target.value) || 0 } },
-        h('option', { value: '0', selected: !champs.Chantier }, '-- Choisissez --'),
-        chantiers.map((ch) => h('option', { value: String(ch.id), selected: ch.id === champs.Chantier }, ch.Nom || 'Sans nom'))))
+    // Un ou plusieurs chantiers ; un chantier supprimé n'est pas repris
+    const choixChantiers = choixEtiquettes({
+      elements: () => chantiers.map((ch) => ({ id: ch.id, libelle: ch.Nom || 'Sans nom' })),
+      choisis: c ? chantiersCommunication(c).filter((id) => d.parId.Chantiers.has(id)) : [],
+      textes: { aucun: 'Aucun chantier choisi.', choisir: 'Ajouter un chantier…', tous: 'Tous les chantiers sont ajoutés', vide: 'Aucun chantier' },
+    })
+    const groupeChantier = h('div', { className: 'champ-groupe', hidden: champs.Niveau !== NIVEAU_SITE }, 'Chantiers *', choixChantiers.element)
     const groupeExpiration = h('label', { className: 'champ-groupe', hidden: champs.Type !== TYPE_TEMPORAIRE }, 'Date d’expiration *',
       h('input', { className: 'champ', type: 'date', value: champs.Date_expiration, onInput: (ev) => { champs.Date_expiration = ev.target.value } }))
 
@@ -123,7 +126,7 @@ export function creerEcranCommunication(racine, recharger) {
       const temporaire = champs.Type === TYPE_TEMPORAIRE
       const probleme = !champs.Titre.trim() ? 'Donne un titre à la communication.'
         : !champs.Contenu.trim() ? 'Écris le contenu de la communication.'
-        : site && !champs.Chantier ? 'Choisis le chantier concerné.'
+        : site && choixChantiers.ids().length === 0 ? 'Choisis au moins un chantier concerné.'
           : !champs.Date ? 'Indique la date.'
             : temporaire && !champs.Date_expiration ? 'Indique la date d’expiration d’une communication temporaire.'
               : temporaire && champs.Date_expiration < champs.Date ? 'La date d’expiration ne peut pas être avant la date de la communication.'
@@ -139,7 +142,7 @@ export function creerEcranCommunication(racine, recharger) {
         const colonnes = {
           Titre: champs.Titre.trim(),
           Niveau: champs.Niveau,
-          Chantier: site ? champs.Chantier : 0,
+          Chantier: site && choixChantiers.ids().length ? ['L', ...choixChantiers.ids()] : null,
           Type: champs.Type,
           Date: versGrist(champs.Date),
           Date_expiration: temporaire ? versGrist(champs.Date_expiration) : null,

@@ -9,7 +9,7 @@ import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEma
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
-import { accesPage, ROLES, ROLE_SALARIE, ROLE_CLIENT, AUTORISATIONS_CLIENT, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne } from './donnees.js'
+import { accesPage, ROLES, ROLE_SALARIE, ROLE_CLIENT, AUTORISATIONS_CLIENT, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne, POSTE_ARCHIVE } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -439,7 +439,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       h('label', { className: 'champ-groupe' }, 'Intitulé de poste',
         h('select', { className: 'champ', onChange: (e) => { champs.Poste = Number(e.target.value) || 0 } },
           h('option', { value: '0', selected: !champs.Poste }, '-- Choisissez --'),
-          [...(d.Postes ?? [])].sort((a, b) => String(a.Titre).localeCompare(String(b.Titre)))
+          // Postes archivés : plus proposés, sauf celui du contrat
+          [...(d.Postes ?? [])].filter((p) => p.Statut !== POSTE_ARCHIVE || p.id === champs.Poste).sort((a, b) => String(a.Titre).localeCompare(String(b.Titre)))
             .map((p) => h('option', { value: String(p.id), selected: p.id === champs.Poste }, p.Titre || 'Sans titre')))),
       date('Date début', 'Date_debut'), date('Date fin', 'Date_fin'), date('Date signature', 'Date_signature')),
     h('div', { className: 'champ-groupe' }, 'Sites (chantiers)', choixSites.element),

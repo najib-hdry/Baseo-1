@@ -4,7 +4,7 @@
 // fiche d'embauche des candidats acceptés (critères, documents recto / verso, tailles).
 // Les 45 colonnes de la table ne tiennent pas dans un tableau : on affiche les plus utiles pour repérer et contacter.
 import { h, depuisGrist, enFrancais, versGrist, euros, ouvrirPanneau, reduirePhoto, icone, etiqueterLignes, lienContact, fenetreSuppression, dateAvecAlerte, zoneFichier, compte, menuPlus } from './outils.js'
-import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, accesPage, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE } from './donnees.js'
+import { envoyerPhoto, enregistrerCandidat, supprimerCandidat, lienPhotos, creerEntretien, idsDeListe, enregistrerEmbauche, accesPage, libelleHoraires, enregistrerUtilisateur, nomContact, ROLE_SALARIE, POSTE_ARCHIVE } from './donnees.js'
 
 const TITRES_CANDIDATS = ['Candidat', 'Statut', 'Nationalité', 'Téléphone', 'Email', 'Poste', 'CIP responsable', 'Pass IAE', '']
 
@@ -256,6 +256,8 @@ export function creerEcranCandidats(racine, recharger) {
         const [table, affichage] = options
         valeurs[col] = Number(brut) || 0
         const lignes = [...(col === 'Utilisateur' ? utilisateursLibres(c) : d[table] ?? [])]
+          // Postes archivés : plus proposés, sauf celui déjà choisi
+          .filter((r) => table !== 'Postes' || r.Statut !== POSTE_ARCHIVE || r.id === valeurs[col])
           .sort((a, b) => String(libelleRef(a, affichage)).localeCompare(String(libelleRef(b, affichage))))
         saisie = h('select', { className: 'champ', onChange: (e) => maj(Number(e.target.value) || 0) },
           h('option', { value: '0', selected: !valeurs[col] }, '-- Choisissez --'),

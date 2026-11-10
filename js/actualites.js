@@ -3,7 +3,7 @@
 // contenu) et « Lire la suite », qui ouvre la fiche : titre, date, contenu, photo (ou bouton pour un autre fichier).
 // Les communications temporaires expirées ne sont pas montrées.
 import { h, icone, ouvrirPanneau, depuisGrist, enFrancais, aujourdhui } from './outils.js'
-import { lienPhotos, idsDeListe } from './donnees.js'
+import { lienPhotos, idsDeListe, chantiersCommunication } from './donnees.js'
 
 const ONGLETS_ACTUALITES = [['messages', 'Messages', 'Communication par site'], ['informations', 'Informations', 'Communication générale']]
 
@@ -12,14 +12,16 @@ export function creerEcranActualites(racine) {
   let lien = null // adresse temporaire des fichiers joints (demandée une seule fois)
   let onglet = 'messages'
 
-  const nomChantierActu = (c) => d.parId.Chantiers.get(c.Chantier)?.Nom ?? ''
+  // Ses chantiers seulement parmi ceux de la communication (une communication peut viser plusieurs chantiers)
+  const nomChantierActu = (c) => chantiersCommunication(c).filter((id) => d.moi.chantiers.includes(id))
+    .map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
   const valable = (c) => c.Type !== 'Temporaire' || !c.Date_expiration || depuisGrist(c.Date_expiration) >= aujourdhui()
   // Communications de l'onglet : générales pour tous, par site seulement pour ses chantiers
   const deLOnglet = (cle) => {
     const niveau = ONGLETS_ACTUALITES.find(([c]) => c === cle)[2]
     return (d.Communication ?? [])
       .filter((c) => (c.Niveau || 'Communication générale') === niveau && valable(c)
-        && (niveau !== 'Communication par site' || d.moi.chantiers.includes(c.Chantier)))
+        && (niveau !== 'Communication par site' || chantiersCommunication(c).some((id) => d.moi.chantiers.includes(id))))
       .sort((a, b) => (b.Date ?? 0) - (a.Date ?? 0))
   }
 
@@ -36,7 +38,7 @@ export function creerEcranActualites(racine) {
     const id = idsDeListe(c.Fichier)[0]
     ouvrirPanneau(c.Titre || 'Communication', h('div', { className: 'actu-fiche' },
       h('p', { className: 'actu-date' }, icone('conges', 18), enFrancais(depuisGrist(c.Date)) || '—',
-        c.Chantier && nomChantierActu(c) ? [' · ', icone('grue', 18), nomChantierActu(c)] : null),
+        nomChantierActu(c) ? [' · ', icone('grue', 18), nomChantierActu(c)] : null),
       h('p', { className: 'actu-contenu-complet' }, c.Contenu || ''),
       id && fichierJoint(id)))
   }
