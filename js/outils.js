@@ -358,7 +358,7 @@ export function ouvrirPanneau(titre, contenu) {
 /**
  * Menu « ⋯ » d'une ligne de tableau : les actions secondaires (Modifier, Supprimer…) dans une petite liste,
  * pour que la ligne ne garde qu'une ou deux actions visibles. `actions` : les boutons, avec leurs propres clics.
- * La liste se place sous le bouton (position fixe : jamais coupée par le tableau qui défile) et se ferme
+ * La liste se place sous le bouton, ou au-dessus s'il n'y a pas la place (position fixe : jamais coupée par le tableau qui défile) et se ferme
  * après un choix, au clic ailleurs, à Échap ou au défilement.
  */
 export function menuPlus(actions) {
@@ -376,7 +376,10 @@ export function menuPlus(actions) {
     window[methode]('scroll', fermer, true)
     if (!ouvrir) return
     const r = bouton.getBoundingClientRect()
-    liste.style.top = `${Math.round(r.bottom + 4)}px`
+    // Sous le bouton ; au-dessus quand la liste dépasserait le bas de la fenêtre (dernières lignes du tableau)
+    const hauteur = liste.offsetHeight
+    const enHaut = r.bottom + 4 + hauteur > window.innerHeight && r.top - 4 - hauteur >= 0
+    liste.style.top = `${Math.round(enHaut ? r.top - 4 - hauteur : r.bottom + 4)}px`
     liste.style.right = `${Math.round(window.innerWidth - r.right)}px`
   }
   liste.addEventListener('click', fermer, true) // une action choisie ferme le menu (avant son propre clic)
