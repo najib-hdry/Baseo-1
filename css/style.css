@@ -438,7 +438,9 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Gestion des chantiers : onglets, bouton et tableau réunis dans une carte bordée */
 .carte-tableau { margin-top: 16px; padding: 14px; background: #fff; border: 2px solid #000; border-radius: 14px; }
 .carte-tableau .barre-outils { margin-top: 0; }
-.carte-tableau .tableau-defilant { margin-top: 12px; border: 1px solid var(--trait); border-radius: 10px; box-shadow: none; }
+.carte-tableau .tableau-defilant { margin-top: 6px; border: 1px solid var(--trait); border-radius: 10px; box-shadow: none; }
+/* Compteur (« 9 postes ») collé au tableau qu'il décrit : pas de marge en dessous */
+.carte-tableau > p.sous-texte { margin-bottom: 0; }
 
 /* En-tête des tableaux : texte noir plein sur fond vert vif, séparé des lignes par un trait */
 .tableau th { color: #000; background: #0dfc81; border-bottom: 2px solid var(--trait); }
