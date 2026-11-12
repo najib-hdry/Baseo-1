@@ -72,7 +72,7 @@ const ACCES_PAGES = {
   conges: { Admin: GESTION, RH: GESTION },
   acomptes: { Admin: GESTION, RH: GESTION },
   stocks: { Admin: GESTION, 'Chef d’équipe': GESTION, [ROLE_CLIENT]: LECTURE }, // Chef : entrées / sorties, articles, pas les stocks eux-mêmes
-  catalogue: { Admin: GESTION },
+  catalogue: { Admin: GESTION, 'Chef d’équipe': GESTION }, // Chef : ajouter et modifier des articles, pas les supprimer (stocks.js)
   entreprises: { Admin: GESTION },
   sous_traitants: { Admin: GESTION },
 }

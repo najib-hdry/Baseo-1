@@ -79,7 +79,8 @@ export function creerEcranEquipe(racine, recharger) {
       .sort((a, b) => heurePrevue(b) - heurePrevue(a))
     const debutJour = new Date().setHours(0, 0, 0, 0) / 1000
     const aVenir = tachesDe(u).filter((t) => (t.Date_fin || t.Date_debut) >= debutJour)
-    const conges = congesDe(u).filter((c) => finConge(c) >= aujourdhui()).sort((a, b) => (a.Date_debut ?? 0) - (b.Date_debut ?? 0))
+    // Ni les congés passés ni les refusés : acceptés et demandes en attente, en cours ou à venir
+    const conges = congesDe(u).filter((c) => c.Statut !== 'Refusée' && finConge(c) >= aujourdhui()).sort((a, b) => (a.Date_debut ?? 0) - (b.Date_debut ?? 0))
     const titre = (picto, texte) => h('h2', { className: 'equipe-titre' }, icone(picto, 22), texte)
     const vide = (texte) => h('p', { className: 'sous-texte' }, texte)
 

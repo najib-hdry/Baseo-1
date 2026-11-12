@@ -89,9 +89,12 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
   }
 
   // Boutons Modifier et Supprimer d'une ligne
+  // `supprimer` null : pas de bouton Supprimer (catalogue du chef d'équipe)
   const actions = (modifier, supprimer) => h('td', { className: 'tableau-actions' },
     h('button', { className: 'bouton bouton-compact', onClick: (ev) => { ev.stopPropagation(); modifier() } }, 'Modifier'),
-    h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); supprimer() } }, 'Supprimer'))
+    supprimer && h('button', { className: 'bouton bouton-compact bouton-danger', onClick: (ev) => { ev.stopPropagation(); supprimer() } }, 'Supprimer'))
+  // Supprimer un article du catalogue : Admin seulement (le chef d'équipe ajoute et modifie)
+  const supprimeArticles = () => d.moi.profil !== ROLE_CHEF
   const ligneVide = (colonnes, texte) => [h('tr', null, h('td', { className: 'tableau-vide', colSpan: colonnes }, texte))]
 
   // ---- Onglet Stocks ----
@@ -480,7 +483,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
               h('td', null, h('span', { className: 'cellule-description' }, r.Commentaire ?? '')),
               // Colonne formule de Grist : quantité actuelle de l'article, tous stocks confondus
               h('td', null, (Number(r.Stock_Elements_Quantite_actuelle) || 0).toLocaleString('fr-FR')),
-              actions(() => ouvrirFicheArticle(r), () => supprimerArticle(r)))
+              actions(() => ouvrirFicheArticle(r), supprimeArticles() ? () => supprimerArticle(r) : null))
           })))
       })
   }
@@ -541,7 +544,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     h('div', { className: 'champ-groupe' }, 'Photo',
       zoneFichier((f) => { nouvellePhoto = f }, { deja: Boolean(photo), lien: photo && lien ? lien(photo) : null, accept: 'image/*' })),
     erreur, valider,
-    r && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => supprimerArticle(r)) }, 'Supprimer cet article'))
+    r && supprimeArticles() && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => supprimerArticle(r)) }, 'Supprimer cet article'))
 
     const { fermer, ouvrirDepuis, section } = ouvrirPanneau(r ? r.Descriptif || 'Article' : 'Nouvel article', formulaire)
     section.classList.add('panneau-large')
