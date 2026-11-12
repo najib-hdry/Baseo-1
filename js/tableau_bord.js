@@ -4,7 +4,7 @@
 // Admin : tout ; RH : salariés, alertes et demandes ; Client : ses chantiers, casiers, incidents et stock de propreté
 // (BLOCS_TABLEAU_BORD, donnees.js).
 import { h, depuisGrist, enFrancais, etiqueterLignes, euros, icone } from './outils.js'
-import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, estSourceProprete, BLOCS_TABLEAU_BORD, PAGE_DU_BLOC, chantiersLimites, limiteAuStockProprete } from './donnees.js'
+import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, alertesSalaries,estSourceProprete, BLOCS_TABLEAU_BORD, PAGE_DU_BLOC, chantiersLimites, limiteAuStockProprete } from './donnees.js'
 
 // Couleurs des graphiques (variables du thème)
 const TB_COULEURS = { occupes: 'var(--occupe)', libres: 'var(--libre)', hs: 'var(--hs)', ouvert: 'var(--hs)', en_cours: 'var(--signal)',
@@ -125,9 +125,6 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       casiers: d.Casiers.filter((k) => dansChantier(k.Chantier)),
       incidents: d.Incidents.filter((i) => dansChantier(i.Chantier)),
       salaries,
-      // Alertes : candidat lié au compte du salarié ; fin du dernier contrat
-      candidats: (d.Candidats ?? []).filter((c) => idsSalaries.has(c.Utilisateur)),
-      contrats: (d.Contrats ?? []).filter((k) => idsSalaries.has(k.Salarie)),
       elements: (d.Stock_Elements ?? []).filter((e) => idsStocks.has(e.Stock) && (!limiteAuStockProprete(d) || estSourceProprete(d, e.Source))),
       conges: (d.Demande_de_conge ?? []).filter((c) => c.Statut === 'Nouvelle' && idsSalaries.has(c.Salarie)),
       acomptes: (d.Acompte ?? []).filter((a) => a.Statut === 'Nouvelle' && idsSalaries.has(a.Salarie)),
@@ -191,11 +188,10 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
 
     // Salariés et alertes
     const actifs = p.salaries.filter((u) => u.Actif).length
-    const alertes = [
-      ...p.contrats.filter((k) => k.Alerte_fin_contrat).map((k) => [k.Salarie, 'Fin de contrat', k.Date_fin]),
-      ...p.candidats.filter((c) => c.Alerte_Pass_IAE).map((c) => [c.Utilisateur, 'Fin du Pass IAE', c.Pass_IAE_fin]),
-      ...p.candidats.filter((c) => c.Alerte_piece_identite).map((c) => [c.Utilisateur, 'Fin de la pièce d’identité', c.Date_validite_piece_identite]),
-    ].sort((a, b) => (a[2] ?? Infinity) - (b[2] ?? Infinity))
+    // Alertes des salariés actifs du périmètre (même calcul que le tableau Utilisateurs)
+    const duPerimetre = new Set(p.salaries.map((u) => u.id))
+    const alertes = alertesSalaries(d).filter(([id]) => duPerimetre.has(id))
+      .sort((a, b) => (a[2] ?? Infinity) - (b[2] ?? Infinity))
     const nbAlerte = (type) => alertes.filter((a) => a[1] === type).length
 
     // Stock à commander

@@ -762,6 +762,21 @@ export const libelleHoraires = (p, vide = '') => (p.Horaires === HORAIRES_AUTRE 
 
 // Liste de références Grist (['L', 1, 2]) ↔ tableau d'identifiants
 export const idsDeListe = (v) => (Array.isArray(v) ? v.filter((x) => x !== 'L') : [])
+/**
+ * Alertes des salariés **actifs** (un compte désactivé n'est plus à suivre), calculées par Grist un mois avant l'échéance
+ * et après : fin du dernier contrat, du Pass IAE et de la pièce d'identité du candidat lié.
+ * Renvoie [[salarieId, libellé, échéance]] ; utilisé par le Tableau de bord et le tableau Utilisateurs (mêmes libellés).
+ */
+export function alertesSalaries(d) {
+  const actifs = new Set(d.Utilisateurs.filter((u) => u.Actif).map((u) => u.id))
+  const candidats = (d.Candidats ?? []).filter((c) => actifs.has(c.Utilisateur))
+  return [
+    ...(d.Contrats ?? []).filter((k) => k.Alerte_fin_contrat && actifs.has(k.Salarie)).map((k) => [k.Salarie, 'Fin de contrat', k.Date_fin]),
+    ...candidats.filter((c) => c.Alerte_Pass_IAE).map((c) => [c.Utilisateur, 'Fin du Pass IAE', c.Pass_IAE_fin]),
+    ...candidats.filter((c) => c.Alerte_piece_identite).map((c) => [c.Utilisateur, 'Fin de la pièce d’identité', c.Date_validite_piece_identite]),
+  ]
+}
+
 // Chantiers d'une communication (colonne liste de chantiers ; une ancienne valeur seule est acceptée aussi)
 export const chantiersCommunication = (c) => (Array.isArray(c.Chantier) ? idsDeListe(c.Chantier) : c.Chantier ? [c.Chantier] : [])
 

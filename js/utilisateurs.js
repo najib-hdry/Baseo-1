@@ -9,7 +9,7 @@ import { ouvrirImportTaches, telechargerModeleTaches, ouvrirAjoutTache, listeEma
 import { creerEcranEmargements } from './emargements.js'
 import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
-import { accesPage, ROLES, ROLE_SALARIE, ROLE_CLIENT, AUTORISATIONS_CLIENT, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne, POSTE_ARCHIVE } from './donnees.js'
+import { accesPage, ROLES, ROLE_SALARIE, ROLE_CLIENT, AUTORISATIONS_CLIENT, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne, POSTE_ARCHIVE, alertesSalaries } from './donnees.js'
 
 const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', 'Alertes', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
@@ -26,16 +26,9 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
   let seulementAlertes = false // filtre « Seulement en alerte »
 
   const nom = (u) => nomContact(u) || 'Sans nom'
-  // Alertes calculées par Grist (un mois avant l'échéance, et après) : Pass IAE et pièce d'identité du candidat lié,
-  // fin du dernier contrat ; [libellé, échéance]
-  const alertesDe = (u) => {
-    const c = (d.Candidats ?? []).find((x) => x.Utilisateur === u.id)
-    return [
-      c?.Alerte_Pass_IAE && ['Pass IAE', c.Pass_IAE_fin],
-      c?.Alerte_piece_identite && ['Pièce d’identité', c.Date_validite_piece_identite],
-      ...(d.Contrats ?? []).filter((k) => k.Salarie === u.id && k.Alerte_fin_contrat).map((k) => ['Fin de contrat', k.Date_fin]),
-    ].filter(Boolean)
-  }
+  // Alertes des salariés actifs, par compte : [[libellé, échéance]] (calculées une fois par affichage, `alertesSalaries`)
+  let alertesParCompte = new Map()
+  const alertesDe = (u) => alertesParCompte.get(u.id) ?? []
   const chantiers = (u) => idsDeListe(u.Chantiers).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
   const dansOnglet = (u, role) => !role || (role === SANS_ROLE ? !u.Profil : u.Profil === role)
   const estSalarie = (u) => u.Profil === ROLE_SALARIE
@@ -59,16 +52,18 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
 
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
+    alertesParCompte = new Map()
+    for (const [id, libelle, echeance] of alertesSalaries(d)) alertesParCompte.set(id, [...(alertesParCompte.get(id) ?? []), [libelle, echeance]])
     // Ne redessine que les lignes : le champ de recherche garde le curseur
     const dessinerLignes = () => {
       const filtre = recherche.trim().toLowerCase()
       const deLOnglet = d.Utilisateurs.filter((u) => dansOnglet(u, onglet))
-      const liste = deLOnglet
-        .filter((u) => !seulementAlertes || alertesDe(u).length > 0)
-        .filter((u) => !filtre || [nom(u), u.Profil, u.Telephone, u.Email, chantiers(u), ...alertesDe(u).map(([libelle]) => libelle)]
-          .some((v) => String(v ?? '').toLowerCase().includes(filtre)))
+      // Résultats de la recherche ; « N en alerte » compte parmi eux, la case « Seulement en alerte » les réduit ensuite
+      const trouves = deLOnglet
+        .filter((u) => !filtre || [nom(u), u.Profil, u.Telephone, u.Email, chantiers(u)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)) || String(a.Prenom).localeCompare(String(b.Prenom)))
-      const enAlerte = deLOnglet.filter((u) => alertesDe(u).length > 0).length
+      const liste = trouves.filter((u) => !seulementAlertes || alertesDe(u).length > 0)
+      const enAlerte = trouves.filter((u) => alertesDe(u).length > 0).length
       compteur.textContent = `${compte(liste.length, deLOnglet.length, 'utilisateur')}${enAlerte ? ` · ${enAlerte} en alerte` : ''}`
       corps.replaceChildren(...(liste.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_UTILISATEURS.length },
