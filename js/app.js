@@ -120,30 +120,37 @@ function basculerGroupe(cle) {
   try { localStorage.setItem(CLE_GROUPES_PLIES, JSON.stringify([...groupesPlies])) } catch {}
 }
 
+// Salarié : ses pages dans cet ordre, sans titres de groupe (celles qu'il n'a pas, selon ses autorisations, sont sautées)
+const ORDRE_SALARIE = ['mes_taches', 'casiers', 'incidents', 'nettoyage', 'maintenance', 'presence', 'demandes', 'actualites']
+// Lien d'une page du menu, à la couleur de son groupe ; `avant()` : appelé avant d'ouvrir la page (fermer le tiroir)
+const lienPage = (p, avant) => h('button', {
+  className: `tiroir-lien${p.parent ? ' sous-lien' : ''}${p.cle === pageCourante() ? ' active' : ''}`,
+  style: { '--groupe': groupeDe(p).couleur },
+  'aria-current': p.cle === pageCourante() ? 'page' : null,
+  title: p.libelle,
+  onClick: () => { avant(); allerA(p.cle) },
+}, h('span', { className: 'tiroir-icone' }, icone(p.icone)), h('span', { className: 'tiroir-libelle' }, p.libelle))
+
 // `redessiner()` : redessine ce menu après avoir plié ou déplié un groupe
 const liensMenu = (avant = () => {}, profil = true, redessiner = () => {}) => [
   profil && donnees?.moi && h('p', { className: 'tiroir-profil' }, [donnees.moi.nom, donnees.moi.profil].filter(Boolean).join(' · ')),
-  // Un titre par groupe qui a au moins une page visible (cliquable : plie / déplie), puis ses pages si le groupe est déplié ;
-  // la couleur du groupe passe par --groupe ; un groupe plié qui contient la page ouverte garde son titre en couleur
-  GROUPES.map((g) => {
-    const pages = pagesVisibles().filter((p) => groupeDe(p) === g)
-    if (pages.length === 0) return []
-    const plie = groupesPlies.has(g.cle)
-    const contientActive = pages.some((p) => p.cle === pageCourante())
-    return [
-      h('button', { className: `menu-groupe${plie ? ' plie' : ''}${plie && contientActive ? ' contient-active' : ''}`, type: 'button',
-        style: { '--groupe': g.couleur }, 'aria-expanded': String(!plie), title: `${plie ? 'Déplier' : 'Replier'} ${g.titre}`,
-        onClick: () => { basculerGroupe(g.cle); redessiner() } },
-      h('span', { className: 'menu-groupe-titre' }, g.titre), h('span', { className: 'menu-chevron', 'aria-hidden': 'true' })),
-      plie ? [] : pages.map((p) => h('button', {
-        className: `tiroir-lien${p.parent ? ' sous-lien' : ''}${p.cle === pageCourante() ? ' active' : ''}`,
-        style: { '--groupe': g.couleur },
-        'aria-current': p.cle === pageCourante() ? 'page' : null,
-        title: p.libelle,
-        onClick: () => { avant(); allerA(p.cle) },
-      }, h('span', { className: 'tiroir-icone' }, icone(p.icone)), h('span', { className: 'tiroir-libelle' }, p.libelle))),
-    ]
-  }),
+  donnees?.moi?.profil === ROLE_SALARIE
+    ? ORDRE_SALARIE.map((cle) => pagesVisibles().find((p) => p.cle === cle)).filter(Boolean).map((p) => lienPage(p, avant))
+    // Un titre par groupe qui a au moins une page visible (cliquable : plie / déplie), puis ses pages si le groupe est déplié ;
+    // la couleur du groupe passe par --groupe ; un groupe plié qui contient la page ouverte garde son titre en couleur
+    : GROUPES.map((g) => {
+      const pages = pagesVisibles().filter((p) => groupeDe(p) === g)
+      if (pages.length === 0) return []
+      const plie = groupesPlies.has(g.cle)
+      const contientActive = pages.some((p) => p.cle === pageCourante())
+      return [
+        h('button', { className: `menu-groupe${plie ? ' plie' : ''}${plie && contientActive ? ' contient-active' : ''}`, type: 'button',
+          style: { '--groupe': g.couleur }, 'aria-expanded': String(!plie), title: `${plie ? 'Déplier' : 'Replier'} ${g.titre}`,
+          onClick: () => { basculerGroupe(g.cle); redessiner() } },
+        h('span', { className: 'menu-groupe-titre' }, g.titre), h('span', { className: 'menu-chevron', 'aria-hidden': 'true' })),
+        plie ? [] : pages.map((p) => lienPage(p, avant)),
+      ]
+    }),
 ]
 
 // Téléphone : menu en tiroir, ouvert par le bouton ☰
