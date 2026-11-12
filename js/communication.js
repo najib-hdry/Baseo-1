@@ -1,7 +1,8 @@
 // Écran « Communication » (admin) : onglets Communication générale / par site, tableau (titre, contenu…) avec recherche,
 // fiche de communication (nouvelle ou modification) avec un fichier joint, suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte, figerFormulaire, choixEtiquettes } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, aujourdhui, dateAvecAlerte, choixEtiquettes } from './outils.js'
 import { accesPage, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe, peutModifier, chantiersCommunication } from './donnees.js'
+import { ouvrirFicheCommunication } from './actualites.js'
 
 const TABLE_COMMUNICATION = 'Communication'
 const NIVEAU_GENERAL = 'Communication générale'
@@ -51,7 +52,8 @@ export function creerEcranCommunication(racine, recharger) {
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, filtre ? 'Aucun résultat.' : 'Aucune communication dans cet onglet.'))]
         : liste.map((c) => {
           const fichier = fichierDe(c)
-          return h('tr', { className: 'tableau-ligne', onClick: () => ouvrirFiche(c) },
+          // Lecture (CIP) : la même fiche que la page Communication du terrain ; gestion : le formulaire
+          return h('tr', { className: 'tableau-ligne', onClick: () => (peutModifier(d, 'communication') ? ouvrirFiche(c) : ouvrirFicheCommunication(c, lien, nomChantier(c))) },
             h('td', { className: 'tableau-nom' }, c.Titre || 'Sans titre'),
             h('td', null, apercuContenu(c.Contenu)),
             h('td', null, c.Type ? h('span', { className: `badge ${CLASSES_TYPE_COMMUNICATION[c.Type] ?? ''}` }, c.Type) : '—'),
@@ -187,7 +189,6 @@ export function creerEcranCommunication(racine, recharger) {
     c && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(c)) }, 'Supprimer cette communication'))
 
     // Lecture (CIP) : la fiche se consulte seulement
-    if (!peutModifier(d, 'communication')) figerFormulaire(formulaire)
     const { fermer, ouvrirDepuis } = ouvrirPanneau(c ? `Communication · ${c.Titre || 'Sans titre'}` : 'Nouvelle communication', formulaire)
   }
 

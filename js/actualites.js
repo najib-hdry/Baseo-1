@@ -7,6 +7,27 @@ import { lienPhotos, idsDeListe, chantiersCommunication } from './donnees.js'
 
 const ONGLETS_ACTUALITES = [['messages', 'Messages', 'Communication par site'], ['informations', 'Informations', 'Communication générale']]
 
+/**
+ * Fiche de lecture d'une communication : titre, date, chantiers (`chantiers` : texte, vide = rien), contenu et fichier joint
+ * (une photo s'affiche ; si le navigateur ne sait pas l'afficher, PDF…, un bouton pour l'ouvrir). `lien` : adresse des
+ * pièces jointes (lienPhotos), ou null. Aussi utilisée par la page Communication en lecture (CIP).
+ */
+export function ouvrirFicheCommunication(c, lien, chantiers = '') {
+  const id = idsDeListe(c.Fichier)[0]
+  const fichierJoint = () => {
+    if (!lien) return h('p', { className: 'sous-texte' }, 'Fichier joint (aperçu indisponible).')
+    const bouton = h('a', { className: 'bouton actu-document', href: lien(id), target: '_blank', rel: 'noreferrer' }, icone('note', 20), 'Ouvrir le document')
+    const image = h('img', { className: 'actu-photo', src: lien(id), alt: 'Photo de la communication' })
+    image.addEventListener('error', () => image.replaceWith(bouton))
+    return h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, image)
+  }
+  ouvrirPanneau(c.Titre || 'Communication', h('div', { className: 'actu-fiche' },
+    h('p', { className: 'actu-date' }, icone('conges', 18), enFrancais(depuisGrist(c.Date)) || '—',
+      chantiers ? [' · ', icone('grue', 18), chantiers] : null),
+    h('p', { className: 'actu-contenu-complet' }, c.Contenu || ''),
+    id && fichierJoint()))
+}
+
 export function creerEcranActualites(racine) {
   let d = null
   let lien = null // adresse temporaire des fichiers joints (demandée une seule fois)
@@ -25,23 +46,7 @@ export function creerEcranActualites(racine) {
       .sort((a, b) => (b.Date ?? 0) - (a.Date ?? 0))
   }
 
-  // Fichier joint : une photo s'affiche ; si le navigateur ne sait pas l'afficher (PDF…), un bouton pour l'ouvrir
-  const fichierJoint = (id) => {
-    if (!lien) return h('p', { className: 'sous-texte' }, 'Fichier joint (aperçu indisponible).')
-    const bouton = h('a', { className: 'bouton actu-document', href: lien(id), target: '_blank', rel: 'noreferrer' }, icone('note', 20), 'Ouvrir le document')
-    const image = h('img', { className: 'actu-photo', src: lien(id), alt: 'Photo de la communication' })
-    image.addEventListener('error', () => image.replaceWith(bouton))
-    return h('a', { href: lien(id), target: '_blank', rel: 'noreferrer' }, image)
-  }
-
-  function ouvrirActualite(c) {
-    const id = idsDeListe(c.Fichier)[0]
-    ouvrirPanneau(c.Titre || 'Communication', h('div', { className: 'actu-fiche' },
-      h('p', { className: 'actu-date' }, icone('conges', 18), enFrancais(depuisGrist(c.Date)) || '—',
-        nomChantierActu(c) ? [' · ', icone('grue', 18), nomChantierActu(c)] : null),
-      h('p', { className: 'actu-contenu-complet' }, c.Contenu || ''),
-      id && fichierJoint(id)))
-  }
+  const ouvrirActualite = (c) => ouvrirFicheCommunication(c, lien, nomChantierActu(c))
 
   function rendre() {
     if (!d) return
