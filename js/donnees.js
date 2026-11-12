@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Communication']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Communication'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Stock_Transferes', 'Communication']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Stock_Transferes', 'Communication'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -817,6 +817,43 @@ export function ajouterElementsStock(d, stockId, choix) {
   const aVider = d.Stock_Reference.filter((r) => r.Quantite_initiale || r.Quantite_seuil).map((r) => r.id)
   return action([...misesAJour, ...(ajouts.length ? [ajoutGroupeLignes('Stock_Elements', ajouts)] : []),
     ...(aVider.length ? [['BulkUpdateRecord', 'Stock_Reference', aVider, { Quantite_initiale: aVider.map(() => 0), Quantite_seuil: aVider.map(() => 0) }]] : [])])
+}
+
+/**
+ * Transfert d'articles du stock `origineId` vers le stock `cibleId`, en un seul envoi : `lignes` = [{ element, quantite }].
+ * - la quantité s'ajoute aux sorties de l'article dans le stock d'origine ;
+ * - elle s'ajoute aux entrées du même article (même référence du catalogue) dans le stock cible, créé s'il n'y est pas (même seuil) ;
+ * - une ligne d'historique par article dans Stock_Transferes (Stock = cible, Quantite_entree = quantité transférée ;
+ *   date et auteur remplis par Grist).
+ * Refus : même stock, quantité négative ou supérieure à ce qu'il y a.
+ */
+export function transfererStock(d, origineId, cibleId, lignes) {
+  if (!cibleId) throw new Error('Choisis le stock qui reçoit les articles.')
+  if (cibleId === origineId) throw new Error('Le stock cible doit être différent du stock d’origine.')
+  const aTransferer = lignes.filter((l) => l.quantite)
+  if (aTransferer.length === 0) throw new Error('Indique au moins une quantité à transférer.')
+  for (const { element: e, quantite } of aTransferer) {
+    const actuelle = (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
+    if (quantite < 0) throw new Error('Les quantités doivent être positives.')
+    if (quantite > actuelle) throw new Error(`Trop de « ${e.libelle ?? 'cet article'} » : il n’y en a que ${actuelle}.`)
+  }
+  const dansCible = new Map((d.Stock_Elements ?? []).filter((e) => e.Stock === cibleId && e.Descriptif).map((e) => [e.Descriptif, e]))
+  const misesAJourCible = []
+  const ajoutsCible = []
+  for (const { element: e, quantite } of aTransferer) {
+    const existant = e.Descriptif && dansCible.get(e.Descriptif)
+    if (existant) misesAJourCible.push(['UpdateRecord', 'Stock_Elements', existant.id, { Quantite_entree: (existant.Quantite_entree || 0) + quantite }])
+    else ajoutsCible.push({ Stock: cibleId, Source: e.Source || 0, Type: e.Type || 0, Descriptif: e.Descriptif || 0,
+      Photo: idsDeListe(e.Photo).length ? ['L', ...idsDeListe(e.Photo)] : null, Quantite_entree: quantite, Quantite_sortie: 0, Quantite_seuil: e.Quantite_seuil || 0 })
+  }
+  return action([
+    ['BulkUpdateRecord', 'Stock_Elements', aTransferer.map((l) => l.element.id), {
+      Quantite_sortie: aTransferer.map((l) => (l.element.Quantite_sortie || 0) + l.quantite) }],
+    ...misesAJourCible,
+    ...(ajoutsCible.length ? [ajoutGroupeLignes('Stock_Elements', ajoutsCible)] : []),
+    ajoutGroupeLignes('Stock_Transferes', aTransferer.map(({ element: e, quantite }) => ({
+      Stock: cibleId, Stock_origine: origineId, Source: e.Source || 0, Type: e.Type || 0, Descriptif: e.Descriptif || 0, Quantite_entree: quantite }))),
+  ])
 }
 
 /**

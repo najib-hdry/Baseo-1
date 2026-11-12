@@ -3,8 +3,8 @@
 // - sa sous-page « Catalogue » (vue 'catalogue') : tableau des articles (Stock_Reference) avec recherche et filtre par source, fiche, suppression.
 // Chef d'équipe (téléphone) : les stocks de ses chantiers en cartes ; entrées / sorties, ajout d'articles du catalogue
 // et nouvel article au catalogue, sans créer, modifier ni supprimer de stock.
-import { h, icone, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus } from './outils.js'
-import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, peutModifier, estSourceProprete, limiteAuStockProprete, ROLE_CHEF } from './donnees.js'
+import { h, icone, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus, dateHeure } from './outils.js'
+import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, transfererStock, peutModifier, estSourceProprete, limiteAuStockProprete, ROLE_CHEF } from './donnees.js'
 
 const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
 const TITRES_ARTICLES = ['Photo', 'Source', 'Type', 'Article', 'Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Alerte', 'Commentaire']
@@ -332,9 +332,14 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     const sources = [...(d.Stock_Source ?? [])].sort((a, b) => String(a.Source).localeCompare(String(b.Source)))
     // Chef d'équipe : boutons en haut de la fenêtre, articles en fiches courtes (stock-terrain, style.css)
     const terrain = d.moi.profil === ROLE_CHEF
+    // Transferts : reçus et envoyés par ce stock (historique Stock_Transferes)
+    const nbTransferts = (d.Stock_Transferes ?? []).filter((t) => t.Stock === s.id || t.Stock_origine === s.id).length
+    const boutonTransferer = () => h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirTransfert(s, rouvrirArticles)) }, 'Transférer')
+    const boutonTransferts = () => h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirTransferts(s)) }, `Transferts (${nbTransferts})`)
     const boutonsTerrain = terrain && h('div', { className: 'fiche-boutons' },
       h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirEntreesSorties(s, rouvrirArticles)) }, 'Entrées / sorties'),
-      h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles'))
+      h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles'),
+      boutonTransferer(), boutonTransferts())
     const { annuler, ouvrirDepuis, section } = ouvrirPanneau(`Articles — ${nomStock(s)}`, [
       boutonsTerrain,
       h('div', { className: 'barre-outils' },
@@ -349,11 +354,120 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         h('table', { className: 'tableau' }, h('thead', null, h('tr', null, TITRES_ARTICLES.map((t) => h('th', { className: COLONNES_NOMBRES.has(t) ? 'tableau-centre' : null }, t)))), corps)),
       h('div', { className: 'fiche-boutons' }, gestionStocks() && !terrain && [
         h('button', { className: 'bouton bouton-principal', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirEntreesSorties(s, rouvrirArticles)) }, 'Entrées / sorties'),
-        h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles du catalogue')],
+        h('button', { className: 'bouton', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirChoixArticles(s, rouvrirArticles)) }, 'Ajouter des articles du catalogue'),
+        boutonTransferer()],
+        gestionStocks() && !terrain && boutonTransferts(),
         h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Fermer')),
     ].filter(Boolean))
     section.classList.add('panneau-large', 'panneau-fiche')
     if (terrain) section.classList.add('stock-terrain')
+  }
+
+  /**
+   * Transfert d'articles du stock `s` vers un autre stock (Admin, Chef d'équipe entre ses stocks) : stock cible, quantité par article,
+   * « Tout transférer » (fin de chantier) ; un seul envoi : sorties ici, entrées dans le stock cible, historique dans Stock_Transferes.
+   * `apres()` : après l'enregistrement (rouvrir la fenêtre « Articles » à jour).
+   */
+  function ouvrirTransfert(s, apres = null) {
+    const actuelle = (e) => (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
+    const elements = elementsDe(s).map((e) => ({ ...e, libelle: libelleElement(e) })).filter((e) => actuelle(e) > 0)
+      .sort((a, b) => source(a).localeCompare(source(b)) || type(a).localeCompare(type(b)) || a.libelle.localeCompare(b.libelle, 'fr', { numeric: true }))
+    const cibles = (d.Stock ?? []).filter((x) => x.id !== s.id).sort(parNom)
+    const saisies = new Map(elements.map((e) => [e.id, { element: e, quantite: 0 }]))
+    let cible = 0
+    const erreur = h('p', { className: 'erreur', hidden: true })
+    const resume = h('p', { className: 'sous-texte' })
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'button', onClick: async () => {
+      erreur.hidden = true
+      valider.disabled = true
+      try {
+        await transfererStock(d, s.id, cible, [...saisies.values()])
+        fermer()
+        await recharger()
+        apres?.()
+      } catch (err) {
+        erreur.textContent = err.message || 'Le transfert a échoué.'
+        erreur.hidden = false
+        valider.disabled = false
+      }
+    } }, 'Transférer')
+    const majResume = () => {
+      const remplies = [...saisies.values()].filter((x) => x.quantite)
+      resume.textContent = remplies.length ? `${remplies.length} article${remplies.length > 1 ? 's' : ''} · ${remplies.reduce((t, x) => t + x.quantite, 0)} au total` : 'Aucune quantité saisie.'
+      valider.disabled = remplies.length === 0 || !cible
+    }
+    const cases = new Map()
+    const corps = h('tbody', null, elements.length === 0
+      ? ligneVide(6, 'Ce stock n’a aucun article en quantité à transférer.')
+      : elements.map((e) => {
+        const saisie = saisies.get(e.id)
+        const apresCase = h('td', { className: 'tableau-nombre tableau-centre' })
+        const maj = () => { apresCase.textContent = saisie.quantite ? String(actuelle(e) - saisie.quantite) : ''; apresCase.style.color = actuelle(e) - saisie.quantite < 0 ? 'var(--hs)' : '' }
+        const champ = h('input', { className: 'champ champ-compact', type: 'number', min: 0, max: actuelle(e), step: 'any', style: 'width:90px', 'aria-label': `Quantité de ${e.libelle} à transférer`,
+          onInput: (ev) => { saisie.quantite = Math.max(0, Number(ev.target.value) || 0); maj(); majResume() } })
+        cases.set(e.id, [champ, maj])
+        return h('tr', null, h('td', null, source(e)), h('td', null, type(e)), h('td', { className: 'tableau-nom' }, e.libelle),
+          h('td', { className: 'tableau-nombre tableau-centre' }, String(actuelle(e))), h('td', { className: 'tableau-centre' }, champ), apresCase)
+      }))
+    const titres = ['Source', 'Type', 'Article', 'Actuelle', 'À transférer', 'Après']
+    etiqueterLignes(corps, titres)
+    // Fin de chantier : tout ce qui reste part dans le stock cible
+    const toutTransferer = () => {
+      for (const e of elements) {
+        const [champ, maj] = cases.get(e.id)
+        saisies.get(e.id).quantite = actuelle(e)
+        champ.value = String(actuelle(e))
+        maj()
+      }
+      majResume()
+    }
+    majResume()
+    const { fermer, annuler, section } = ouvrirPanneau(`Transférer — ${nomStock(s)}`, [
+      h('p', null, 'Les quantités transférées sortent de ce stock et entrent dans le stock choisi ; chaque transfert est gardé dans l’historique.'),
+      h('label', { className: 'champ-groupe' }, 'Stock qui reçoit *',
+        h('select', { className: 'champ', onChange: (ev) => { cible = Number(ev.target.value) || 0; majResume() } },
+          h('option', { value: '0', selected: true }, cibles.length ? 'Choisir…' : 'Aucun autre stock'),
+          cibles.map((x) => h('option', { value: String(x.id) }, nomStock(x))))),
+      elements.length > 0 && h('div', { className: 'fiche-boutons' }, h('button', { className: 'bouton', type: 'button', onClick: toutTransferer }, 'Tout transférer')),
+      h('div', { className: 'tableau-defilant' },
+        h('table', { className: 'tableau' }, h('thead', null, h('tr', null, titres.map((t) => h('th', { className: ['Actuelle', 'À transférer', 'Après'].includes(t) ? 'tableau-centre' : null }, t)))), corps)),
+      resume, erreur,
+      h('div', { className: 'fiche-boutons' }, valider, h('button', { className: 'bouton', type: 'button', onClick: () => annuler() }, 'Annuler')),
+    ].filter(Boolean))
+    section.classList.add('panneau-large', 'panneau-fiche')
+    if (d.moi.profil === ROLE_CHEF) section.classList.add('stock-terrain')
+  }
+
+  // Historique des transferts du stock `s` (Stock_Transferes) : onglets Reçus et Envoyés, le plus récent en haut
+  function ouvrirTransferts(s) {
+    let onglet = 'recus'
+    const zone = h('div')
+    const titres = ['Date', 'Stock', 'Article', 'Quantité', 'Par']
+    const dessiner = () => {
+      const recus = onglet === 'recus'
+      const liste = (d.Stock_Transferes ?? []).filter((t) => (recus ? t.Stock : t.Stock_origine) === s.id)
+        .sort((a, b) => (b.Transfere_le ?? 0) - (a.Transfere_le ?? 0))
+      const nb = (cle) => (d.Stock_Transferes ?? []).filter((t) => (cle === 'recus' ? t.Stock : t.Stock_origine) === s.id).length
+      const autre = (t) => { const x = d.parId.Stock.get(recus ? t.Stock_origine : t.Stock); return x ? nomStock(x) : '—' }
+      const corps = h('tbody', null, liste.length === 0
+        ? ligneVide(titres.length, recus ? 'Aucun article reçu par transfert.' : 'Aucun article envoyé par transfert.')
+        : liste.map((t) => h('tr', null,
+          h('td', null, t.Transfere_le ? dateHeure(t.Transfere_le) : '—'),
+          h('td', null, `${recus ? 'de' : 'vers'} ${autre(t)}`),
+          h('td', { className: 'tableau-nom' }, libelleElement(t)),
+          h('td', { className: 'tableau-nombre tableau-centre' }, String(t.Quantite_entree || 0)),
+          h('td', null, t.Transfere_par || '—'))))
+      etiqueterLignes(corps, titres)
+      zone.replaceChildren(
+        h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Transferts' },
+          [['recus', 'Reçus'], ['envoyes', 'Envoyés']].map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(cle === onglet),
+            onClick: () => { onglet = cle; dessiner() } }, `${libelle} (${nb(cle)})`))),
+        h('div', { className: 'tableau-defilant' },
+          h('table', { className: 'tableau' }, h('thead', null, h('tr', null, titres.map((t) => h('th', { className: t === 'Quantité' ? 'tableau-centre' : null }, t)))), corps)))
+    }
+    dessiner()
+    const { section } = ouvrirPanneau(`Transferts — ${nomStock(s)}`, zone)
+    section.classList.add('panneau-large')
   }
 
   /**
