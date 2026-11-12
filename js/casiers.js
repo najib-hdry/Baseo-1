@@ -144,21 +144,45 @@ export function creerEcranCasiers(racine, recharger) {
 
     // Attribution : on saisit toujours un nouvel intervenant (pas de recherche)
     // Obligatoires : prénom, nom, badge, date, entreprise et réponse au coffre (aucune réponse par défaut)
-    const form = { prenom: '', nom: '', entreprise: '', badge: '', employeur: 0, coffre: '', cle: '' }
+    // `employeurNom` : nom d'un nouveau sous-traitant (option « Nouveau sous-traitant… »), créé avec l'attribution
+    const form = { prenom: '', nom: '', entreprise: '', badge: '', employeur: 0, employeurNom: '', coffre: '', cle: '' }
     const champ = (cle, libelle, extra) => h('label', { className: 'champ-groupe' }, libelle,
       h('input', { className: 'champ', autocomplete: 'off', ...extra, onInput: (e) => { form[cle] = e.target.value } }))
-    // Entreprise : liste déroulante des entreprises existantes, comme l'employeur (la valeur est le nom, retrouvé à l'enregistrement)
+    // Dernière option des listes Entreprise et Employeur : un champ apparaît pour taper le nom d'un nouveau partenaire
+    const NOUVEAU_PARTENAIRE = '__nouveau__'
+    const saisieEntreprise = h('input', { className: 'champ', autocomplete: 'off', placeholder: 'Nom de la nouvelle entreprise', 'aria-label': 'Nom de la nouvelle entreprise',
+      onInput: (e) => { form.entreprise = e.target.value } })
+    const nouvelleEntreprise = h('label', { className: 'champ-groupe', hidden: true }, 'Nouvelle entreprise *', saisieEntreprise)
+    const saisieEmployeur = h('input', { className: 'champ', autocomplete: 'off', placeholder: 'Nom du nouveau sous-traitant', 'aria-label': 'Nom du nouveau sous-traitant',
+      onInput: (e) => { form.employeurNom = e.target.value } })
+    const nouvelEmployeur = h('label', { className: 'champ-groupe', hidden: true }, 'Nouveau sous-traitant *', saisieEmployeur)
+    // Entreprise : liste déroulante des entreprises existantes (la valeur est le nom, retrouvé ou créé à l'enregistrement)
     const entreprise = h('label', { className: 'champ-groupe' }, 'Entreprise *',
-      h('select', { className: 'champ', required: true, onChange: (e) => { form.entreprise = e.target.value } },
-        h('option', { value: '', disabled: true, selected: true }, d.Entreprises.length ? 'Choisir…' : 'Aucune entreprise : à créer dans Partenaires › Entreprises'),
+      h('select', { className: 'champ', required: true, onChange: (e) => {
+        const nouvelle = e.target.value === NOUVEAU_PARTENAIRE
+        nouvelleEntreprise.hidden = !nouvelle
+        saisieEntreprise.required = nouvelle
+        form.entreprise = nouvelle ? saisieEntreprise.value : e.target.value
+        if (nouvelle) saisieEntreprise.focus()
+      } },
+        h('option', { value: '', disabled: true, selected: true }, 'Choisir…'),
         d.Entreprises.filter((e) => e.Nom).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr'))
-          .map((e) => h('option', { value: e.Nom }, e.Nom))))
-    // Employeur : référence vers la table Sous_traitants (0 = aucun)
+          .map((e) => h('option', { value: e.Nom }, e.Nom)),
+        h('option', { value: NOUVEAU_PARTENAIRE }, '＋ Nouvelle entreprise…')))
+    // Employeur : référence vers la table Sous_traitants (0 = aucun), ou nouveau sous-traitant
     const employeur = h('label', { className: 'champ-groupe' }, 'Employeur',
-      h('select', { className: 'champ', onChange: (e) => { form.employeur = Number(e.target.value) || 0 } },
+      h('select', { className: 'champ', onChange: (e) => {
+        const nouveau = e.target.value === NOUVEAU_PARTENAIRE
+        nouvelEmployeur.hidden = !nouveau
+        saisieEmployeur.required = nouveau
+        form.employeur = nouveau ? 0 : Number(e.target.value) || 0
+        form.employeurNom = nouveau ? saisieEmployeur.value : ''
+        if (nouveau) saisieEmployeur.focus()
+      } },
         h('option', { value: '0' }, '—'),
         [...d.Sous_traitants].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
-          .map((s) => h('option', { value: String(s.id) }, s.Nom || 'Sans nom'))))
+          .map((s) => h('option', { value: String(s.id) }, s.Nom || 'Sans nom')),
+        h('option', { value: NOUVEAU_PARTENAIRE }, '＋ Nouveau sous-traitant…')))
     // Numéro de clé : demandé seulement s'il y a un coffre
     const saisieCle = h('input', { className: 'champ', autocomplete: 'off', onInput: (e) => { form.cle = e.target.value } })
     const cle = h('label', { className: 'champ-groupe', hidden: true }, 'Si oui, entrez le numéro de clé *', saisieCle)
@@ -168,13 +192,14 @@ export function creerEcranCasiers(racine, recharger) {
         cle.hidden = form.coffre !== 'Oui'
         saisieCle.required = form.coffre === 'Oui'
       } }, h('option', { value: '', disabled: true, selected: true }, 'Choisir…'), ['Non', 'Oui'].map((v) => h('option', { value: v }, v.toUpperCase()))))
-    const manque = h('p', { className: 'erreur', hidden: true }, 'Prénom, nom, n° de badge, entreprise et coffre sont obligatoires.')
+    const manque = h('p', { className: 'erreur', hidden: true }, 'Prénom, nom, n° de badge, entreprise et coffre sont obligatoires (et le nom d’un nouveau sous-traitant).')
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit', 'data-attribue': '', disabled: !dateValide() },
       `Affecter le casier n° ${c.Numero}`)
     const formulaire = h('form', { className: 'formulaire', onSubmit: (e) => {
       e.preventDefault()
       // Les champs remplis d'espaces passent la vérification du navigateur : on les refuse ici
       manque.hidden = [form.prenom, form.nom, form.badge, form.entreprise].every((v) => v.trim()) && Boolean(form.coffre)
+        && (nouvelEmployeur.hidden || Boolean(form.employeurNom.trim()))
       if (!manque.hidden) return
       executer(valider, () => creerEtAttribuer(d, c.id, form, date.value))
     } },
@@ -182,8 +207,8 @@ export function creerEcranCasiers(racine, recharger) {
     champ('prenom', 'Prénom *', { required: true }),
     champ('nom', 'Nom *', { required: true }),
     champ('badge', 'N° de badge *', { required: true }),
-    entreprise,
-    employeur, coffre, cle, manque,
+    entreprise, nouvelleEntreprise,
+    employeur, nouvelEmployeur, coffre, cle, manque,
     valider)
     zone.replaceChildren(formulaire)
     if (peutGerer(d)) {

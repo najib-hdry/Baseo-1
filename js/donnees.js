@@ -167,7 +167,7 @@ export function derniereLiberation(d, casierId) {
 
 const action = (actions) => grist.docApi.applyUserActions(actions)
 
-// Crée l'entreprise si besoin (nom identique sans tenir compte des majuscules), puis l'intervenant, puis l'attribution
+// Crée l'entreprise et le sous-traitant si besoin (nom identique sans tenir compte des majuscules), puis l'intervenant, puis l'attribution
 export async function creerEtAttribuer(d, casierId, form, dateDebut) {
   if (d.activeParCasier.has(casierId)) throw new Error('Ce casier vient d’être attribué. Ferme la fenêtre pour voir le plan à jour.')
   // On crée toujours un nouvel intervenant ; un badge n'est refusé que si son titulaire occupe déjà un casier
@@ -188,10 +188,18 @@ export async function creerEtAttribuer(d, casierId, form, dateDebut) {
     entrepriseId = existante?.id ?? compteur(d, 'Entreprises')()
     if (!existante) actions.push(['AddRecord', 'Entreprises', entrepriseId, { Nom: nomEntreprise }])
   }
+  // Employeur : sous-traitant choisi, ou nouveau sous-traitant (retrouvé par son nom s'il existe déjà), rattaché à l'entreprise
+  let employeurId = form.employeur || null
+  const nomEmployeur = (form.employeurNom ?? '').trim()
+  if (nomEmployeur) {
+    const existant = d.Sous_traitants.find((s) => (s.Nom ?? '').toLowerCase() === nomEmployeur.toLowerCase())
+    employeurId = existant?.id ?? compteur(d, 'Sous_traitants')()
+    if (!existant) actions.push(['AddRecord', 'Sous_traitants', employeurId, { Nom: nomEmployeur, Entreprise: entrepriseId || 0 }])
+  }
   const intervenantId = compteur(d, 'Intervenants')()
   actions.push(
     ['AddRecord', 'Intervenants', intervenantId, {
-      Prenom: form.prenom.trim(), Nom: form.nom.trim(), Entreprise: entrepriseId, Badge: badge || null, Employeur: form.employeur || null,
+      Prenom: form.prenom.trim(), Nom: form.nom.trim(), Entreprise: entrepriseId, Badge: badge || null, Employeur: employeurId,
     }],
     ['AddRecord', 'Attributions', null, {
       Casier: casierId, Intervenant: intervenantId, Date_debut: versGrist(dateDebut),
