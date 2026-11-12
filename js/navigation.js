@@ -72,7 +72,7 @@ const FILTRES = [
   { cle: 'occupe', libelle: 'Occupés', picto: 'occupes' },
 ]
 const detail = (c) =>
-  c.statut === 'occupe' ? `${c.prenom?.[0] ?? ''}. ${c.nom}` : c.statut === 'disponible' ? 'Libre' : 'Hors service'
+  c.statut === 'occupe' ? (c.prenom ? `${c.prenom[0]}. ${c.nom}` : c.nom || 'Occupé') : c.statut === 'disponible' ? 'Libre' : 'Hors service'
 
 /**
  * Vue d'un chantier. `etat` : { chantierId, zoneId, baseId, etageId, vestiaireId, filtre, vue3d }

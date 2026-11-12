@@ -12,6 +12,8 @@ const TITRES_ES = ['Source', 'Type', 'Article', 'Actuelle', 'Seuil', 'Entrée', 
 // Colonnes de nombres des articles et des entrées/sorties : centrées (titre et valeurs)
 const COLONNES_NOMBRES = new Set(['Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Entrée', 'Sortie', 'Après'])
 const TITRES_CHOIX = ['', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Déjà dans le stock', 'Quantité', 'Seuil']
+// Quantité saisie dans une case : nombre entier, jamais négatif (un « -5 » ou « 2,5 » ne fausse pas les totaux)
+const quantiteSaisie = (valeur) => Math.max(0, Math.round(Number(valeur) || 0))
 const TITRES_CATALOGUE = ['Photo', 'Source', 'Type', 'Descriptif', 'Format ou taille', 'Commentaire', 'Q. actuelle des stocks', '']
 
 // Écran affiché dans `racine` ; `recharger()` relit les données après une écriture ; `vue` : 'stocks' ou 'catalogue'
@@ -221,9 +223,9 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       }
     } })
     // Case de saisie d'un nombre (quantité ou seuil) ; un nombre saisi coche l'article
-    const saisie = (valeurs, r, libelle) => h('td', null, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:100px',
+    const saisie = (valeurs, r, libelle) => h('td', null, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 1, style: 'width:100px',
       value: valeurs.get(r.id) || '', 'aria-label': libelle, onInput: (e) => {
-        const v = Number(e.target.value) || 0
+        const v = quantiteSaisie(e.target.value)
         valeurs.set(r.id, v)
         if (v > 0 && !choisis.has(r.id)) { choisis.add(r.id); e.target.closest('tr').querySelector('input[type=checkbox]').checked = true }
         majResume()
@@ -403,8 +405,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
         const saisie = saisies.get(e.id)
         const apresCase = h('td', { className: 'tableau-nombre tableau-centre' })
         const maj = () => { apresCase.textContent = saisie.quantite ? String(actuelle(e) - saisie.quantite) : ''; apresCase.style.color = actuelle(e) - saisie.quantite < 0 ? 'var(--hs)' : '' }
-        const champ = h('input', { className: 'champ champ-compact', type: 'number', min: 0, max: actuelle(e), step: 'any', style: 'width:90px', 'aria-label': `Quantité de ${e.libelle} à transférer`,
-          onInput: (ev) => { saisie.quantite = Math.max(0, Number(ev.target.value) || 0); maj(); majResume() } })
+        const champ = h('input', { className: 'champ champ-compact', type: 'number', min: 0, max: actuelle(e), step: 1, style: 'width:90px', 'aria-label': `Quantité de ${e.libelle} à transférer`,
+          onInput: (ev) => { saisie.quantite = quantiteSaisie(ev.target.value); maj(); majResume() } })
         cases.set(e.id, [champ, maj])
         return h('tr', null, h('td', null, source(e)), h('td', null, type(e)), h('td', { className: 'tableau-nom' }, e.libelle),
           h('td', { className: 'tableau-nombre tableau-centre' }, String(actuelle(e))), h('td', { className: 'tableau-centre' }, champ), apresCase)
@@ -523,8 +525,8 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
             apres.style.color = v < 0 ? 'var(--hs)' : ''
           }
           majApres()
-          const caseNombre = (cle, libelleCase) => h('td', { className: 'tableau-centre' }, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 'any', style: 'width:90px',
-            value: saisie[cle] || '', 'aria-label': libelleCase, onInput: (ev) => { saisie[cle] = Math.max(0, Number(ev.target.value) || 0); majApres(); majResume() } }))
+          const caseNombre = (cle, libelleCase) => h('td', { className: 'tableau-centre' }, h('input', { className: 'champ champ-compact', type: 'number', min: 0, step: 1, style: 'width:90px',
+            value: saisie[cle] || '', 'aria-label': libelleCase, onInput: (ev) => { saisie[cle] = quantiteSaisie(ev.target.value); majApres(); majResume() } }))
           // Booléen : un seuil à 0 ne doit pas s'afficher comme « 0 » collé à la quantité
           const enAlerte = Boolean(e.Quantite_seuil) && actuelle(e) <= e.Quantite_seuil
           return h('tr', null,

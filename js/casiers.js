@@ -31,7 +31,7 @@ export function creerEcranCasiers(racine, recharger) {
         },
         jauge: (c) => {
           const casiers = d.Casiers.filter((k) => k.Chantier === c.id)
-          return casiers.length ? casiers.filter((k) => d.activeParCasier.has(k.id)).length / casiers.length : 0
+          return casiers.length ? casiers.filter((k) => !k.Hors_service && d.activeParCasier.has(k.id)).length / casiers.length : 0
         },
         onOuvrir: (c) => {
           Object.assign(etat, { filtre: 'tous', onglet: 'casiers', historique: { statut: 'tous', recherche: '', du: '', au: '' } }, selectionPourChantier(d, c.id))
@@ -279,10 +279,10 @@ export function creerEcranCasiers(racine, recharger) {
     const i = d.parId.Intervenants.get(a.Intervenant)
     const casier = d.parId.Casiers.get(a.Casier)
     const debut = enFrancais(depuisGrist(a.Date_debut)) || '?'
-    fenetreSuppression('Supprimer cette attribution ?',
+    fenetreSuppression('Supprimer cette attribution ?', [h('p', null,
       `${[i?.Prenom, i?.Nom].filter(Boolean).join(' ') || 'Intervenant'} · casier ${casier?.Numero ?? '?'} · du ${debut}${a.Date_fin ? ` au ${enFrancais(depuisGrist(a.Date_fin))}` : ''}. `
         + (a.Date_fin ? 'Elle disparaîtra de l’historique.' : 'Elle est en cours : le casier redeviendra libre, et elle disparaîtra de l’historique.')
-        + ' Pour garder une trace, préfère « Modifier » et une date de fin.',
+        + ' Pour garder une trace, préfère « Modifier » et une date de fin.')],
       [['Supprimer', 'bouton-danger', () => supprimerFiche('Attributions', a.id)]], recharger)
   }
 

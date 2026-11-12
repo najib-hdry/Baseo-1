@@ -60,7 +60,7 @@ export function historiqueCasiers(d, chantierId, filtres, actions = null) {
     const texte = filtres.recherche.trim().toLowerCase()
     visibles = toutes.filter((l) => (filtres.statut === 'tous' || l.statut === filtres.statut)
       // Période : attributions qui la chevauchent (fin vide = toujours en cours)
-      && (!filtres.du || !l.fin || l.fin >= filtres.du) && (!filtres.au || l.debut <= filtres.au)
+      && (!filtres.du || !l.fin || l.fin >= filtres.du) && (!filtres.au || !l.debut || l.debut <= filtres.au)
       && (!texte || [l.casier, l.intervenant, l.badge, l.employeur, l.emplacement, l.commentaire].some((v) => String(v).toLowerCase().includes(texte))))
     compteur.textContent = compte(visibles.length, toutes.length, 'attribution')
     corps.replaceChildren(...(visibles.length === 0

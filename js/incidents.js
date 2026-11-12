@@ -242,7 +242,7 @@ export function creerEcranIncidents(racine, recharger) {
   const ACTIONS = {
     Ouvert: [['En cours', 'Prendre en charge', 'bouton-principal'], ['Résolu', 'Marquer résolu', '']],
     'En cours': [['Résolu', 'Marquer résolu', 'bouton-principal']],
-    Résolu: [['Ouvert', 'Rouvrir', '']],
+    Résolu: [], // pas de bouton « Rouvrir » : le statut d'un incident résolu se change par « Modifier »
   }
 
   // Boutons de changement de statut d'un incident : toutes les actions pour le chef d'équipe et l'admin ;
