@@ -1221,3 +1221,6 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .emarg-boutons .bouton { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 .emarg-ligne .presence-valide { margin: 0; }
 .emarg-carte h2 .presence-pastille { margin-left: auto; padding: 3px 10px; font-size: .8rem; }
+/* Émargements du chef : un bloc par jour, le jour en titre */
+.emarg-jour { display: grid; gap: 10px; }
+.emarg-jour-titre { margin: 8px 0 0; font-size: 1rem; font-weight: 700; text-transform: capitalize; color: var(--encre-douce); }
