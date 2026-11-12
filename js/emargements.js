@@ -1,7 +1,7 @@
 // Écran « Suivi des émargements » (admin) : onglets par état (Présent, En retard, Absent, Tous), tableau avec recherche,
 // fiche de modification (les champs suivent l'état : absence autorisée si absent, durée si en retard ou parti plus tôt…),
 // validation et suppression des émargements cochés.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier, compte, figerFormulaire } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, versSaisie, notifier, compte } from './outils.js'
 import { accesPage, ROLE_SALARIE, ROLE_CHEF, modifierLigne, supprimerLignes, validerEmargements, nomContact, peutModifier } from './donnees.js'
 import { creerEmargementsEquipe } from './emargements_equipe.js'
 
@@ -138,6 +138,24 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
   // ---- Fiche de modification ----
 
   function ouvrirFiche(e) {
+    // Lecture (CIP) : la fiche en texte, sans champs de formulaire qui laisseraient croire qu'on peut modifier
+    if (!peutModifier(d, seul ? 'utilisateurs' : 'emargements')) {
+      const absent = e.Etat === 'Absent'
+      const lignes = [
+        ['Salarié', nomSalarie(e)], ['Arrivée / départ', e.Arrivee_Depart || '—'],
+        ['Heure début', heureEmargement(e.Heure_debut)], ['Heure fin', heureEmargement(e.Heure_fin)],
+        ['État', e.Etat ? h('span', { className: `badge ${CLASSES_ETAT[e.Etat] ?? ''}` }, e.Etat) : '—'],
+        absent && ['Absence autorisée', e.Absence_autorisee || '—'],
+        e.Etat === 'En retard' && ['Durée du retard', duree(e.Duree_retard)],
+        !absent && ['Parti plus tôt', e.Parti_plus_tot ? duree(e.Duree_parti_tot) : 'Non'],
+        !absent && ['Heures supplémentaires', e.Heures_sup_faites ? duree(e.Duree_heures_sup) : 'Non'],
+        ['Émargé', e.Emarge_le ? heureEmargement(e.Emarge_le) : 'Pas encore'],
+        ['Validé', e.Emargement_valide ? 'Oui' : 'Non'],
+      ].filter(Boolean)
+      ouvrirPanneau(`${e.Arrivee_Depart || 'Émargement'} · ${nomSalarie(e)}`,
+        h('dl', { className: 'fiche-infos' }, lignes.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])))
+      return
+    }
     const champs = {
       Salarie: e.Salarie || 0, Arrivee_Depart: e.Arrivee_Depart ?? '', Heure_debut: versSaisie(e.Heure_debut), Heure_fin: versSaisie(e.Heure_fin),
       Etat: e.Etat ?? '', Absence_autorisee: e.Absence_autorisee ?? '',
@@ -236,7 +254,6 @@ export function creerEcranEmargements(racine, recharger, options = {}) {
     erreur, valider,
     h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression([e])) }, 'Supprimer cet émargement'))
 
-    if (!peutModifier(d, seul ? 'utilisateurs' : 'emargements')) figerFormulaire(formulaire)
     const { fermer, ouvrirDepuis, section } = ouvrirPanneau(`${e.Arrivee_Depart || 'Émargement'} · ${nomSalarie(e)}`, formulaire)
     section.classList.add('panneau-large')
   }

@@ -100,7 +100,8 @@ const BLOCS_CANDIDAT = [
 ]
 
 // Compte utilisateur lié à un candidat (embauche) : « Prénom Nom · email »
-const libelleUtilisateur = (u) => [nomContact(u), u.Email].filter(Boolean).join(' · ') || 'Sans nom'
+// Compte invisible (règles d'accès : un CIP ne voit que sa ligne de Utilisateurs) : rien, la fiche affiche « — »
+const libelleUtilisateur = (u) => (u ? [nomContact(u), u.Email].filter(Boolean).join(' · ') || 'Sans nom' : '')
 const libelleRef = (ligne, affichage) => (typeof affichage === 'function' ? affichage(ligne) : ligne?.[affichage])
 
 // Cellules de la grille des blocs : `rendre(titre, champs)` dessine un bloc ; un bloc `sous` rejoint la cellule précédente ;
@@ -389,6 +390,11 @@ export function creerEcranCandidats(racine, recharger) {
       }
     } }, zone, erreur, valider)
 
+    // Entretiens réalisés, le plus récent en tête ; au-delà de 3, la liste défile (hauteur réglée après l'ouverture)
+    const listeEntretiens = h('ul', { className: 'entretiens' }, entretiens.map((e) => h('li', { className: 'entretien' },
+      h('span', { className: 'entretien-date' }, dateHeureComplete(e.Cree_le)),
+      h('p', { className: 'entretien-texte' }, e.Entretien || '—'))))
+
     // Onglet « Entretien » : infos de base, nouvel entretien, entretiens réalisés
     const ongletEntretien = [
       h('section', { className: 'bloc-candidat' }, h('h3', null, nom(c)),
@@ -396,11 +402,7 @@ export function creerEcranCandidats(racine, recharger) {
       h('section', { className: 'bloc-candidat' }, h('h3', null, 'Nouvel entretien'),
         d.absentes.has('Entretiens') ? h('p', { className: 'message' }, 'Ce document n’a pas de table Entretiens.') : nouveau),
       h('section', { className: 'bloc-candidat' }, h('h3', null, `Entretiens réalisés (${entretiens.length})`),
-        entretiens.length === 0
-          ? h('p', { className: 'message' }, 'Aucun entretien pour l’instant.')
-          : h('ul', { className: 'entretiens' }, entretiens.map((e) => h('li', { className: 'entretien' },
-            h('span', { className: 'entretien-date' }, dateHeureComplete(e.Cree_le)),
-            h('p', { className: 'entretien-texte' }, e.Entretien || '—'))))),
+        entretiens.length === 0 ? h('p', { className: 'message' }, 'Aucun entretien pour l’instant.') : listeEntretiens),
     ]
 
     // Onglets de la fiche ; changer d'onglet ne redessine que le contenu (le texte en cours de saisie est gardé)
@@ -416,6 +418,12 @@ export function creerEcranCandidats(racine, recharger) {
     const titre = h('span', { className: 'titre-formulaire' }, h('span', { className: 'titre-icone' }, icone('occupes', 22)), 'Fiche d’entretien')
     const { fermer, section } = ouvrirPanneau(titre, [barre, contenu])
     section.classList.add('panneau-large', 'panneau-fiche', 'panneau-candidat')
+    // Plus de 3 entretiens : la liste a la hauteur des 3 premiers et défile
+    if (entretiens.length > 3) {
+      const [premier, , troisieme] = listeEntretiens.children
+      listeEntretiens.style.maxHeight = `${troisieme.getBoundingClientRect().bottom - premier.getBoundingClientRect().top + 2}px`
+      listeEntretiens.classList.add('entretiens-defilants')
+    }
     zone.focus()
   }
 

@@ -547,6 +547,8 @@ button.tiroir-lien.active { background: var(--signal); }
 .entretien { display: grid; gap: 4px; padding: 12px 14px; background: var(--fond); border-radius: var(--rayon); }
 .entretien-date { font-size: .8rem; font-weight: 700; color: var(--encre-douce); }
 .entretien-texte { margin: 0; white-space: pre-wrap; }
+/* Plus de 3 entretiens : la liste défile (hauteur des 3 premiers, réglée par candidats.js) */
+.entretiens-defilants { overflow-y: auto; padding-right: 6px; overscroll-behavior: contain; }
 /* Fiche détail du candidat */
 .photo-candidat { display: block; max-width: 160px; max-height: 200px; object-fit: cover; border-radius: 10px; }
 /* Fiche salarié : photo du candidat à gauche, informations à droite (l'une sous l'autre sur téléphone) */
