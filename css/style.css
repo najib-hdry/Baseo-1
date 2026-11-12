@@ -483,6 +483,8 @@ button.tiroir-lien.active { background: var(--signal); }
 .historique-casiers .filtres { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); margin-top: 0; }
 .historique-casiers .barre-outils { align-items: center; }
 .cellule-resolu-par { display: block; }
+.alertes-utilisateur { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.alertes-utilisateur .badge { white-space: nowrap; }
 .societes-total { margin: 12px 0 0; font-weight: 700; text-align: right; }
 /* Vue générale des casiers : bandeau de titre et colonnes colorées (libre vert, occupé gris, HS orange, taux violet, total bleu) */
 .vue-generale-casiers { display: grid; gap: 16px; margin-top: 16px; }

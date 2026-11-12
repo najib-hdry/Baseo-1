@@ -11,7 +11,7 @@ import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
 import { accesPage, ROLES, ROLE_SALARIE, ROLE_CLIENT, AUTORISATIONS_CLIENT, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne, POSTE_ARCHIVE } from './donnees.js'
 
-const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', '']
+const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', 'Alertes', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
 const TITRES_DOCUMENTS = ['Type de document', 'Recto', 'Verso', 'Créé le', 'Ajouté par', '']
 const TITRES_CONTRATS = ['N° de contrat', 'Sites', 'Intitulé de poste', 'Date début', 'Date fin', 'Contrat', 'DPAE', '']
@@ -23,8 +23,19 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
   let d = null
   let recherche = ''
   let onglet = ROLE_SALARIE // rôle affiché ; '' = tous
+  let seulementAlertes = false // filtre « Seulement en alerte »
 
   const nom = (u) => nomContact(u) || 'Sans nom'
+  // Alertes calculées par Grist (un mois avant l'échéance, et après) : Pass IAE et pièce d'identité du candidat lié,
+  // fin du dernier contrat ; [libellé, échéance]
+  const alertesDe = (u) => {
+    const c = (d.Candidats ?? []).find((x) => x.Utilisateur === u.id)
+    return [
+      c?.Alerte_Pass_IAE && ['Pass IAE', c.Pass_IAE_fin],
+      c?.Alerte_piece_identite && ['Pièce d’identité', c.Date_validite_piece_identite],
+      ...(d.Contrats ?? []).filter((k) => k.Salarie === u.id && k.Alerte_fin_contrat).map((k) => ['Fin de contrat', k.Date_fin]),
+    ].filter(Boolean)
+  }
   const chantiers = (u) => idsDeListe(u.Chantiers).map((id) => d.parId.Chantiers.get(id)?.Nom).filter(Boolean).join(', ')
   const dansOnglet = (u, role) => !role || (role === SANS_ROLE ? !u.Profil : u.Profil === role)
   const estSalarie = (u) => u.Profil === ROLE_SALARIE
@@ -51,13 +62,17 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     // Ne redessine que les lignes : le champ de recherche garde le curseur
     const dessinerLignes = () => {
       const filtre = recherche.trim().toLowerCase()
-      const liste = d.Utilisateurs
-        .filter((u) => dansOnglet(u, onglet))
-        .filter((u) => !filtre || [nom(u), u.Profil, u.Telephone, u.Email, chantiers(u)].some((v) => String(v ?? '').toLowerCase().includes(filtre)))
+      const deLOnglet = d.Utilisateurs.filter((u) => dansOnglet(u, onglet))
+      const liste = deLOnglet
+        .filter((u) => !seulementAlertes || alertesDe(u).length > 0)
+        .filter((u) => !filtre || [nom(u), u.Profil, u.Telephone, u.Email, chantiers(u), ...alertesDe(u).map(([libelle]) => libelle)]
+          .some((v) => String(v ?? '').toLowerCase().includes(filtre)))
         .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)) || String(a.Prenom).localeCompare(String(b.Prenom)))
-      compteur.textContent = compte(liste.length, d.Utilisateurs.filter((u) => dansOnglet(u, onglet)).length, 'utilisateur')
+      const enAlerte = deLOnglet.filter((u) => alertesDe(u).length > 0).length
+      compteur.textContent = `${compte(liste.length, deLOnglet.length, 'utilisateur')}${enAlerte ? ` · ${enAlerte} en alerte` : ''}`
       corps.replaceChildren(...(liste.length === 0
-        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_UTILISATEURS.length }, filtre ? 'Aucun résultat.' : 'Aucun utilisateur dans cet onglet.'))]
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_UTILISATEURS.length },
+          seulementAlertes && !filtre ? 'Aucun utilisateur en alerte dans cet onglet.' : filtre ? 'Aucun résultat.' : 'Aucun utilisateur dans cet onglet.'))]
         : liste.map((u) => h('tr', { className: 'tableau-ligne', onClick: () => ouvrir(u) },
           h('td', { className: 'tableau-nom' }, nom(u)),
           h('td', null, u.Profil || 'Sans rôle'),
@@ -65,6 +80,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           h('td', null, lienContact('mailto', u.Email)),
           h('td', null, chantiers(u)),
           h('td', null, u.Actif ? 'Oui' : 'Non'),
+          h('td', null, h('span', { className: 'alertes-utilisateur' }, alertesDe(u).map(([libelle, echeance]) =>
+            h('span', { className: 'badge badge-ouvert', title: `Échéance : ${enFrancais(depuisGrist(echeance)) || 'non renseignée'}` }, libelle)))),
           h('td', { className: 'tableau-actions' },
             estSalarie(u) && h('button', { className: 'bouton bouton-compact bouton-principal', onClick: (ev) => { ev.stopPropagation(); ouvrirFicheSalarie(u) } }, 'Fiche salarié'),
             menuPlus([
@@ -82,6 +99,8 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
         h('div', { className: 'barre-outils' },
           h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, téléphone, email, chantier…)', value: recherche,
             'aria-label': 'Rechercher un utilisateur', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
+          h('label', { className: 'case' }, h('input', { type: 'checkbox', checked: seulementAlertes, onChange: (e) => { seulementAlertes = e.target.checked; dessinerLignes() } }),
+            'Seulement en alerte'),
           h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, '＋ Nouvel utilisateur')),
         compteur,
         h('div', { className: 'tableau-defilant' },
