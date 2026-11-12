@@ -77,11 +77,14 @@ const ACCES_PAGES = {
   sous_traitants: { Admin: GESTION },
 }
 // Accès de la personne connectée à la page `cle` : 'gestion', 'lecture' ou null.
-// Client : Casiers, Incidents, Stocks, Maintenance et Nettoyage seulement si la case de son compte est cochée
+// Client : Casiers, Incidents, Stocks, Maintenance et Nettoyage seulement si la case de son compte est cochée ;
+// Salarié : Casiers et Incidents seulement avec « Gestion des casiers » / « Gestion des incidents » (comme ses raccourcis de Mes tâches)
+const AUTORISATION_PAGE_SALARIE = { casiers: 'casiers', incidents: 'incidents' }
 export const accesPage = (d, cle) => {
   const acces = ACCES_PAGES[cle]?.[d?.moi?.profil] ?? null
   const refuseAuClient = d?.moi?.profil === ROLE_CLIENT && PAGES_CASE_CLIENT.has(cle) && !d.moi.pagesClient?.includes(cle)
-  return refuseAuClient ? null : acces
+  const refuseAuSalarie = d?.moi?.profil === ROLE_SALARIE && AUTORISATION_PAGE_SALARIE[cle] && !d.moi[AUTORISATION_PAGE_SALARIE[cle]]
+  return refuseAuClient || refuseAuSalarie ? null : acces
 }
 // Blocs du tableau de bord qui dépendent d'une page : affichés seulement si la page est ouverte à la personne
 export const PAGE_DU_BLOC = { casiers: 'casiers', incidents: 'incidents', stock: 'stocks' }
