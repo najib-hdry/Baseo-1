@@ -389,7 +389,9 @@ button.tiroir-lien.active { background: var(--signal); }
 .bouton-compact { width: auto; min-height: 40px; padding: 0 14px; font-size: 0.95rem; }
 .badge-nouveau { color: #15212B; background: #D6EAF5; }
 .badge-termine { color: var(--encre-douce); background: #E3E6E8; }
+.panneau.panneau-moyen { max-width: 620px; }
 .panneau.panneau-large { max-width: 760px; }
+.contenu-communication { min-height: 240px; }
 .grille-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 /* Date puis heures de début et de fin sur une ligne, alignées en haut ; au téléphone, la date seule puis les deux heures */
 .grille-date-heures { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: start; }

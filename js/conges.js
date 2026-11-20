@@ -117,18 +117,29 @@ export function creerEcranConges(racine, recharger, options = {}) {
         vide && h('option', { value: '', selected: !champs[col] }, vide),
         valeurs.map((v) => h('option', { value: v, selected: v === champs[col] }, v))))
     const date = (libelle, col) => h('label', { className: 'champ-groupe' }, libelle,
-      h('input', { className: 'champ', type: 'date', value: champs[col], onInput: (ev) => { champs[col] = ev.target.value } }))
+      h('input', { className: 'champ', type: 'date', value: champs[col], onInput: (ev) => { champs[col] = ev.target.value; majDuree() } }))
+    // Durée, comme la colonne Grist « Duree » : demi-journée, 1 jour ou N jours (calendaires, date de fin incluse)
+    const duree = h('p', { className: 'sous-texte' })
+    const majDuree = () => {
+      const plusieurs = champs.Type === PLUSIEURS_JOURS
+      const jours = champs.Date_debut && (!plusieurs || champs.Date_fin >= champs.Date_debut)
+        ? Math.round((new Date(plusieurs && champs.Date_fin ? champs.Date_fin : champs.Date_debut) - new Date(champs.Date_debut)) / 86400000) + 1 : 0
+      const texte = champs.Type === DEMI_JOURNEE ? 'Une demi-journée' : jours ? (jours > 1 ? `${jours} jours` : '1 jour') : ''
+      duree.textContent = texte ? `Durée : ${texte}` : ''
+      duree.hidden = !texte
+    }
 
     // Demi-journée : date + matin / après-midi ; une journée : une date ; plusieurs jours : date de début et de fin
     const libelleDebut = h('span')
     const blocDebut = h('label', { className: 'champ-groupe' }, libelleDebut,
-      h('input', { className: 'champ', type: 'date', value: champs.Date_debut, onInput: (ev) => { champs.Date_debut = ev.target.value } }))
-    const blocFin = date('Date fin *', 'Date_fin')
+      h('input', { className: 'champ', type: 'date', value: champs.Date_debut, onInput: (ev) => { champs.Date_debut = ev.target.value; majDuree() } }))
+    const blocFin = date('Date fin (incluse) *', 'Date_fin')
     const blocMoment = choix('Demi-journée *', 'Demi_journee', MOMENTS, '-- Choisissez --')
     const majChamps = () => {
       libelleDebut.textContent = champs.Type === PLUSIEURS_JOURS ? 'Date début *' : 'Date *'
       blocFin.hidden = champs.Type !== PLUSIEURS_JOURS
       blocMoment.hidden = champs.Type !== DEMI_JOURNEE
+      majDuree()
     }
     majChamps()
 
@@ -172,11 +183,13 @@ export function creerEcranConges(racine, recharger, options = {}) {
       choix('Type *', 'Type', TYPES_CONGE),
       choix('Statut', 'Statut', STATUTS_CONGE)),
     h('div', { className: 'grille-2' }, blocDebut, blocFin, blocMoment),
+    duree,
     c && h('p', { className: 'sous-texte' }, `Demande créée le ${congeCreeLe(c.Cree_le)}.`),
     erreur, valider,
     c && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(c)) }, 'Supprimer cette demande'))
 
-    const { fermer, ouvrirDepuis } = ouvrirPanneau(c ? `Demande de congé · ${salarie(c)}` : 'Nouvelle demande de congé', formulaire)
+    const { fermer, ouvrirDepuis, section } = ouvrirPanneau(c ? `Demande de congé · ${salarie(c)}` : 'Nouvelle demande de congé', formulaire)
+    section.classList.add('panneau-moyen')
   }
 
   // ---- Suppression ----

@@ -85,6 +85,20 @@ export function depuisGrist(v) {
 }
 // Montant en euros à la française (1 234,56 €)
 export const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
+// Saisie d'un montant (champ texte, clavier numérique) : chiffres et un seul séparateur, virgule ou point,
+// accepté même en fin de saisie (« 12, » comme « 12. »), deux décimales au plus
+export function nettoyerMontant(v) {
+  const s = String(v ?? '').replace(/[^0-9.,]/g, '')
+  const i = s.search(/[.,]/)
+  return i < 0 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/[.,]/g, '').slice(0, 2)
+}
+// Montant saisi → nombre (NaN si vide) ; montant enregistré → texte de saisie avec une virgule
+export const lireMontant = (v) => { const s = nettoyerMontant(v).replace(',', '.'); return s && s !== '.' ? Number(s) : NaN }
+export const montantEnSaisie = (n) => (n == null || n === '' ? '' : String(n).replace('.', ','))
+// Champ de montant : `onMontant(texte)` reçoit la saisie nettoyée
+export const champMontant = (valeur, onMontant, extra = {}) => h('input', { className: 'champ', type: 'text', inputMode: 'decimal', autocomplete: 'off',
+  ...extra, value: montantEnSaisie(valeur),
+  onInput: (e) => { const propre = nettoyerMontant(e.target.value); if (propre !== e.target.value) e.target.value = propre; onMontant(propre) } })
 
 export const enFrancais = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '')
 export function dateHeure(v) {

@@ -1,7 +1,7 @@
 // Écran « Congé et acompte » (salarié, sur téléphone) : en-tête, deux gros boutons (demander un congé, demander un acompte)
 // et ses demandes, de la plus récente à la plus ancienne, avec leur statut en pictogramme. Une demande encore « Nouvelle »
 // peut être retirée. Le statut (Nouvelle à la création) est rempli par Grist et changé par l'admin ou les RH.
-import { h, icone, ouvrirPanneau, fenetreSuppression, versGrist, depuisGrist, enFrancais, aujourdhui } from './outils.js'
+import { h, icone, ouvrirPanneau, fenetreSuppression, versGrist, depuisGrist, enFrancais, aujourdhui, champMontant, lireMontant, montantEnSaisie } from './outils.js'
 import { ROLE_SALARIE, enregistrerLigne, supprimerLignes } from './donnees.js'
 
 const DEMI_JOURNEE_DEMANDE = 'Une demi-journée'
@@ -63,7 +63,7 @@ export function creerEcranDemandes(racine, recharger) {
         h('div', { className: 'presence-tuiles' }, TYPES_DEMANDE_CONGE.map(([type, picto]) =>
           tuile(type, picto, '#007EBD', champs.Type === type, () => { champs.Type = type; dessiner() }))),
         date(plusieurs ? 'Du' : 'Le', 'Date_debut'),
-        plusieurs && date('Au', 'Date_fin'),
+        plusieurs && date('Au (inclus)', 'Date_fin'),
         champs.Type === DEMI_JOURNEE_DEMANDE && h('div', { className: 'presence-tuiles presence-tuiles-2' }, MOMENTS_DEMANDE.map(([moment, picto]) =>
           tuile(moment, picto, '#E07B2E', champs.Demi_journee === moment, () => { champs.Demi_journee = moment; dessiner() }))),
       ].filter(Boolean))
@@ -88,15 +88,14 @@ export function creerEcranDemandes(racine, recharger) {
     let montant = ''
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal presence-emarger', type: 'submit' }, icone('libres', 22), 'Envoyer la demande')
-    const saisie = h('input', { className: 'champ demande-montant', type: 'number', min: 1, step: 1, inputMode: 'decimal', placeholder: '0',
-      onInput: (e) => { montant = e.target.value; dessinerMontants() } })
+    const saisie = champMontant('', (v) => { montant = v; dessinerMontants() }, { className: 'champ demande-montant', placeholder: '0' })
     const montants = h('div', { className: 'presence-durees' })
     const dessinerMontants = () => montants.replaceChildren(...MONTANTS_ACOMPTE.map((m) => h('button', { className: 'presence-duree', type: 'button',
-      'aria-pressed': String(Number(montant) === m), onClick: () => { montant = String(m); saisie.value = montant; dessinerMontants() } }, eurosDemande.format(m))))
+      'aria-pressed': String(lireMontant(montant) === m), onClick: () => { montant = montantEnSaisie(m); saisie.value = montant; dessinerMontants() } }, eurosDemande.format(m))))
     dessinerMontants()
     const formulaire = h('form', { className: 'formulaire', onSubmit: (e) => {
       e.preventDefault()
-      const valeur = Math.round(Number(montant) * 100) / 100
+      const valeur = Math.round(lireMontant(montant) * 100) / 100
       if (!(valeur > 0)) return refuser(erreur, 'Choisis le montant.')
       envoyer('Acompte', { Montant: valeur }, valider, erreur, fermer)
     } },

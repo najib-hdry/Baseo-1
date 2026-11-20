@@ -182,14 +182,15 @@ export function creerEcranCommunication(racine, recharger) {
         h('input', { className: 'champ', type: 'date', value: champs.Date, onInput: (ev) => { champs.Date = ev.target.value } })),
       groupeExpiration),
     h('label', { className: 'champ-groupe' }, 'Contenu *',
-      h('textarea', { className: 'champ champ-texte', value: champs.Contenu, onInput: (ev) => { champs.Contenu = ev.target.value } })),
+      h('textarea', { className: 'champ champ-texte contenu-communication', value: champs.Contenu, onInput: (ev) => { champs.Contenu = ev.target.value } })),
     h('div', { className: 'champ-groupe' }, 'Fichier',
       zoneFichier((f) => { nouveauFichier = f; fichierEnvoye = null }, { deja: Boolean(ancienFichier), lien: ancienFichier && lien ? lien(ancienFichier) : null })),
     erreur, valider,
     c && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(c)) }, 'Supprimer cette communication'))
 
     // Lecture (CIP) : la fiche se consulte seulement
-    const { fermer, ouvrirDepuis } = ouvrirPanneau(c ? `Communication · ${c.Titre || 'Sans titre'}` : 'Nouvelle communication', formulaire)
+    const { fermer, ouvrirDepuis, section } = ouvrirPanneau(c ? `Communication · ${c.Titre || 'Sans titre'}` : 'Nouvelle communication', formulaire)
+    section.classList.add('panneau-large') // le contenu d'une communication est souvent long
   }
 
   // ---- Suppression ----

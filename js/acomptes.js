@@ -1,6 +1,6 @@
 // Écran « Suivi des demandes d'acompte » (admin) : onglets par statut (Nouvelle, Acceptée, Refusée, Tous), tableau avec recherche,
 // fiche de demande (nouvelle ou modification), suppression.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, euros, compte } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, euros, compte, champMontant, lireMontant } from './outils.js'
 import { accesPage, ROLE_SALARIE, enregistrerLigne, supprimerLignes, nomContact, idsDeListe } from './donnees.js'
 
 const TABLE_ACOMPTES = 'Acompte'
@@ -97,7 +97,7 @@ export function creerEcranAcomptes(racine, recharger, options = {}) {
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (ev) => {
       ev.preventDefault()
       erreur.hidden = true
-      const montant = Number(String(champs.Montant).replace(',', '.'))
+      const montant = lireMontant(champs.Montant)
       const probleme = !champs.Salarie ? 'Choisis le salarié.' : !(montant > 0) ? 'Le montant doit être supérieur à 0.' : null
       if (probleme) {
         erreur.textContent = probleme
@@ -122,8 +122,7 @@ export function creerEcranAcomptes(racine, recharger, options = {}) {
           h('option', { value: '0', selected: !champs.Salarie }, '-- Choisissez --'),
           salaries.map(([id, nom]) => h('option', { value: String(id), selected: id === champs.Salarie }, nom)))),
       h('label', { className: 'champ-groupe' }, 'Montant (€) *',
-        h('input', { className: 'champ', type: 'number', min: 0.01, step: 0.01, inputMode: 'decimal', value: champs.Montant,
-          onInput: (ev) => { champs.Montant = ev.target.value } })),
+        champMontant(champs.Montant, (v) => { champs.Montant = v }, { placeholder: 'ex. 150,50' })),
       h('label', { className: 'champ-groupe' }, 'Statut',
         h('select', { className: 'champ', onChange: (ev) => { champs.Statut = ev.target.value } },
           STATUTS_ACOMPTE.map((s) => h('option', { value: s, selected: s === champs.Statut }, s))))),
@@ -131,7 +130,8 @@ export function creerEcranAcomptes(racine, recharger, options = {}) {
     erreur, valider,
     a && h('button', { className: 'bouton bouton-danger', type: 'button', onClick: () => ouvrirDepuis(() => ouvrirSuppression(a)) }, 'Supprimer cette demande'))
 
-    const { fermer, ouvrirDepuis } = ouvrirPanneau(a ? `Demande d’acompte · ${salarie(a)}` : 'Nouvelle demande d’acompte', formulaire)
+    const { fermer, ouvrirDepuis, section } = ouvrirPanneau(a ? `Demande d’acompte · ${salarie(a)}` : 'Nouvelle demande d’acompte', formulaire)
+    section.classList.add('panneau-moyen')
   }
 
   // ---- Suppression ----
