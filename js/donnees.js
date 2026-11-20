@@ -107,7 +107,7 @@ export const BLOCS_TABLEAU_BORD = {
 }
 
 // Page ouverte au démarrage quand ce n'est pas la première du menu
-export const PAGE_ACCUEIL = { CIP: 'candidats', 'Chef d’équipe': 'chantiers' }
+export const PAGE_ACCUEIL = { CIP: 'postes', 'Chef d’équipe': 'chantiers' }
 // Chantier d'un incident : celui de son casier ou de sa pièce, sinon celui noté sur l'incident
 export const chantierDeIncident = (d, i) => d.parId.Casiers.get(i.Casier)?.Chantier ?? d.parId.Pieces.get(i.Piece)?.Chantier ?? i.Chantier
 
