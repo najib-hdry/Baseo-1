@@ -1165,7 +1165,7 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
   background: transparent; font: inherit; font-weight: 700; color: var(--encre-douce); cursor: pointer; }
 .actu-onglet[aria-selected="true"] { background: var(--surface); color: #8a2346; box-shadow: 0 1px 4px rgb(0 0 0 / .08); }
 .actu-compte { min-width: 24px; padding: 1px 7px; border-radius: 999px; background: #fdeef3; color: #8a2346; font-size: .8rem; }
-.actu-carte { display: grid; gap: 8px; padding: 16px 18px; border: 1px solid var(--trait); border-left: 5px solid #C8456B; border-radius: 16px;
+.actu-carte { display: grid; gap: 8px; padding: 16px 18px; border: 2px solid #C8456B; border-radius: 16px;
   background: var(--surface); box-shadow: 0 2px 6px rgb(0 0 0 / .05); }
 .actu-carte h2 { font-size: 1.2rem; color: var(--encre); }
 .actu-date { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: var(--encre-douce); font-weight: 600; font-size: .92rem; }
