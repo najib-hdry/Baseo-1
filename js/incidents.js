@@ -17,8 +17,9 @@ export function creerEcranIncidents(racine, recharger) {
   const STATUTS = { Ouvert: 'ouvert', 'En cours': 'en_cours', Résolu: 'resolu' }
   const MAX_PHOTOS_INCIDENT = 4 // par incident, avant comme après réparation
   // Pictogramme et couleur de chaque catégorie (boutons du signalement)
-  const PICTOS_CATEGORIES = { Plomberie: ['goutte', '#007EBD'], Électricité: ['eclair', '#D99A00'], Serrure: ['cadenas', '#3D5A73'],
-    Propreté: ['nettoyage', '#1F8A4C'], Sécurité: ['casque', '#C8382E'], Autre: ['question', '#5B6B78'] }
+  // Couleurs des catégories : distinctes de celles des statuts (vert, rouge, jaune) et de l'occupation (bleu ardoise)
+  const PICTOS_CATEGORIES = { Plomberie: ['goutte', '#007EBD'], Électricité: ['eclair', '#E07B2E'], Serrure: ['cadenas', '#6B5B95'],
+    Propreté: ['nettoyage', '#2AA69C'], Sécurité: ['casque', '#A63D6B'], Autre: ['question', '#5B6B78'] }
   const chantierIncident = (i) => chantierDeIncident(d, i)
   const photoId = (v) => idsDeListe(v)[0] ?? null
 
@@ -87,7 +88,7 @@ export function creerEcranIncidents(racine, recharger) {
   // puis incidents par base vie et par étage (même présentation que la Vue générale des casiers) ----
 
   const voitVueGenerale = () => estAdmin(d) || d.moi?.profil === ROLE_CLIENT
-  const COULEURS_STATUTS = [['Ouvert', 'Ouverts', '#B42318'], ['En cours', 'En cours', '#E0A800'], ['Résolu', 'Résolus', '#1F8A4C']]
+  const COULEURS_STATUTS = [['Ouvert', 'Ouverts', '#B42318'], ['En cours', 'En cours', '#FFC400'], ['Résolu', 'Résolus', '#1F8A4C']]
   const statutDe = (i) => i.Statut || 'Ouvert'
   // Étage d'un incident : celui de son casier (par le vestiaire) ou de sa pièce, sinon celui noté sur l'incident
   const etageIncident = (i) => {
