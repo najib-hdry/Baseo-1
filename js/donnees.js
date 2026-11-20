@@ -66,6 +66,7 @@ const ACCES_PAGES = {
   maintenance: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, [ROLE_CLIENT]: LECTURE },
   communication: { Admin: GESTION, RH: GESTION, CIP: LECTURE },
   cahiers_charge: { Admin: GESTION, RH: GESTION, 'Chef d’équipe': LECTURE }, // Chef : ses cahiers de charge, en lecture
+  formation: { Admin: GESTION, RH: GESTION, CIP: LECTURE, 'Chef d’équipe': LECTURE, Salarié: LECTURE }, // page en préparation
   utilisateurs: { Admin: GESTION, RH: GESTION },
   postes: { Admin: GESTION, RH: GESTION, CIP: GESTION },
   candidats: { Admin: GESTION, RH: GESTION, CIP: GESTION },

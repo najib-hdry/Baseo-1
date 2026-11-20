@@ -18,6 +18,7 @@ import { creerEcranStocks } from './stocks.js'
 import { creerEcranTableauDeBord } from './tableau_bord.js'
 import { creerEcranCommunication } from './communication.js'
 import { creerEcranCahiersCharge } from './cahiers_charge.js'
+import { creerEcranFormation } from './formation.js'
 import { creerEcranMesTaches } from './mes_taches.js'
 import { creerEcranPresence } from './presence.js'
 import { creerEcranActualites } from './actualites.js'
@@ -60,6 +61,7 @@ const PAGES = [
   { cle: 'emargements', libelle: 'Émargements', icone: 'emargements', groupe: 'rh' },
   { cle: 'conges', libelle: 'Congés', icone: 'conges', groupe: 'rh' },
   { cle: 'acomptes', libelle: 'Acomptes', icone: 'acomptes', groupe: 'rh' },
+  { cle: 'formation', libelle: 'Formation', icone: 'catalogue', groupe: 'rh' },
   { cle: 'communication', libelle: 'Communication', icone: 'communication', groupe: 'communication' },
   { cle: 'stocks', libelle: 'Stocks', icone: 'stock', groupe: 'stocks' },
   { cle: 'catalogue', libelle: 'Catalogue', icone: 'catalogue', groupe: 'stocks', parent: 'stocks' },
@@ -88,6 +90,7 @@ const ecrans = {
   catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
   communication: creerEcranCommunication(zones.communication, () => recharger()),
   cahiers_charge: creerEcranCahiersCharge(zones.cahiers_charge, () => recharger()),
+  formation: creerEcranFormation(zones.formation),
   mes_taches: creerEcranMesTaches(zones.mes_taches, (cle) => allerA(cle), () => recharger()),
   presence: creerEcranPresence(zones.presence, () => recharger()),
   actualites: creerEcranActualites(zones.actualites),
@@ -124,7 +127,7 @@ function basculerGroupe(cle) {
 }
 
 // Salarié : ses pages dans cet ordre, sans titres de groupe (celles qu'il n'a pas, selon ses autorisations, sont sautées)
-const ORDRE_SALARIE = ['mes_taches', 'casiers', 'incidents', 'nettoyage', 'maintenance', 'presence', 'demandes', 'actualites']
+const ORDRE_SALARIE = ['mes_taches', 'casiers', 'incidents', 'nettoyage', 'maintenance', 'presence', 'demandes', 'formation', 'actualites']
 // Lien d'une page du menu, à la couleur de son groupe ; `avant()` : appelé avant d'ouvrir la page (fermer le tiroir)
 const lienPage = (p, avant) => h('button', {
   className: `tiroir-lien${p.parent ? ' sous-lien' : ''}${p.cle === pageCourante() ? ' active' : ''}`,
