@@ -17,6 +17,7 @@ import { creerEcranConges } from './conges.js'
 import { creerEcranStocks } from './stocks.js'
 import { creerEcranTableauDeBord } from './tableau_bord.js'
 import { creerEcranCommunication } from './communication.js'
+import { creerEcranCahiersCharge } from './cahiers_charge.js'
 import { creerEcranMesTaches } from './mes_taches.js'
 import { creerEcranPresence } from './presence.js'
 import { creerEcranActualites } from './actualites.js'
@@ -49,6 +50,7 @@ const PAGES = [
   { cle: 'incidents', libelle: 'Incidents', icone: 'hs', groupe: 'chantiers' },
   { cle: 'nettoyage', libelle: 'Nettoyage', icone: 'nettoyage', groupe: 'chantiers' },
   { cle: 'maintenance', libelle: 'Maintenance', icone: 'maintenance', groupe: 'chantiers' },
+  { cle: 'cahiers_charge', libelle: 'Cahiers de charge', icone: 'note', groupe: 'chantiers' },
   { cle: 'entreprises', libelle: 'Entreprises', icone: 'entreprise', groupe: 'partenaires' },
   { cle: 'sous_traitants', libelle: 'Sous-traitants', icone: 'sous_traitant', groupe: 'partenaires' },
   { cle: 'equipe', libelle: 'Équipe', icone: 'utilisateurs', groupe: 'rh', profils: [ROLE_CHEF] },
@@ -85,6 +87,7 @@ const ecrans = {
   tableau_bord: creerEcranTableauDeBord(zones.tableau_bord, () => recharger(), (cle, options) => allerA(cle, options)),
   catalogue: creerEcranStocks(zones.catalogue, () => recharger(), 'catalogue'),
   communication: creerEcranCommunication(zones.communication, () => recharger()),
+  cahiers_charge: creerEcranCahiersCharge(zones.cahiers_charge, () => recharger()),
   mes_taches: creerEcranMesTaches(zones.mes_taches, (cle) => allerA(cle), () => recharger()),
   presence: creerEcranPresence(zones.presence, () => recharger()),
   actualites: creerEcranActualites(zones.actualites),

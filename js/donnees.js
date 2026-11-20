@@ -3,8 +3,8 @@
 import { versGrist, depuisGrist } from './outils.js'
 
 const TABLES = ['Chantiers', 'Zones', 'Bases_vie', 'Etages', 'Vestiaires', 'Pieces', 'Casiers',
-  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Stock_Transferes', 'Communication']
-const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Stock_Transferes', 'Communication'] // absentes des documents plus anciens
+  'Entreprises', 'Intervenants', 'Attributions', 'Incidents', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Stock_Transferes', 'Communication', 'Cahier_de_charge']
+const OPTIONNELLES = ['Zones', 'Controles_nettoyage', 'Maintenance', 'Postes', 'Sous_traitants', 'Candidats', 'Nationalites', 'Utilisateurs', 'Entretiens', 'Documents', 'Contacts', 'Contrats', 'Suivi_d_insertion', 'Emploi_du_temps', 'Emargement_Salarie', 'Acompte', 'Demande_de_conge', 'Chantier_Entreprise', 'Chantier_Sous_traitant', 'Stock', 'Stock_Source', 'Stock_Type', 'Stock_Reference', 'Stock_Elements', 'Stock_Transferes', 'Communication', 'Cahier_de_charge'] // absentes des documents plus anciens
 
 // Table au format colonnes ({ id: [...], Nom: [...] }) → liste d'objets
 function enLignes(table) {
@@ -65,6 +65,7 @@ const ACCES_PAGES = {
   nettoyage: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, [ROLE_CLIENT]: LECTURE },
   maintenance: { Admin: GESTION, 'Chef d’équipe': GESTION, Salarié: GESTION, [ROLE_CLIENT]: LECTURE },
   communication: { Admin: GESTION, RH: GESTION, CIP: LECTURE },
+  cahiers_charge: { Admin: GESTION, RH: GESTION },
   utilisateurs: { Admin: GESTION, RH: GESTION },
   postes: { Admin: GESTION, RH: GESTION, CIP: GESTION },
   candidats: { Admin: GESTION, RH: GESTION, CIP: GESTION },
