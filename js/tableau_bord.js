@@ -3,7 +3,7 @@
 // articles de stock à commander, nouvelles demandes de congé et d'acompte. Chaque tuile ouvre la page concernée.
 // Admin : tout ; RH : salariés, alertes et demandes ; Client : ses chantiers, casiers, incidents et stock de propreté
 // (BLOCS_TABLEAU_BORD, donnees.js).
-import { h, depuisGrist, enFrancais, etiqueterLignes, euros, icone } from './outils.js'
+import { h, depuisGrist, enFrancais, etiqueterLignes, euros, icone, texteBulle, echapperHtml } from './outils.js'
 import { accesPage, idsDeListe, nomContact, ROLE_SALARIE, alertesSalaries,estSourceProprete, BLOCS_TABLEAU_BORD, PAGE_DU_BLOC, chantiersLimites, limiteAuStockProprete } from './donnees.js'
 
 // Couleurs des graphiques (variables du thème)
@@ -36,8 +36,8 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       page && h('span', { className: 'tb-fleche', 'aria-hidden': 'true' }, '›')),
     h('span', { className: 'tb-chiffre' }, h('span', { className: 'tb-valeur' }, String(valeur)), unite && h('span', { className: 'tb-unite' }, unite)),
     calme ? h('span', { className: 'tb-rien' }, 'Rien à traiter ✓')
-      : barre && total > 0 ? h('span', { className: 'tb-barre', title: barre.map(([n, , nom]) => `${nom} ${n}`).join(' · ') },
-        barre.filter(([n]) => n > 0).map(([n, c]) => h('span', { style: { flexGrow: n, background: c } })))
+      : barre && total > 0 ? h('span', { className: 'tb-barre' },
+        barre.filter(([n]) => n > 0).map(([n, c, nom]) => h('span', { style: { flexGrow: n, background: c }, title: texteBulle(nom, n, total) })))
         : null,
     puces && !calme ? h('span', { className: 'tb-puces' }, puces.filter(([t]) => t).map(([t, ton]) => h('span', { className: `tb-puce tb-puce-${ton ?? 'neutre'}` }, t)))
       : detail && !calme ? h('span', { className: 'tb-detail' }, detail) : null)
@@ -53,8 +53,8 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       lignes.length === 0 || max === 0 ? h('p', { className: 'sous-texte' }, vide) : lignes.map(([libelle, parts]) => h('div', { className: 'graph-ligne' },
         h('span', { className: 'graph-libelle', title: libelle }, libelle),
         h('div', { className: 'graph-piste' },
-          h('div', { className: 'graph-barre', style: { width: `${(100 * total(parts)) / max}%` }, title: parts.map(([n, , nom]) => `${nom ?? ''} ${n}`).join(' · ') },
-            parts.filter(([n]) => n > 0).map(([n, couleur]) => h('span', { className: 'graph-part', style: { flexGrow: n, background: couleur } })))),
+          h('div', { className: 'graph-barre', style: { width: `${(100 * total(parts)) / max}%` } },
+            parts.filter(([n]) => n > 0).map(([n, couleur, nom]) => h('span', { className: 'graph-part', style: { flexGrow: n, background: couleur }, title: texteBulle(nom ?? libelle, n, total(parts)) })))),
         h('span', { className: 'graph-valeur' }, String(total(parts))))))
   }
 
@@ -65,9 +65,9 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     const total = parts.reduce((t, [n]) => t + n, 0)
     let deja = 0
     const dessin = h('span', { className: 'anneau-dessin' })
-    const arcs = total === 0 ? [] : parts.filter(([n]) => n > 0).map(([n, couleur]) => {
+    const arcs = total === 0 ? [] : parts.filter(([n]) => n > 0).map(([n, couleur, nom]) => {
       const long = (tour * n) / total
-      const arc = `<circle cx="60" cy="60" r="${r}" class="graph-arc" style="stroke:${couleur}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"/>`
+      const arc = `<circle cx="60" cy="60" r="${r}" class="graph-arc" style="stroke:${couleur}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"><title>${echapperHtml(texteBulle(nom, n, total))}</title></circle>`
       deja += long
       return arc
     })
@@ -87,7 +87,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     return h('section', { className: 'graph graph-large' }, h('h3', null, titre),
       h('div', { className: 'graph-legende' }, legende.map(([nom, couleur]) => h('span', null, h('i', { className: 'graph-pastille', style: { background: couleur } }), nom))),
       h('div', { className: 'tb-colonnes' }, mois.map(([libelle, vals]) => h('div', { className: 'tb-mois' },
-        h('div', { className: 'tb-paire' }, vals.map(([n, couleur, nom]) => h('span', { className: 'tb-col', title: `${nom} : ${n}`,
+        h('div', { className: 'tb-paire' }, vals.map(([n, couleur, nom]) => h('span', { className: 'tb-col', title: `${libelle} · ${texteBulle(nom, n)}`,
           style: { height: `${(100 * n) / max}%`, background: couleur } }, n > 0 ? h('span', { className: 'tb-col-valeur' }, String(n)) : null))),
         h('span', { className: 'tb-mois-libelle' }, libelle)))))
   }

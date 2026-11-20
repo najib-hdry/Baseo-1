@@ -1,7 +1,7 @@
 // Fiche détail d'un chantier (page admin), en onglets :
 // Composants (structure), Informations, Salariés sur l’exploitation, Casiers (occupation), Incidents, Nettoyage, Maintenance,
 // Entreprises, Sous-traitants, Postes. Incidents, Nettoyage et Maintenance reprennent les tableaux de leurs pages (voir admin.js).
-import { h, depuisGrist, enFrancais, euros, etiqueterLignes, lienContact } from './outils.js'
+import { h, depuisGrist, enFrancais, euros, etiqueterLignes, lienContact, texteBulle, echapperHtml } from './outils.js'
 import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
 import { zonesDuChantier, basesVisibles } from './navigation.js'
 import { plan3d } from './plan3d.js'
@@ -98,8 +98,8 @@ function composants(d, c) {
           return h('div', { className: 'compo-vestiaire' },
             h('span', { className: 'compo-vestiaire-nom' }, h('span', { className: 'composant-nom' }, v.Nom),
               v.Type && h('span', { className: `compo-type compo-type-${String(v.Type).toLowerCase()}` }, v.Type)),
-            h('span', { className: 'compo-barre', title: `${o.occupes} occupés · ${o.libres} libres · ${o.hs} HS` },
-              PARTS.filter(([type]) => o[type] > 0).map(([type]) => h('span', { className: `graph-${type}`, style: { flexGrow: o[type] } }))),
+            h('span', { className: 'compo-barre' },
+              PARTS.filter(([type]) => o[type] > 0).map(([type, nom]) => h('span', { className: `graph-${type}`, style: { flexGrow: o[type] }, title: texteBulle(nom, o[type], o.total) }))),
             h('span', { className: 'compo-chiffres' }, h('strong', null, `${o.occupes}/${o.total}`), ' occupés',
               o.libres > 0 && ` · ${o.libres} libre${o.libres > 1 ? 's' : ''}`, o.hs > 0 && h('span', { className: 'compo-hs' }, ` · ${o.hs} HS`)))
         }),
@@ -220,9 +220,9 @@ export function anneau(o) {
   const r = 42
   const tour = 2 * Math.PI * r
   let deja = 0
-  const arcs = PARTS.map(([type]) => [type, o[type]]).filter(([, n]) => n > 0).map(([type, n]) => {
+  const arcs = PARTS.map(([type, libelle]) => [type, o[type], libelle]).filter(([, n]) => n > 0).map(([type, n, libelle]) => {
     const long = (tour * n) / o.total
-    const arc = `<circle cx="60" cy="60" r="${r}" class="graph-arc graph-${type}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"/>`
+    const arc = `<circle cx="60" cy="60" r="${r}" class="graph-arc graph-${type}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"><title>${echapperHtml(texteBulle(libelle, n, o.total))}</title></circle>`
     deja += long
     return arc
   }).join('')
@@ -242,9 +242,8 @@ function barres(titre, lignes, vide) {
     lignes.length === 0 ? h('p', { className: 'sous-texte' }, vide) : lignes.map(([libelle, o]) => h('div', { className: 'graph-ligne' },
       h('span', { className: 'graph-libelle', title: libelle }, libelle),
       h('div', { className: 'graph-piste' },
-        h('div', { className: 'graph-barre', style: { width: `${max ? (100 * o.total) / max : 0}%` },
-          title: `${o.occupes} occupés · ${o.libres} libres · ${o.hs} HS` },
-        PARTS.filter(([type]) => o[type] > 0).map(([type]) => h('span', { className: `graph-part graph-${type}`, style: { flexGrow: o[type] } })))),
+        h('div', { className: 'graph-barre', style: { width: `${max ? (100 * o.total) / max : 0}%` } },
+        PARTS.filter(([type]) => o[type] > 0).map(([type, nom]) => h('span', { className: `graph-part graph-${type}`, style: { flexGrow: o[type] }, title: texteBulle(nom, o[type], o.total) })))),
       h('span', { className: 'graph-valeur' }, `${o.occupes}/${o.total} · ${taux(o)}`))))
 }
 

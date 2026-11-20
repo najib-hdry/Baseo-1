@@ -83,6 +83,11 @@ export function depuisGrist(v) {
   const ms = v instanceof Date ? v.getTime() : typeof v === 'number' ? v * 1000 : Date.parse(v)
   return Number.isNaN(ms) ? null : new Date(ms).toISOString().slice(0, 10)
 }
+// Infobulle d'un morceau de graphique (part d'anneau, segment de barre, colonne), partout la même :
+// « Nom : n (x %) » ; sans total, « Nom : n »
+export const texteBulle = (nom, n, total) => `${nom} : ${n}${total > 0 ? ` (${Math.round((100 * n) / total)} %)` : ''}`
+// Texte placé dans du SVG écrit en HTML (balise <title> des arcs d'anneau)
+export const echapperHtml = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 // Montant en euros à la française (1 234,56 €)
 export const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 // Saisie d'un montant (champ texte, clavier numérique) : chiffres et un seul séparateur, virgule ou point,
@@ -491,7 +496,7 @@ document.addEventListener('click', (e) => {
   for (const autre of th.parentElement.cells) autre.removeAttribute('aria-sort')
   th.setAttribute('aria-sort', table.dataset.triSens === 'asc' ? 'ascending' : 'descending')
   trierTableau(table)
-})
+}, true) // capture : les fenêtres (ouvrirPanneau) arrêtent la propagation des clics, le tri doit passer avant
 
 export function etiqueterLignes(tbody, titres) {
   for (const tr of tbody.rows)

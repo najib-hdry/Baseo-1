@@ -1,6 +1,6 @@
 // Widget « Gestion des incidents » : même navigation que les casiers ;
 // toucher un casier ou une pièce ouvre le signalement, l'onglet Suivi présente les incidents en tableau.
-import { h, icone, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes } from './outils.js'
+import { h, icone, aujourdhui, dateHeure, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, galeriePhotos, editeurPhotos, compte, choixEtiquettes, texteBulle, echapperHtml } from './outils.js'
 import { CATEGORIES, envoyerPhoto, lienPhotos, signaler, changerStatut, resoudreIncident, peutGerer, peutResoudre, estAdmin, idsDeListe, modifierIncident, supprimerIncident, attribuerIncident, nomContact, ROLE_SALARIE, ROLE_CLIENT, peutModifier, peutAttribuer, chantierDeIncident } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier, libelleLieu } from './navigation.js'
 
@@ -95,14 +95,14 @@ export function creerEcranIncidents(racine, recharger) {
     return d.parId.Vestiaires.get(casier?.Vestiaire)?.Etage ?? d.parId.Pieces.get(i.Piece)?.Etage ?? i.Etage ?? null
   }
 
-  // Anneau : une part par [n, couleur] ; au centre, le total (seules des valeurs numériques et des couleurs fixes entrent dans le SVG)
+  // Anneau : une part par [n, couleur, libellé] ; au centre, le total (nombres, couleurs fixes et libellés échappés dans le SVG)
   function anneauIncidents(parts, total) {
     const r = 42
     const tour = 2 * Math.PI * r
     let deja = 0
-    const arcs = parts.filter(([n]) => n > 0).map(([n, couleur]) => {
+    const arcs = parts.filter(([n]) => n > 0).map(([n, couleur, libelle]) => {
       const long = (tour * n) / total
-      const arc = `<circle cx="60" cy="60" r="${r}" fill="none" stroke-width="18" stroke="${couleur}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"/>`
+      const arc = `<circle cx="60" cy="60" r="${r}" fill="none" stroke-width="18" stroke="${couleur}" stroke-dasharray="${long} ${tour - long}" stroke-dashoffset="${-deja}"><title>${echapperHtml(texteBulle(libelle, n, total))}</title></circle>`
       deja += long
       return arc
     }).join('')
@@ -123,7 +123,7 @@ export function creerEcranIncidents(racine, recharger) {
     const grapheStatuts = h('section', { className: 'graph' }, h('h3', null, 'Par statut'),
       legende(COULEURS_STATUTS.map(([, libelle, couleur]) => [libelle, couleur])),
       incidents.length === 0 ? h('p', { className: 'sous-texte' }, 'Aucun incident sur cette exploitation.')
-        : h('div', { className: 'anneau' }, anneauIncidents(COULEURS_STATUTS.map(([s, , couleur]) => [total[s], couleur]), incidents.length),
+        : h('div', { className: 'anneau' }, anneauIncidents(COULEURS_STATUTS.map(([s, libelle, couleur]) => [total[s], couleur, libelle]), incidents.length),
           h('div', null, h('strong', { className: 'anneau-taux' }, String(incidents.length)), h('span', { className: 'sous-texte' }, incidents.length > 1 ? ' incidents' : ' incident'),
             h('p', { className: 'sous-texte' }, COULEURS_STATUTS.map(([s, libelle]) => `${total[s]} ${(total[s] > 1 ? libelle : s).toLowerCase()}`).join(' · ')))))
 
@@ -135,7 +135,7 @@ export function creerEcranIncidents(racine, recharger) {
         const [picto, couleur] = PICTOS_CATEGORIES[cat] ?? ['question', '#5B6B78']
         return h('div', { className: 'graph-ligne' },
           h('span', { className: 'graph-libelle incident-categorie', style: { '--couleur': couleur } }, icone(picto, 16), cat),
-          h('div', { className: 'graph-piste' }, n > 0 && h('div', { className: 'graph-barre', style: { width: `${(100 * n) / max}%`, background: couleur } })),
+          h('div', { className: 'graph-piste' }, n > 0 && h('div', { className: 'graph-barre', style: { width: `${(100 * n) / max}%`, background: couleur }, title: texteBulle(cat, n, incidents.length) })),
           h('span', { className: 'graph-valeur' }, String(n)))
       }))
 
