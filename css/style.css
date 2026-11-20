@@ -1240,3 +1240,11 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 /* Émargements du chef : un bloc par jour, le jour en titre */
 .emarg-jour { display: grid; gap: 10px; }
 .emarg-jour-titre { margin: 8px 0 0; font-size: 1rem; font-weight: 700; text-transform: capitalize; color: var(--encre-douce); }
+
+/* Visualiseur de fichiers (photo ou PDF affichés sans téléchargement) */
+.panneau.panneau-visualiseur { max-width: 1000px; }
+.visualiseur { display: grid; gap: 12px; }
+.visualiseur-image { display: block; max-width: 100%; max-height: calc(100dvh - 220px); margin: 0 auto; object-fit: contain; border-radius: 8px; background: var(--fond); }
+.visualiseur-pdf { width: 100%; height: calc(100dvh - 220px); min-height: 320px; border: 1px solid var(--trait); border-radius: 8px; background: #fff; }
+.visualiseur .fiche-boutons { justify-content: flex-end; }
+.visualiseur a.bouton { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }

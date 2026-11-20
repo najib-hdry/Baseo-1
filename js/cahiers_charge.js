@@ -1,7 +1,7 @@
 // Écran « Cahiers de charge » : Admin, RH (gestion) : tableau (chef d'équipe, période, fichier) avec recherche,
 // fiche de cahier de charge (nouveau ou modification) avec le fichier joint, suppression ;
 // chef d'équipe (lecture) : ses cahiers de charge seulement, une ligne ouvre le fichier.
-import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais } from './outils.js'
+import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais, afficherFichier } from './outils.js'
 import { accesPage, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe, peutModifier, nomContact, ROLE_CHEF } from './donnees.js'
 
 const TABLE_CAHIERS = 'Cahier_de_charge'
@@ -52,9 +52,10 @@ export function creerEcranCahiersCharge(racine, recharger) {
         : liste.map((c) => {
           const fichier = fichierDe(c)
           const ouvrir = fichier && lien && h('a', { className: chef ? 'bouton bouton-compact bouton-principal' : '', href: lien(fichier), target: '_blank', rel: 'noreferrer',
+            title: `Cahier de charge · ${chef ? periode(c) : `${chefDe(c) || 'sans chef d’équipe'} · ${periode(c)}`}`,
             onClick: (ev) => ev.stopPropagation() }, chef ? 'Ouvrir le cahier de charge' : 'Ouvrir')
           if (chef) {
-            return h('tr', { className: fichier && lien ? 'tableau-ligne' : '', onClick: () => fichier && lien && window.open(lien(fichier), '_blank', 'noreferrer') },
+            return h('tr', { className: fichier && lien ? 'tableau-ligne' : '', onClick: () => fichier && lien && afficherFichier(lien(fichier), `Cahier de charge · ${periode(c)}`) },
               h('td', { className: 'tableau-nom' }, enFrancais(depuisGrist(c.Date_debut)) || '—'),
               h('td', null, enFrancais(depuisGrist(c.Date_fin)) || '—'),
               h('td', null, ouvrir || (fichier ? 'Chargement…' : 'Pas de fichier')))

@@ -538,3 +538,58 @@ export function notifier(texte, type = 'succes') {
   document.body.append(bandeau)
   setTimeout(() => { if (bandeauNotification === bandeau) { bandeau.remove(); bandeauNotification = null } }, type === 'erreur' ? 8000 : 2500)
 }
+
+// ---- Visualiseur de fichiers : photo ou PDF affichés dans l'application, sans téléchargement ----
+// Grist envoie ses pièces jointes « à enregistrer » : l'application récupère le fichier et l'affiche elle-même.
+// Les autres formats (Word, Excel…) gardent un bouton de téléchargement.
+
+// Type d'un fichier d'après ses premiers octets (Grist peut l'envoyer sans type précis)
+function typeDuFichier(octets, typeAnnonce) {
+  const debut = (n) => [...octets.slice(0, n)].map((o) => o.toString(16).padStart(2, '0')).join('')
+  if (debut(4) === '25504446') return 'application/pdf'
+  if (debut(3) === 'ffd8ff') return 'image/jpeg'
+  if (debut(4) === '89504e47') return 'image/png'
+  if (debut(4) === '47494638') return 'image/gif'
+  if (debut(4) === '52494646' && String.fromCharCode(...octets.slice(8, 12)) === 'WEBP') return 'image/webp'
+  return typeAnnonce || 'application/octet-stream'
+}
+const nomDuFichier = (reponse) => decodeURIComponent((reponse.headers.get('content-disposition') ?? '').match(/filename\*?=(?:UTF-8'')?"?([^";]+)/i)?.[1] ?? '')
+
+export async function afficherFichier(adresse, titre = 'Document') {
+  const corps = h('div', { className: 'visualiseur' }, h('p', { className: 'attente' }, 'Chargement du document…'))
+  const { section } = ouvrirPanneau(titre, corps)
+  section.classList.add('panneau-large', 'panneau-visualiseur')
+  let url = null
+  // L'adresse temporaire du fichier est libérée quand la fenêtre se ferme
+  const liberer = new MutationObserver(() => { if (!section.isConnected) { liberer.disconnect(); setTimeout(() => url && URL.revokeObjectURL(url), 60000) } })
+  liberer.observe(document.body, { childList: true })
+  try {
+    const reponse = await fetch(adresse)
+    if (!reponse.ok) throw new Error(`HTTP ${reponse.status}`)
+    const octets = new Uint8Array(await reponse.arrayBuffer())
+    const type = typeDuFichier(octets, (reponse.headers.get('content-type') ?? '').split(';')[0])
+    const nom = nomDuFichier(reponse)
+    url = URL.createObjectURL(new Blob([octets], { type }))
+    const enOnglet = h('a', { className: 'bouton bouton-compact', href: url, target: '_blank', rel: 'noreferrer' }, 'Ouvrir dans un nouvel onglet')
+    const telecharger = h('a', { className: 'bouton bouton-compact', href: url, download: nom || 'document' }, 'Télécharger')
+    const apercu = type.startsWith('image/') ? h('img', { className: 'visualiseur-image', src: url, alt: nom || titre })
+      : type === 'application/pdf' ? h('iframe', { className: 'visualiseur-pdf', src: url, title: nom || titre })
+        : h('p', { className: 'message' }, `Ce format${nom ? ` (${nom})` : ''} ne s’affiche pas dans le navigateur : télécharge-le pour l’ouvrir.`)
+    corps.replaceChildren(apercu, h('div', { className: 'fiche-boutons' }, (type.startsWith('image/') || type === 'application/pdf') && enOnglet, telecharger))
+  } catch {
+    // Fichier inaccessible (connexion, droits) : le lien d'origine, qui le télécharge
+    corps.replaceChildren(h('p', { className: 'erreur' }, 'Le document n’a pas pu être affiché ici.'),
+      h('a', { className: 'bouton bouton-compact', href: adresse, target: '_blank', rel: 'noreferrer', download: '' }, 'Le télécharger'))
+  }
+}
+
+// Tout lien vers une pièce jointe Grist (photos, documents, cahiers de charge, CV…) ouvre le visualiseur
+document.addEventListener('click', (e) => {
+  const lienFichier = e.target.closest?.('a[href*="/attachments/"][href*="/download"]')
+  if (!lienFichier || lienFichier.hasAttribute('download') || e.ctrlKey || e.metaKey || e.shiftKey) return
+  e.preventDefault()
+  e.stopPropagation()
+  const titre = lienFichier.title && !/^Ouvrir/.test(lienFichier.title) ? lienFichier.title
+    : lienFichier.querySelector('img')?.alt || lienFichier.textContent.trim() || 'Document'
+  afficherFichier(lienFichier.href, /^(Ouvrir|Voir)/.test(titre) ? 'Document' : titre)
+}, true)
