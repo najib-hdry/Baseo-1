@@ -371,7 +371,7 @@ button.tiroir-lien.active { background: var(--signal); }
 /* Contrôle nettoyage et maintenance */
 .titre-section { margin-top: 24px; font-size: 1.1rem; }
 .case { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 500; cursor: pointer; }
-.case input { width: 22px; height: 22px; accent-color: var(--encre); }
+.case input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--encre); } /* flex: none : une option longue ne rétrécit pas sa case */
 
 /* Maintenance : vestiaires et pièces de l'étage à toucher */
 .lieux { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 16px; }
@@ -391,6 +391,9 @@ button.tiroir-lien.active { background: var(--signal); }
 .badge-termine { color: var(--encre-douce); background: #E3E6E8; }
 .panneau.panneau-large { max-width: 760px; }
 .grille-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+/* Date puis heures de début et de fin sur une ligne, alignées en haut ; au téléphone, la date seule puis les deux heures */
+.grille-date-heures { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: start; }
+@media (max-width: 560px) { .grille-date-heures { grid-template-columns: 1fr 1fr; } .grille-date-heures > :first-child { grid-column: 1 / -1; } }
 .structure { display: grid; gap: 10px; }
 .structure-resume { margin: 0; padding: 8px 12px; font-weight: 600; background: var(--surface); border-radius: 8px; }
 .niveau { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--trait); border-left-width: 4px; border-radius: 10px; background: var(--surface); }

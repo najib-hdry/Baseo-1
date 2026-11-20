@@ -1,5 +1,5 @@
 // Écran « Gestion des casiers » de l'application Grist
-import { h, aujourdhui, enFrancais, ouvrirPanneau, depuisGrist, versGrist, fenetreSuppression } from './outils.js'
+import { h, aujourdhui, enFrancais, ouvrirPanneau, depuisGrist, versGrist, fenetreSuppression, rechercheDansListe } from './outils.js'
 import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier, ROLE_CLIENT, estAdmin, enregistrerLigne, supprimerFiche } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
 import { historiqueCasiers, occupationSocietes, vueGeneraleCasiers } from './historique_casiers.js'
@@ -157,8 +157,7 @@ export function creerEcranCasiers(racine, recharger) {
       onInput: (e) => { form.employeurNom = e.target.value } })
     const nouvelEmployeur = h('label', { className: 'champ-groupe', hidden: true }, 'Nouveau sous-traitant *', saisieEmployeur)
     // Entreprise : liste déroulante des entreprises existantes (la valeur est le nom, retrouvé ou créé à l'enregistrement)
-    const entreprise = h('label', { className: 'champ-groupe' }, 'Entreprise *',
-      h('select', { className: 'champ', required: true, onChange: (e) => {
+    const listeEntreprises = h('select', { className: 'champ', required: true, 'aria-label': 'Entreprise', onChange: (e) => {
         const nouvelle = e.target.value === NOUVEAU_PARTENAIRE
         nouvelleEntreprise.hidden = !nouvelle
         saisieEntreprise.required = nouvelle
@@ -168,10 +167,11 @@ export function creerEcranCasiers(racine, recharger) {
         h('option', { value: '', disabled: true, selected: true }, 'Choisir…'),
         d.Entreprises.filter((e) => e.Nom).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr'))
           .map((e) => h('option', { value: e.Nom }, e.Nom)),
-        h('option', { value: NOUVEAU_PARTENAIRE }, '＋ Nouvelle entreprise…')))
+        h('option', { value: NOUVEAU_PARTENAIRE }, '＋ Nouvelle entreprise…'))
+    const entreprise = h('div', { className: 'champ-groupe' }, 'Entreprise *',
+      rechercheDansListe(listeEntreprises, { invite: 'Rechercher une entreprise…', garder: (o) => ['', NOUVEAU_PARTENAIRE].includes(o.value) }), listeEntreprises)
     // Employeur : référence vers la table Sous_traitants (0 = aucun), ou nouveau sous-traitant
-    const employeur = h('label', { className: 'champ-groupe' }, 'Employeur',
-      h('select', { className: 'champ', onChange: (e) => {
+    const listeEmployeurs = h('select', { className: 'champ', 'aria-label': 'Employeur', onChange: (e) => {
         const nouveau = e.target.value === NOUVEAU_PARTENAIRE
         nouvelEmployeur.hidden = !nouveau
         saisieEmployeur.required = nouveau
@@ -182,7 +182,9 @@ export function creerEcranCasiers(racine, recharger) {
         h('option', { value: '0' }, '—'),
         [...d.Sous_traitants].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
           .map((s) => h('option', { value: String(s.id) }, s.Nom || 'Sans nom')),
-        h('option', { value: NOUVEAU_PARTENAIRE }, '＋ Nouveau sous-traitant…')))
+        h('option', { value: NOUVEAU_PARTENAIRE }, '＋ Nouveau sous-traitant…'))
+    const employeur = h('div', { className: 'champ-groupe' }, 'Employeur',
+      rechercheDansListe(listeEmployeurs, { invite: 'Rechercher un sous-traitant…', garder: (o) => ['0', NOUVEAU_PARTENAIRE].includes(o.value) }), listeEmployeurs)
     // Numéro de clé : demandé seulement s'il y a un coffre
     const saisieCle = h('input', { className: 'champ', autocomplete: 'off', onInput: (e) => { form.cle = e.target.value } })
     const cle = h('label', { className: 'champ-groupe', hidden: true }, 'Si oui, entrez le numéro de clé *', saisieCle)

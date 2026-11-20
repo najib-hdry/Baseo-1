@@ -134,16 +134,26 @@ export function fenetreSuppression(titre, texte, boutons, recharger) {
  * Choix multiple en étiquettes : une liste déroulante pour ajouter, les éléments choisis en étiquettes retirables (✕).
  * - `elements()` : [{ id, libelle }] proposés (relus à chaque dessin) ; `choisis` : identifiants de départ ;
  * - `textes` : { aucun (rien de choisi), choisir (invite), tous (tout est choisi), vide (rien à proposer) } ;
- * - `onChange(ids)` : appelé à chaque ajout ou retrait.
+ * - `onChange(ids)` : appelé à chaque ajout ou retrait ;
+ * - `recherche` : texte d'invite d'un champ qui filtre la liste (accents et majuscules ignorés ; Entrée ajoute le seul résultat).
  * Renvoie { element, ids(), ajouter(id), dessiner() } (dessiner() après un changement de la liste proposée).
  */
-export function choixEtiquettes({ elements, choisis = [], textes, onChange = () => {} }) {
+const sansAccents = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+export function choixEtiquettes({ elements, choisis = [], textes, onChange = () => {}, recherche = null }) {
   let ids = [...choisis]
+  let proposes = [] // éléments de la liste après filtre
+  const filtre = recherche && h('input', { className: 'champ', type: 'search', placeholder: recherche, 'aria-label': recherche,
+    onInput: () => dessiner(),
+    onKeydown: (e) => {
+      if (e.key !== 'Enter') return
+      e.preventDefault() // ne valide pas le formulaire
+      if (proposes.length === 1) { filtre.value = ''; changer([...ids, proposes[0].id]) }
+    } })
   const etiquettes = h('div', { className: 'etiquettes-contacts' })
   const changer = (nouveaux) => { ids = nouveaux; onChange(ids); dessiner() }
   const liste = h('select', { className: 'champ', 'aria-label': textes.choisir, onChange: (e) => {
     const id = Number(e.target.value)
-    if (id && !ids.includes(id)) changer([...ids, id])
+    if (id && !ids.includes(id)) { if (filtre) filtre.value = ''; changer([...ids, id]) }
   } })
   function dessiner() {
     const tous = elements()
@@ -153,13 +163,46 @@ export function choixEtiquettes({ elements, choisis = [], textes, onChange = () 
       : ids.map((id) => parId.get(id)).filter(Boolean).map((e) => h('span', { className: 'etiquette-contact' }, e.libelle,
         h('button', { type: 'button', className: 'etiquette-retirer', 'aria-label': `Retirer ${e.libelle}`, onClick: () => changer(ids.filter((x) => x !== e.id)) }, '✕')))))
     const restants = tous.filter((e) => !ids.includes(e.id)).sort((a, b) => a.libelle.localeCompare(b.libelle))
+    const cherche = sansAccents(filtre?.value).trim()
+    proposes = cherche ? restants.filter((e) => sansAccents(e.libelle).includes(cherche)) : restants
+    const invite = tous.length === 0 ? textes.vide : restants.length === 0 ? textes.tous
+      : proposes.length === 0 ? 'Aucun résultat pour cette recherche'
+        : cherche ? `${textes.choisir} (${proposes.length} résultat${proposes.length > 1 ? 's' : ''})` : textes.choisir
     liste.replaceChildren(
-      h('option', { value: '', selected: true }, tous.length === 0 ? textes.vide : restants.length === 0 ? textes.tous : textes.choisir),
-      ...restants.map((e) => h('option', { value: String(e.id) }, e.libelle)))
-    liste.disabled = restants.length === 0
+      h('option', { value: '', selected: true }, invite),
+      ...proposes.map((e) => h('option', { value: String(e.id) }, e.libelle)))
+    liste.disabled = proposes.length === 0
+    if (filtre) filtre.disabled = restants.length === 0
   }
   dessiner()
-  return { element: h('div', { className: 'formulaire' }, etiquettes, liste), ids: () => ids, ajouter: (id) => changer([...ids, id]), dessiner }
+  return { element: h('div', { className: 'formulaire' }, etiquettes, filtre, liste), ids: () => ids, ajouter: (id) => changer([...ids, id]), dessiner }
+}
+
+/**
+ * Champ de recherche qui filtre les options d'une liste déroulante (accents et majuscules ignorés).
+ * `garder(option)` : options toujours affichées (invite, « Aucun », « Nouveau… ») ; l'option choisie reste aussi.
+ * Entrée choisit le seul résultat (et déclenche le changement de la liste) sans valider le formulaire.
+ */
+export function rechercheDansListe(liste, { invite, garder = () => false }) {
+  const toutes = [...liste.options]
+  const resultats = () => {
+    const cherche = sansAccents(entree.value).trim()
+    return cherche ? toutes.filter((o) => !garder(o) && sansAccents(o.textContent).includes(cherche)) : null
+  }
+  const entree = h('input', { className: 'champ', type: 'search', autocomplete: 'off', placeholder: invite, 'aria-label': invite,
+    onInput: () => {
+      const trouvees = resultats()
+      const choisie = liste.selectedOptions[0]
+      liste.replaceChildren(...toutes.filter((o) => !trouvees || garder(o) || trouvees.includes(o) || o === choisie))
+      if (choisie) choisie.selected = true
+    },
+    onKeydown: (e) => {
+      if (e.key !== 'Enter') return
+      e.preventDefault()
+      const trouvees = resultats()
+      if (trouvees?.length === 1) { liste.value = trouvees[0].value; liste.dispatchEvent(new Event('change', { bubbles: true })) }
+    } })
+  return entree
 }
 
 // Date Grist avec une pastille si elle est échue (« Expirée ») ou arrive à échéance dans les 30 jours (« Bientôt »)

@@ -400,9 +400,10 @@ export function creerEcranIncidents(racine, recharger) {
     const choix = choixEtiquettes({
       elements: () => d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && u.Actif && !dejaAttribues.has(u.id))
         .sort((a, b) => duChantier(b) - duChantier(a))
-        .map((u) => ({ id: u.id, libelle: `${nomSalarie(u.id)}${duChantier(u) ? '' : ' (autre chantier)'}` })),
+        .map((u) => ({ id: u.id, libelle: `${nomSalarie(u.id)}${duChantier(u) ? '' : ' (autre exploitation)'}` })),
       textes: { aucun: 'Aucun salarié choisi.', choisir: 'Ajouter un salarié…', tous: 'Tous les salariés sont ajoutés',
         vide: dejaAttribues.size ? 'Tous les salariés actifs sont déjà attribués à cet incident' : 'Aucun salarié actif' },
+      recherche: 'Rechercher un salarié (nom, prénom…)',
     })
     const demain = new Date(Date.now() + 86400000)
     const z = (n) => String(n).padStart(2, '0')
@@ -437,7 +438,7 @@ export function creerEcranIncidents(racine, recharger) {
     } },
     h('p', { className: 'sous-texte' }, `${lieu} · ${i.Description || i.Categorie || ''}`),
     h('div', { className: 'champ-groupe' }, 'Salariés (une tâche est créée dans l’emploi du temps de chacun)', choix.element),
-    h('div', { className: 'grille-2' }, groupe('Date *', saisie('jour', 'date')), h('div', { className: 'grille-2' }, groupe('De *', saisie('debut', 'time')), groupe('À *', saisie('fin', 'time')))),
+    h('div', { className: 'grille-date-heures' }, groupe('Date *', saisie('jour', 'date')), groupe('De *', saisie('debut', 'time')), groupe('À *', saisie('fin', 'time'))),
     groupe('Consigne', h('textarea', { className: 'champ champ-texte', placeholder: 'Ce qu’il faut faire, le matériel à prévoir…', onInput: (e) => { champs.consigne = e.target.value } })),
     erreur, valider)
     const { fermer, section } = ouvrirPanneau('Attribuer l’incident', formulaire)

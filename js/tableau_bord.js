@@ -29,7 +29,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     if (page && !accesPage(d, page)) page = null
     return h('button', { className: `tb-tuile${calme ? ' tb-calme' : ''}`, type: 'button', style: { '--teinte': couleur },
       onClick: () => page && aller(page, chantier ? { chantierId: chantier } : {}),
-      title: page ? `Ouvrir la page${chantier ? ' (filtrée sur ce chantier)' : ''}` : null },
+      title: page ? `Ouvrir la page${chantier ? ' (filtrée sur cette exploitation)' : ''}` : null },
     h('span', { className: 'tb-haut' },
       h('span', { className: 'tb-icone' }, icone(nomIcone, 20)),
       h('span', { className: 'tb-libelle' }, libelle),

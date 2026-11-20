@@ -176,7 +176,7 @@ export function creerEcranAdmin(racine, recharger) {
     h('p', { className: 'sous-texte' }, `${p.un[0].toUpperCase()}${p.un.slice(1)} peut être ${p.attribue} à plusieurs exploitations.`),
     h('fieldset', { className: 'groupe' }, h('legend', null, p.titre), choix.element),
     erreur, valider)
-    const { fermer, section } = ouvrirPanneau(`${p.titre} sur ${c.Nom || 'le chantier'}`, formulaire)
+    const { fermer, section } = ouvrirPanneau(`${p.titre} sur ${c.Nom || 'l’exploitation'}`, formulaire)
     section.classList.add('panneau-large')
   }
 
@@ -219,7 +219,7 @@ export function creerEcranAdmin(racine, recharger) {
     h('fieldset', { className: 'groupe' }, h('legend', null, 'Salariés'), salaries.element),
     autres.length > 0 && h('p', { className: 'sous-texte' }, `${autres.length} personne(s) d’un autre rôle reste(nt) affectée(s) à cette exploitation.`),
     erreur, valider)
-    const { fermer, section } = ouvrirPanneau(`Salariés sur ${c.Nom || 'le chantier'}`, formulaire)
+    const { fermer, section } = ouvrirPanneau(`Salariés sur ${c.Nom || 'l’exploitation'}`, formulaire)
     section.classList.add('panneau-large')
   }
 
@@ -261,7 +261,7 @@ export function creerEcranAdmin(racine, recharger) {
       'Renomme, ajoute (＋) ou retire (✕) des éléments, et change le nombre de casiers. Retirer un élément retire aussi son contenu ; un casier occupé ne peut pas être retiré.'),
     editeurStructure(structure),
     erreur, valider)
-    const { fermer, section } = ouvrirPanneau(`Composants de ${c.Nom || 'ce chantier'}`, formulaire)
+    const { fermer, section } = ouvrirPanneau(`Composants de ${c.Nom || 'cette exploitation'}`, formulaire)
     section.classList.add('panneau-large', 'panneau-fiche')
   }
 
