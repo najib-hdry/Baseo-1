@@ -1,6 +1,6 @@
 // Écran « Gestion des casiers » de l'application Grist
 import { h, aujourdhui, enFrancais, ouvrirPanneau, depuisGrist, versGrist, fenetreSuppression, rechercheDansListe } from './outils.js'
-import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier, ROLE_CLIENT, estAdmin, enregistrerLigne, supprimerFiche } from './donnees.js'
+import { derniereLiberation, creerEtAttribuer, liberer, horsService, peutGerer, peutModifier, ROLE_CLIENT, ROLE_SALARIE, estAdmin, enregistrerLigne, supprimerFiche } from './donnees.js'
 import { cartesChantiers, vueChantier, selectionPourChantier } from './navigation.js'
 import { historiqueCasiers, occupationSocietes, vueGeneraleCasiers } from './historique_casiers.js'
 
@@ -188,12 +188,16 @@ export function creerEcranCasiers(racine, recharger) {
     // Numéro de clé : demandé seulement s'il y a un coffre
     const saisieCle = h('input', { className: 'champ', autocomplete: 'off', onInput: (e) => { form.cle = e.target.value } })
     const cle = h('label', { className: 'champ-groupe', hidden: true }, 'Si oui, entrez le numéro de clé *', saisieCle)
-    const coffre = h('label', { className: 'champ-groupe' }, 'Y a-t-il un coffre ? *',
-      h('select', { className: 'champ', required: true, onChange: (e) => {
-        form.coffre = e.target.value
-        cle.hidden = form.coffre !== 'Oui'
-        saisieCle.required = form.coffre === 'Oui'
-      } }, h('option', { value: '', disabled: true, selected: true }, 'Choisir…'), ['Non', 'Oui'].map((v) => h('option', { value: v }, v.toUpperCase()))))
+    // Coffre : deux boutons Non / Oui (pas de liste déroulante, qui s'ouvrait par-dessus le bouton d'affectation au téléphone)
+    const choixCoffre = ['Non', 'Oui'].map((v) => h('button', { type: 'button', className: 'presence-duree', 'aria-pressed': 'false', onClick: () => {
+      form.coffre = v
+      choixCoffre.forEach((b) => b.setAttribute('aria-pressed', String(b.textContent === v)))
+      cle.hidden = v !== 'Oui'
+      saisieCle.required = v === 'Oui'
+      if (v === 'Oui') saisieCle.focus()
+    } }, v))
+    const coffre = h('div', { className: 'champ-groupe', role: 'group', 'aria-label': 'Y a-t-il un coffre ?' }, 'Y a-t-il un coffre ? *',
+      h('div', { className: 'presence-durees choix-oui-non' }, choixCoffre))
     const manque = h('p', { className: 'erreur', hidden: true }, 'Prénom, nom, n° de badge, entreprise et coffre sont obligatoires (et le nom d’un nouveau sous-traitant).')
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit', 'data-attribue': '', disabled: !dateValide() },
       `Affecter le casier n° ${c.Numero}`)
@@ -213,7 +217,8 @@ export function creerEcranCasiers(racine, recharger) {
     employeur, nouvelEmployeur, coffre, cle, manque,
     valider)
     zone.replaceChildren(formulaire)
-    if (peutGerer(d)) {
+    // Signaler hors service : chef d'équipe, admin, et salarié avec « Gestion des casiers » (règle Casiers : +RU sur son exploitation)
+    if (peutGerer(d) || (d.moi?.profil === ROLE_SALARIE && d.moi.casiers)) {
       const hs = h('button', { className: 'bouton' }, 'Signaler hors service')
       hs.addEventListener('click', () => executer(hs, () => horsService(d, c.id, true)))
       zone.append(hs)

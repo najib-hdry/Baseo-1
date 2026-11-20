@@ -437,7 +437,7 @@ button.tiroir-lien.active { background: var(--signal); }
 .widget:has(.tableau-defilant, .carte-tableau) { max-width: none; }
 
 /* Gestion des chantiers : onglets de statut à côté du bouton « Nouveau chantier » */
-.barre-outils .onglets-statut { flex: 1 1 auto; margin: 0; padding: 0 0 4px; }
+.barre-outils .onglets-statut { flex: 1 1 auto; min-width: 0; max-width: 100%; margin: 0; padding: 0 0 4px; }
 .onglets-statut .onglet { border-radius: 5px; }
 
 /* Gestion des chantiers : onglets, bouton et tableau réunis dans une carte bordée */
@@ -470,6 +470,7 @@ button.tiroir-lien.active { background: var(--signal); }
 .fiche-entete { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
 .fiche-entete .carte-titre { flex: 1 1 240px; }
 .fiche-contenu { display: grid; gap: 12px; margin-top: 14px; }
+.fiche-contenu > * { min-width: 0; } /* un bloc large (rangée d’onglets) défile dans sa largeur au lieu d’élargir la fiche */
 .fiche-contenu .stats { margin-top: 0; }
 .composant-nom { font-weight: 600; }
 .fiche-infos { display: grid; grid-template-columns: minmax(160px, max-content) 1fr; gap: 10px 24px; margin: 0; }
@@ -622,7 +623,12 @@ button.tiroir-lien.active { background: var(--signal); }
   .tableau td:not([data-label])::before, .tableau td[data-label=""]::before { display: none; }
   .tableau td:first-child { padding-top: 0; }
   .tableau-vide { display: block; text-align: center; }
-  .tableau-actions { justify-content: flex-end; padding-top: 8px; }
+  /* Boutons d'une fiche : à la ligne si la largeur manque, au lieu d'élargir la fiche au-delà de l'écran */
+  .tableau-actions { justify-content: flex-end; flex-wrap: wrap; gap: 6px; padding-top: 8px; white-space: normal; }
+  .tableau-actions .bouton + .bouton, .tableau-actions .bouton + .menu-plus { margin-left: 0; }
+  .tableau-actions > .bouton { flex: 1 1 auto; } /* boutons qui remplissent la ligne, le dernier seul s'il passe dessous */
+  /* Texte long (description, lieu) : revient à la ligne dans la fiche */
+  .tableau td > * { min-width: 0; overflow-wrap: break-word; }
   .tableau-nombre { text-align: right; }
 
   /* Fiche détail : popup plein écran sans marge, informations sur une colonne */
@@ -1147,6 +1153,7 @@ button.menu-groupe:focus-visible { outline: 3px solid var(--accent); outline-off
 .presence-tuile[aria-pressed="true"] .presence-tuile-picto { background: var(--couleur); color: #fff; }
 .presence-question { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; color: #4c1d95; }
 .presence-durees { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.presence-durees.choix-oui-non { grid-template-columns: 1fr 1fr; }
 .presence-duree { min-height: 48px; border: 2px solid var(--trait); border-radius: 12px; background: var(--surface); font: inherit; font-weight: 700; cursor: pointer; }
 .presence-duree[aria-pressed="true"] { border-color: #7C3AED; background: #7C3AED; color: #fff; }
 
