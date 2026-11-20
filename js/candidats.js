@@ -438,7 +438,7 @@ export function creerEcranCandidats(racine, recharger) {
       ['Date de démarrage', enFrancais(depuisGrist(p.Date_demarrage)) || '—'],
       ['Personnes recherchées', p.Nb_personnes ?? '—'],
       ['Horaires', libelleHoraires(p, '—')],
-      ['Chantiers', chantiers.length ? chantiers.join(', ') : '—'],
+      ['Exploitations', chantiers.length ? chantiers.join(', ') : '—'],
     ]
     return h('section', { className: 'bloc-candidat' }, h('h3', null, p.Titre || 'Poste sans titre'),
       h('dl', { className: 'fiche-infos' }, infos.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)])),
@@ -465,7 +465,7 @@ export function creerEcranCandidats(racine, recharger) {
     const memeEmail = c.Email && libres.find((u) => String(u.Email ?? '').toLowerCase() === c.Email.trim().toLowerCase())
     let compte = c.Utilisateur || memeEmail?.id || ''
     const blocCompte = d.absentes.has('Utilisateurs') ? null : h('section', { className: 'bloc-candidat' }, h('h3', null, 'Compte utilisateur'),
-      h('p', { className: 'sous-texte' }, 'Lie le salarié embauché à son compte de l’application (rôle, chantiers, accès).'),
+      h('p', { className: 'sous-texte' }, 'Lie le salarié embauché à son compte de l’application (rôle, exploitations, accès).'),
       h('label', { className: 'champ-groupe' }, 'Utilisateur lié',
         h('select', { className: 'champ', onChange: (e) => { compte = e.target.value === 'nouveau' ? 'nouveau' : Number(e.target.value) || '' } },
           h('option', { value: '', selected: !compte }, '— Aucun pour l’instant —'),

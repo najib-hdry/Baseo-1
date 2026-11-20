@@ -8,7 +8,7 @@ import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
 import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, accesPage, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE, peutModifier, chantierDeIncident } from './donnees.js'
 import { cartesChantiers } from './navigation.js'
 
-const TITRES_CHANTIERS = ['Chantier', 'Période', 'Structure', 'Détail du chantier', '']
+const TITRES_CHANTIERS = ['Exploitation', 'Période', 'Structure', 'Détail de l’exploitation', '']
 // Ordre des onglets de la page
 const ONGLETS_CHANTIERS = ['En cours', 'Terminé', 'À venir', 'Nouveau']
 // Onglets de la fiche que le chef d'équipe ne voit pas (pages qu'il n'a pas)
@@ -61,15 +61,15 @@ export function creerEcranAdmin(racine, recharger) {
       // Onglets, bouton et tableau dans une même carte bordée
       h('section', { className: 'carte-tableau' },
         h('div', { className: 'barre-outils' },
-          h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Statut des chantiers' },
+          h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Statut des exploitations' },
             onglets.map(([s, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(s === onglet),
               onClick: () => { onglet = s; rendre() } }, `${libelle} (${parStatut(s).length})`))),
-          peutModifier(d, 'chantiers') && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouveau chantier')),
+          peutModifier(d, 'chantiers') && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirEdition(null) }, '＋ Nouvelle exploitation')),
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
             h('thead', null, h('tr', null, TITRES_CHANTIERS.map((t) => h('th', null, t)))),
             etiqueterLignes(h('tbody', null, chantiers.length === 0
-              ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CHANTIERS.length }, 'Aucun chantier avec ce statut.'))
+              ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CHANTIERS.length }, 'Aucune exploitation avec ce statut.'))
               : chantiers.map(ligne)), TITRES_CHANTIERS)))))
   }
 
@@ -78,7 +78,7 @@ export function creerEcranAdmin(racine, recharger) {
     const structure = [['Bases_vie', 'bases vie'], ['Etages', 'étages'], ['Casiers', 'casiers']]
       .map(([t, libelle]) => `${contenu[t].length} ${libelle}`).join(' · ')
     const periode = [depuisGrist(c.Date_contrat), depuisGrist(c.Date_fin)].map(enFrancais)
-    return h('tr', { className: 'tableau-ligne', title: 'Ouvrir la fiche du chantier', onClick: () => ouvrirFiche(c) },
+    return h('tr', { className: 'tableau-ligne', title: 'Ouvrir la fiche de l’exploitation', onClick: () => ouvrirFiche(c) },
       h('td', null,
         h('div', { className: 'tableau-nom' }, c.Nom || 'Sans nom'),
         h('div', { className: 'sous-texte' }, c.Adresse || 'Adresse non renseignée')),
@@ -113,7 +113,7 @@ export function creerEcranAdmin(racine, recharger) {
 
   // `ongletInitial` : onglet affiché à l'ouverture (par défaut le premier)
   function ouvrirFiche(c, ongletInitial = ONGLETS_FICHE[0][0]) {
-    const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche du chantier' })
+    const onglets = h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Fiche de l’exploitation' })
     const contenu = h('div', { className: 'fiche-contenu' })
     // Changer d'onglet ne redessine que le contenu de la popup
     let ongletCourant = ongletInitial
@@ -137,7 +137,7 @@ export function creerEcranAdmin(racine, recharger) {
     // et se rouvre avec des données à jour après un enregistrement
     let ouvrirDepuis = () => {}
     afficherOnglet(ongletInitial)
-    const panneau = ouvrirPanneau(c.Nom || 'Chantier', [onglets, contenu])
+    const panneau = ouvrirPanneau(c.Nom || 'Exploitation', [onglets, contenu])
     ouvrirDepuis = panneau.ouvrirDepuis
     panneau.section.classList.add('panneau-large', 'panneau-fiche', 'panneau-onglets')
   }
@@ -173,7 +173,7 @@ export function creerEcranAdmin(racine, recharger) {
         valider.textContent = 'Enregistrer'
       }
     } },
-    h('p', { className: 'sous-texte' }, `${p.un[0].toUpperCase()}${p.un.slice(1)} peut être ${p.attribue} à plusieurs chantiers.`),
+    h('p', { className: 'sous-texte' }, `${p.un[0].toUpperCase()}${p.un.slice(1)} peut être ${p.attribue} à plusieurs exploitations.`),
     h('fieldset', { className: 'groupe' }, h('legend', null, p.titre), choix.element),
     erreur, valider)
     const { fermer, section } = ouvrirPanneau(`${p.titre} sur ${c.Nom || 'le chantier'}`, formulaire)
@@ -214,10 +214,10 @@ export function creerEcranAdmin(racine, recharger) {
         valider.textContent = 'Enregistrer'
       }
     } },
-    h('p', { className: 'sous-texte' }, 'Une personne peut être affectée à plusieurs chantiers : ses autres chantiers ne changent pas.'),
+    h('p', { className: 'sous-texte' }, 'Une personne peut être affectée à plusieurs exploitations : ses autres exploitations ne changent pas.'),
     h('fieldset', { className: 'groupe' }, h('legend', null, 'Chefs d’équipe'), chefs.element),
     h('fieldset', { className: 'groupe' }, h('legend', null, 'Salariés'), salaries.element),
-    autres.length > 0 && h('p', { className: 'sous-texte' }, `${autres.length} personne(s) d’un autre rôle reste(nt) affectée(s) à ce chantier.`),
+    autres.length > 0 && h('p', { className: 'sous-texte' }, `${autres.length} personne(s) d’un autre rôle reste(nt) affectée(s) à cette exploitation.`),
     erreur, valider)
     const { fermer, section } = ouvrirPanneau(`Salariés sur ${c.Nom || 'le chantier'}`, formulaire)
     section.classList.add('panneau-large')
@@ -277,7 +277,7 @@ export function creerEcranAdmin(racine, recharger) {
     }
     const structure = { zones: [nouvelleZone(1)] }
     const erreur = h('p', { className: 'erreur', hidden: true })
-    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, c ? 'Enregistrer' : 'Créer le chantier')
+    const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, c ? 'Enregistrer' : 'Créer l’exploitation')
 
     const champ = (libelle, cle, attributs = {}) => h('label', { className: 'champ-groupe' }, libelle,
       h('input', { className: 'champ', value: infos[cle] ?? '', ...attributs,
@@ -288,7 +288,7 @@ export function creerEcranAdmin(racine, recharger) {
     // Sur un écran large, les champs se placent côte à côte (grille-2 : colonnes de 200 px minimum)
     const blocInfos = h('div', { className: 'formulaire' },
       h('div', { className: 'grille-2' },
-        champ('Nom du chantier', 'Nom', { required: true, autocomplete: 'off' }),
+        champ('Nom de l’exploitation', 'Nom', { required: true, autocomplete: 'off' }),
         champ('Adresse', 'Adresse', { autocomplete: 'off' }),
         h('label', { className: 'champ-groupe' }, 'Statut',
           h('select', { className: 'champ', onChange: (e) => { infos.Statut = e.target.value } },
@@ -305,7 +305,7 @@ export function creerEcranAdmin(racine, recharger) {
 
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (e) => {
       e.preventDefault()
-      const probleme = !infos.Nom.trim() ? 'Le nom du chantier est obligatoire.' : c ? null : verifierStructure(structure)
+      const probleme = !infos.Nom.trim() ? 'Le nom de l’exploitation est obligatoire.' : c ? null : verifierStructure(structure)
       if (probleme) {
         erreur.textContent = probleme
         erreur.hidden = false
@@ -324,7 +324,7 @@ export function creerEcranAdmin(racine, recharger) {
         erreur.textContent = err.message || 'L’enregistrement a échoué.'
         erreur.hidden = false
         valider.disabled = false
-        valider.textContent = c ? 'Enregistrer' : 'Créer le chantier'
+        valider.textContent = c ? 'Enregistrer' : 'Créer l’exploitation'
         recharger() // un nouvel essai partira d'identifiants à jour
       }
     } },
@@ -332,10 +332,10 @@ export function creerEcranAdmin(racine, recharger) {
     blocInfos,
     !c && h('h3', { className: 'titre-section' }, 'Structure'),
     !c && editeurStructure(structure),
-    !c && h('p', { className: 'sous-texte' }, 'La structure d’un chantier existant se modifie ensuite avec « Modifier les composants » dans sa fiche détail.'),
+    !c && h('p', { className: 'sous-texte' }, 'La structure d’une exploitation existante se modifie ensuite avec « Modifier les composants » dans sa fiche détail.'),
     erreur, valider)
 
-    const { fermer, section } = ouvrirPanneau(c ? `Modifier ${c.Nom}` : 'Nouveau chantier', formulaire)
+    const { fermer, section } = ouvrirPanneau(c ? `Modifier ${c.Nom}` : 'Nouvelle exploitation', formulaire)
     section.classList.add('panneau-large', 'panneau-chantier')
   }
 
@@ -489,13 +489,13 @@ export function creerEcranAdmin(racine, recharger) {
     const contenu = contenuChantier(d, c.id)
     const liste = Object.entries(contenu).filter(([, ids]) => ids.length > 0).map(([t, ids]) => `${ids.length} ${LIBELLES_CONTENU[t]}`)
     // Suppression possible seulement après avoir tapé le nom du chantier
-    const saisie = h('input', { className: 'champ', autocomplete: 'off', 'aria-label': 'Nom du chantier',
+    const saisie = h('input', { className: 'champ', autocomplete: 'off', 'aria-label': 'Nom de l’exploitation',
       onInput: (e) => { confirmer.disabled = e.target.value.trim() !== String(c.Nom).trim() } })
     const [confirmer] = fenetreSuppression(`Supprimer ${c.Nom}`, [
       h('p', null, liste.length > 0
-        ? `Seront supprimés avec le chantier : ${liste.join(', ')}. L’historique des attributions et des incidents sera perdu.`
-        : 'Ce chantier est vide.'),
-      h('label', { className: 'champ-groupe' }, `Pour confirmer, tape le nom du chantier : ${c.Nom}`, saisie),
+        ? `Seront supprimés avec l’exploitation : ${liste.join(', ')}. L’historique des attributions et des incidents sera perdu.`
+        : 'Cette exploitation est vide.'),
+      h('label', { className: 'champ-groupe' }, `Pour confirmer, tape le nom de l’exploitation : ${c.Nom}`, saisie),
     ], [
       ['Supprimer définitivement', 'bouton-danger', () => supprimerChantier(d, c.id)],
       ['Plutôt passer en « Terminé » et masquer', '', () => modifierChantier(c.id, { Statut: 'Terminé', Actif: false })],

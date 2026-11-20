@@ -68,7 +68,7 @@ export function creerEcranAcomptes(racine, recharger, options = {}) {
     racine.replaceChildren(
       // Onglets, recherche et tableau dans une même carte blanche à bordure noire
       h('section', { className: 'carte-tableau' },
-        nomChantierFiltre && h('p', { className: 'filtre-actif' }, `Salariés du chantier ${nomChantierFiltre}`,
+        nomChantierFiltre && h('p', { className: 'filtre-actif' }, `Salariés de l’exploitation ${nomChantierFiltre}`,
           h('button', { className: 'bouton bouton-compact', type: 'button', onClick: () => { chantierFiltre = null; rendre() } }, 'Retirer le filtre ✕')),
         h('div', { className: 'onglets onglets-statut onglets-candidats', role: 'tablist', 'aria-label': 'Statut des demandes' },
           [...STATUTS_ACOMPTE.map((s) => [s, s]), ['', 'Tous']].map(([statut, libelle]) => h('button', { className: 'onglet', role: 'tab',

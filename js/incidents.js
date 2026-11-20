@@ -122,7 +122,7 @@ export function creerEcranIncidents(racine, recharger) {
     // Graphique 1 : anneau des statuts
     const grapheStatuts = h('section', { className: 'graph' }, h('h3', null, 'Par statut'),
       legende(COULEURS_STATUTS.map(([, libelle, couleur]) => [libelle, couleur])),
-      incidents.length === 0 ? h('p', { className: 'sous-texte' }, 'Aucun incident sur ce chantier.')
+      incidents.length === 0 ? h('p', { className: 'sous-texte' }, 'Aucun incident sur cette exploitation.')
         : h('div', { className: 'anneau' }, anneauIncidents(COULEURS_STATUTS.map(([s, , couleur]) => [total[s], couleur]), incidents.length),
           h('div', null, h('strong', { className: 'anneau-taux' }, String(incidents.length)), h('span', { className: 'sous-texte' }, incidents.length > 1 ? ' incidents' : ' incident'),
             h('p', { className: 'sous-texte' }, COULEURS_STATUTS.map(([s, libelle]) => `${total[s]} ${(total[s] > 1 ? libelle : s).toLowerCase()}`).join(' · ')))))
@@ -169,7 +169,7 @@ export function creerEcranIncidents(racine, recharger) {
             h('span', { className: 'stat-valeur' }, n), h('span', { className: 'stat-libelle' }, libelle)))),
       h('div', { className: 'graphiques graphiques-incidents' }, grapheStatuts, grapheCategories),
       h('h2', { className: 'occupation-titre' }, 'Incidents par base vie'),
-      bases.length === 0 ? h('p', { className: 'message' }, 'Ce chantier n’a pas encore de base vie.')
+      bases.length === 0 ? h('p', { className: 'message' }, 'Cette exploitation n’a pas encore de base vie.')
         : tableauStatuts('Base vie', bases.map((b) => [nomBase(b), etagesDe(b).flatMap(incidentsEtage)])),
       h('h2', { className: 'occupation-titre' }, 'Incidents par étage'),
       bases.filter((b) => etagesDe(b).length > 0).map((b) =>

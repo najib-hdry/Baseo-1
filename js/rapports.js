@@ -70,7 +70,7 @@ export function creerEcranRapport(racine, recharger, config) {
     }
     const chantier = d.parId.Chantiers.get(etat.chantierId)
     const entete = [h('div', { className: 'entete-chantier' },
-      h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
+      h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Exploitations'),
       h('h1', null, chantier?.Nom ?? ''))]
     const confirmation = banniere ? [banniere] : []
 
@@ -129,7 +129,7 @@ export function creerEcranRapport(racine, recharger, config) {
       compteur.textContent = compte(visibles.length, liste.filter((r) => !etat.filtreHisto || r[premier.col] === etat.filtreHisto).length, 'enregistrement')
       corps.replaceChildren(...(visibles.length === 0
         ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length },
-          texte ? 'Aucun enregistrement ne correspond à la recherche.' : 'Aucun enregistrement pour ce chantier.'))]
+          texte ? 'Aucun enregistrement ne correspond à la recherche.' : 'Aucun enregistrement pour cette exploitation.'))]
         : visibles.map((r) => {
           const photos = photosDe(r)
           const sansClic = (fn) => (ev) => { ev.stopPropagation(); fn() } // un bouton de la ligne n'ouvre pas aussi la fiche

@@ -27,7 +27,7 @@ import { creerEcranEquipe } from './equipe.js'
 const GROUPES = [
   { cle: 'travail', titre: 'Mon travail', couleur: '#1d6b5e' },
   { cle: 'pilotage', titre: 'Pilotage', couleur: '#00A470' },
-  { cle: 'chantiers', titre: 'Chantiers', couleur: '#007EBD' },
+  { cle: 'chantiers', titre: 'Exploitations', couleur: '#007EBD' },
   { cle: 'rh', titre: 'Ressources humaines', couleur: '#946AAB' },
   { cle: 'communication', titre: 'Communication', couleur: '#C8456B' },
   { cle: 'stocks', titre: 'Stocks', couleur: '#C9861A' },
@@ -44,7 +44,7 @@ const PAGES = [
   { cle: 'demandes', libelle: 'Congé et acompte', icone: 'conges', groupe: 'travail', profils: [ROLE_SALARIE] },
   { cle: 'actualites', libelle: 'Communication', icone: 'communication', groupe: 'travail', profils: [ROLE_SALARIE, ROLE_CHEF], groupes: { [ROLE_CHEF]: 'infos' } },
   { cle: 'tableau_bord', libelle: 'Tableau de bord', icone: 'tableau_bord', groupe: 'pilotage' },
-  { cle: 'chantiers', libelle: 'Chantiers', icone: 'grue', groupe: 'chantiers' },
+  { cle: 'chantiers', libelle: 'Exploitations', icone: 'grue', groupe: 'chantiers' },
   { cle: 'casiers', libelle: 'Casiers', icone: 'total', groupe: 'chantiers' },
   { cle: 'incidents', libelle: 'Incidents', icone: 'hs', groupe: 'chantiers' },
   { cle: 'nettoyage', libelle: 'Nettoyage', icone: 'nettoyage', groupe: 'chantiers' },
@@ -201,7 +201,7 @@ function dessinerMenuLateral() {
   const position = menuLateral.querySelector('.menu-liens')?.scrollTop ?? 0
   const liste = h('div', { className: 'menu-liens' }, liensMenu(undefined, false, dessinerMenuLateral))
   menuLateral.replaceChildren(
-    h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des chantiers'), boutonReplier()),
+    h('div', { className: 'menu-logo' }, logoMarque(), h('span', { className: 'menu-sous-titre' }, 'Gestion des exploitations'), boutonReplier()),
     liste,
     ...(donnees?.moi ? [h('div', { className: 'menu-utilisateur' },
       h('span', { className: 'menu-avatar' }, icone('occupes', 22)),

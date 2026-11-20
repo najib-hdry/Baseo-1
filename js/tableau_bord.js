@@ -111,14 +111,14 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     && (!PAGE_DU_BLOC[cle] || Boolean(accesPage(d, PAGE_DU_BLOC[cle]))))
 
   function perimetre() {
-    // Un chantier choisi : ses lignes. « Tous les chantiers » : tout, y compris les lignes sans chantier (incident sans lieu),
+    // Un chantier choisi : ses lignes. « Toutes les exploitations » : tout, y compris les lignes sans chantier (incident sans lieu),
     // sauf pour un profil limité à ses chantiers (Client)
     const limites = chantiersLimites(d)
     const dansChantier = (id) => (chantier ? id === chantier : !limites || limites.has(id))
     // Salariés du périmètre (et donc leurs contrats, alertes et demandes) : même règle, sur leurs chantiers
     const salaries = d.Utilisateurs.filter((u) => u.Profil === ROLE_SALARIE && ((!chantier && !limites) || idsDeListe(u.Chantiers).some(dansChantier)))
     const idsSalaries = new Set(salaries.map((u) => u.id))
-    // Un stock sans chantier ne compte que pour « Tous les chantiers », hors profil limité
+    // Un stock sans chantier ne compte que pour « Toutes les exploitations », hors profil limité
     const stocks = (d.Stock ?? []).filter((s) => (!chantier && !limites) || idsDeListe(s.Chantiers).some(dansChantier))
     const idsStocks = new Set(stocks.map((s) => s.id))
     return {
@@ -145,7 +145,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       return
     }
     const chantiers = [...chantiersVisibles()].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr', { numeric: true }))
-    // Chantier choisi supprimé ou plus accessible : retour à « Tous les chantiers », avant de calculer les chiffres
+    // Chantier choisi supprimé ou plus accessible : retour à « Toutes les exploitations », avant de calculer les chiffres
     if (chantier && !chantiers.some((c) => c.id === chantier)) chantier = 0
     const p = perimetre()
 
@@ -158,7 +158,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     const occ = occupation(p.casiers)
     const partsCasiers = (o) => [[o.occupes, TB_COULEURS.occupes, 'Occupés'], [o.libres, TB_COULEURS.libres, 'Libres'], [o.hs, TB_COULEURS.hs, 'HS']]
     const taux = occ.total ? `${Math.round((100 * occ.occupes) / occ.total)} %` : '—'
-    // Tous les chantiers : une barre par chantier ; un chantier : une barre par base vie
+    // Toutes les exploitations : une barre par chantier ; un chantier : une barre par base vie
     const lignesCasiers = chantier
       ? d.Bases_vie.filter((b) => b.Chantier === chantier).map((b) => [b.Nom || 'Sans nom', partsCasiers(occupation(p.casiers.filter((k) => k.Base_vie === b.id)))])
       : chantiers.map((c) => [c.Nom || 'Sans nom', partsCasiers(occupation(p.casiers.filter((k) => k.Chantier === c.id)))])
@@ -209,11 +209,11 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
     const nomChantier = chantier ? d.parId.Chantiers.get(chantier)?.Nom : null
     racine.replaceChildren(h('div', { className: 'tableau-bord' },
       h('div', { className: 'tb-filtre' },
-        h('label', { className: 'champ-groupe' }, 'Chantier',
+        h('label', { className: 'champ-groupe' }, 'Exploitation',
           h('select', { className: 'champ champ-compact', onChange: (e) => { chantier = Number(e.target.value); rendre() } },
-            h('option', { value: '0', selected: !chantier }, 'Tous les chantiers'),
+            h('option', { value: '0', selected: !chantier }, 'Toutes les exploitations'),
             chantiers.map((c) => h('option', { value: String(c.id), selected: c.id === chantier }, c.Nom || 'Sans nom')))),
-        h('span', { className: 'sous-texte' }, nomChantier ? `Chiffres du chantier ${nomChantier}` : `Chiffres de ${tbPluriel(chantiers.length, 'chantier')}`)),
+        h('span', { className: 'sous-texte' }, nomChantier ? `Chiffres de l’exploitation ${nomChantier}` : `Chiffres de ${tbPluriel(chantiers.length, 'exploitation')}`)),
 
       h('div', { className: 'tb-tuiles' },
         voit('casiers') && tuile({ valeur: occ.total ? Math.round((100 * occ.occupes) / occ.total) : '—', unite: occ.total ? '%' : null, libelle: 'Casiers occupés', icone: 'total',
@@ -238,7 +238,7 @@ export function creerEcranTableauDeBord(racine, recharger, aller) {
       voit('casiers') && section('Casiers', 'total',
         h('div', { className: 'graphiques' },
           anneau('Occupation', partsCasiers(occ), taux, 'occupés'),
-          barres(chantier ? 'Par base vie' : 'Par chantier', lignesCasiers, 'Aucun casier.', partsCasiers(occ).map(([, c, nom]) => [nom, c])))),
+          barres(chantier ? 'Par base vie' : 'Par exploitation', lignesCasiers, 'Aucun casier.', partsCasiers(occ).map(([, c, nom]) => [nom, c])))),
 
       voit('incidents') && section('Incidents', 'hs',
         h('div', { className: 'graphiques' },

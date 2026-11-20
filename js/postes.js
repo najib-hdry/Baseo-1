@@ -3,7 +3,7 @@
 import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte } from './outils.js'
 import { STATUTS_POSTE, HORAIRES_POSTE, idsDeListe, creerPoste, modifierPoste, archiverPoste, supprimerPoste, accesPage, libelleHoraires } from './donnees.js'
 
-const TITRES_POSTES = ['Poste', 'Chantiers', 'Démarrage', 'Personnes', 'Horaires', 'Statut', '']
+const TITRES_POSTES = ['Poste', 'Exploitations', 'Démarrage', 'Personnes', 'Horaires', 'Statut', '']
 const CLASSES_STATUT_POSTE = { 'À venir': 'badge-en_cours', 'En cours': 'badge-resolu', 'Archives': 'badge-termine' }
 
 // Écran affiché dans `racine` ; `recharger()` relit les données après une écriture
@@ -59,7 +59,7 @@ export function creerEcranPostes(racine, recharger) {
       // Recherche, filtre et tableau dans une carte blanche à bordure noire
       h('section', { className: 'carte-tableau' },
         h('div', { className: 'barre-outils' },
-          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (titre, mission, chantier…)', value: recherche,
+          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (titre, mission, exploitation…)', value: recherche,
             'aria-label': 'Rechercher un poste', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
           h('select', { className: 'champ champ-compact champ-statut', 'aria-label': 'Filtrer par statut', onChange: (e) => { filtreStatut = e.target.value; dessinerLignes() } },
             filtres.map(([v, libelle]) => h('option', { value: v, selected: filtreStatut === v }, libelle))),
@@ -89,7 +89,7 @@ export function creerEcranPostes(racine, recharger) {
 
     // Chantiers : cases à cocher (référence multiple)
     const chantiers = [...d.Chantiers].sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
-    const cases = h('fieldset', { className: 'groupe' }, h('legend', null, 'Chantiers'),
+    const cases = h('fieldset', { className: 'groupe' }, h('legend', null, 'Exploitations'),
       h('div', { className: 'cases-chantiers' }, chantiers.map((c) => h('label', { className: 'case' },
         h('input', { type: 'checkbox', checked: champs.Chantiers.includes(c.id), onChange: (e) => {
           champs.Chantiers = e.target.checked ? [...champs.Chantiers, c.id] : champs.Chantiers.filter((id) => id !== c.id)

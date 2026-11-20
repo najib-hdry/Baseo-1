@@ -45,9 +45,9 @@ export function creerEcranCasiers(racine, recharger) {
     racine.replaceChildren(...[
       // Retour et nom du chantier sur une même ligne
       h('div', { className: 'entete-chantier' },
-        h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Chantiers'),
+        h('button', { className: 'retour', onClick: () => { etat.chantierId = null; rendre() } }, '‹ Exploitations'),
         h('h1', null, chantier?.Nom ?? '')),
-      voitHistoriqueCasiers(d) && h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Casiers du chantier' },
+      voitHistoriqueCasiers(d) && h('div', { className: 'onglets onglets-statut', role: 'tablist', 'aria-label': 'Casiers de l’exploitation' },
         [['casiers', 'Casiers'], ['generale', 'Vue générale'], ['historique', 'Historique'], ['societes', 'Occupation par société']].map(([cle, libelle]) => h('button', { className: 'onglet', role: 'tab',
           'aria-selected': String(etat.onglet === cle), onClick: () => { etat.onglet = cle; rendre() } }, libelle))),
       ...(onglet === 'historique' ? [historiqueCasiers(d, etat.chantierId, etat.historique,

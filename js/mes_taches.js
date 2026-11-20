@@ -30,7 +30,7 @@ export function creerEcranMesTaches(racine, allerA, recharger) {
   const pictoTache = (t) => (t.Incident ? 'hs' : PICTOS_TACHE.find(([motif]) => motif.test(`${t.Titre ?? ''} ${t.Action ?? ''}`))?.[1] ?? 'emargements')
   const horaires = (t) => `${heureDeTache(dateDeTache(t.Date_debut))} → ${heureDeTache(dateDeTache(t.Date_fin))}`
   // Niveaux remplis, du chantier au vestiaire : [pictogramme, libellé, nom]
-  const emplacements = (t) => [['grue', 'Chantier', 'Chantiers', t.Chantier], ['lieu', 'Zone', 'Zones', t.Zone], ['entreprise', 'Base vie', 'Bases_vie', t.Base_vie],
+  const emplacements = (t) => [['grue', 'Exploitation', 'Chantiers', t.Chantier], ['lieu', 'Zone', 'Zones', t.Zone], ['entreprise', 'Base vie', 'Bases_vie', t.Base_vie],
     ['etage', 'Étage', 'Etages', t.Etage], ['porte', 'Pièce', 'Pieces', t.Piece], ['total', 'Vestiaire', 'Vestiaires', t.Vestiaire]]
     .map(([picto, libelle, table, id]) => [picto, libelle, id && d.parId[table]?.get(id)?.Nom]).filter(([, , nom]) => nom)
 

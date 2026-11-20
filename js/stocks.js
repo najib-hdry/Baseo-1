@@ -6,7 +6,7 @@
 import { h, icone, ouvrirPanneau, etiqueterLignes, fenetreSuppression, zoneFichier, reduirePhoto, compte, menuPlus, dateHeure } from './outils.js'
 import { accesPage, idsDeListe, enregistrerLigne, supprimerLignes, lienPhotos, envoyerPhoto, ajouterElementsStock, entreesSortiesStock, transfererStock, peutModifier, estSourceProprete, limiteAuStockProprete, ROLE_CHEF } from './donnees.js'
 
-const TITRES_STOCKS = ['N°', 'Nom', 'Chantiers', 'Bases vie', 'Voir les articles', '']
+const TITRES_STOCKS = ['N°', 'Nom', 'Exploitations', 'Bases vie', 'Voir les articles', '']
 const TITRES_ARTICLES = ['Photo', 'Source', 'Type', 'Article', 'Entrée totale', 'Sortie totale', 'Actuelle', 'Seuil', 'Alerte', 'Commentaire']
 const TITRES_ES = ['Source', 'Type', 'Article', 'Actuelle', 'Seuil', 'Entrée', 'Sortie', 'Après']
 // Colonnes de nombres des articles et des entrées/sorties : centrées (titre et valeurs)
@@ -56,7 +56,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     const actuelle = (e) => (e.Quantite_entree || 0) - (e.Quantite_sortie || 0)
     const stocks = d.Stock.filter((s) => idsDeListe(s.Chantiers).some((id) => d.parId.Chantiers.has(id)))
       .sort((a, b) => String(a.Nom ?? '').localeCompare(String(b.Nom ?? ''), 'fr', { numeric: true }))
-    if (stocks.length === 0) return [h('p', { className: 'message' }, 'Aucun stock sur tes chantiers.')]
+    if (stocks.length === 0) return [h('p', { className: 'message' }, 'Aucun stock sur tes exploitations.')]
     return [h('ul', { className: 'cartes' }, stocks.map((s) => {
       const elements = elementsDe(s)
       const aCommander = elements.filter((e) => e.Quantite_seuil && actuelle(e) <= e.Quantite_seuil).length
@@ -102,7 +102,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
   // ---- Onglet Stocks ----
 
   function contenuStocks() {
-    return tableau(TITRES_STOCKS, 'Rechercher (nom, chantier, base vie…)', () => [],
+    return tableau(TITRES_STOCKS, 'Rechercher (nom, exploitation, base vie…)', () => [],
       gestionStocks() && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFicheStock(null) }, '＋ Nouveau stock'),
       (corps, compteur) => {
         const filtre = recherche.trim().toLowerCase()
@@ -148,7 +148,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
       const bases = d.Bases_vie.filter((b) => champs.Chantiers.includes(b.Chantier))
         .sort((a, b) => parNom(d.parId.Chantiers.get(a.Chantier) ?? {}, d.parId.Chantiers.get(b.Chantier) ?? {}) || parNom(a, b))
       zoneBases.replaceChildren(...(bases.length === 0
-        ? [h('p', { className: 'sous-texte' }, champs.Chantiers.length ? 'Ces chantiers n’ont pas de base vie.' : 'Coche d’abord un ou plusieurs chantiers.')]
+        ? [h('p', { className: 'sous-texte' }, champs.Chantiers.length ? 'Ces exploitations n’ont pas de base vie.' : 'Coche d’abord une ou plusieurs exploitations.')]
         : bases.map((b) => caseACocher('Base_vie', b.id, champs.Chantiers.length > 1 ? `${b.Nom || 'Sans nom'} (${d.parId.Chantiers.get(b.Chantier)?.Nom ?? ''})` : b.Nom || 'Sans nom'))))
     }
     dessinerBases()
@@ -156,7 +156,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     const formulaire = h('form', { className: 'formulaire', onSubmit: async (ev) => {
       ev.preventDefault()
       erreur.hidden = true
-      const probleme = !champs.Nom.trim() ? 'Le nom du stock est obligatoire.' : champs.Chantiers.length === 0 ? 'Coche au moins un chantier.' : null
+      const probleme = !champs.Nom.trim() ? 'Le nom du stock est obligatoire.' : champs.Chantiers.length === 0 ? 'Coche au moins une exploitation.' : null
       if (probleme) {
         erreur.textContent = probleme
         erreur.hidden = false
@@ -179,7 +179,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
     } },
     h('label', { className: 'champ-groupe' }, 'Nom du stock *',
       h('input', { className: 'champ', autocomplete: 'off', required: true, placeholder: 'Réserve Nord, Stock Tour A…', value: champs.Nom, onInput: (e) => { champs.Nom = e.target.value } })),
-    h('fieldset', { className: 'groupe' }, h('legend', null, 'Chantiers servis par ce stock'),
+    h('fieldset', { className: 'groupe' }, h('legend', null, 'Exploitations servies par ce stock'),
       h('div', { className: 'cases-chantiers' }, [...d.Chantiers].sort(parNom).map((c) => caseACocher('Chantiers', c.id, c.Nom || 'Sans nom', dessinerBases)))),
     h('fieldset', { className: 'groupe' }, h('legend', null, 'Bases vie où le stock est rangé'), zoneBases),
     erreur, valider,
@@ -564,7 +564,7 @@ export function creerEcranStocks(racine, recharger, vue = 'stocks') {
 
   function supprimerStock(s) {
     fenetreSuppression(`Supprimer « ${nomStock(s)} » ?`,
-      [h('p', null, `Chantiers : ${nomsChantiers(s) || '—'}. Bases vie : ${nomsBases(s) || '—'}.`)],
+      [h('p', null, `Exploitations : ${nomsChantiers(s) || '—'}. Bases vie : ${nomsBases(s) || '—'}.`)],
       [['Supprimer définitivement', 'bouton-danger', () => supprimerLignes('Stock', [s.id])]], recharger)
   }
 

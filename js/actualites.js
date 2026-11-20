@@ -63,7 +63,7 @@ export function creerEcranActualites(racine) {
         h('button', { className: 'actu-onglet', type: 'button', role: 'tab', 'aria-selected': String(cle === onglet),
           onClick: () => { onglet = cle; rendre() } },
         icone(cle === 'messages' ? 'communication' : 'note', 20), libelle, h('span', { className: 'actu-compte' }, deLOnglet(cle).length)))),
-      liste.length === 0 ? h('p', { className: 'taches-vide' }, icone('libres', 32), onglet === 'messages' ? 'Aucun message pour tes chantiers.' : 'Aucune information pour le moment.')
+      liste.length === 0 ? h('p', { className: 'taches-vide' }, icone('libres', 32), onglet === 'messages' ? 'Aucun message pour tes exploitations.' : 'Aucune information pour le moment.')
         : liste.map((c) => h('article', { className: 'actu-carte' },
           h('h2', null, c.Titre || 'Sans titre'),
           h('p', { className: 'actu-date' }, icone('conges', 16), enFrancais(depuisGrist(c.Date)) || '—',

@@ -55,8 +55,8 @@ export function creerEcranEquipe(racine, recharger) {
       h('section', { className: 'taches-entete' },
         h('span', { className: 'taches-pastille' }, 'Équipe'),
         h('h1', null, 'Mon équipe'),
-        h('p', { className: 'sous-texte' }, `${salaries.length} salarié${salaries.length > 1 ? 's' : ''} sur tes chantiers`)),
-      salaries.length === 0 ? h('p', { className: 'taches-vide' }, icone('utilisateurs', 32), 'Aucun salarié sur tes chantiers.')
+        h('p', { className: 'sous-texte' }, `${salaries.length} salarié${salaries.length > 1 ? 's' : ''} sur tes exploitations`)),
+      salaries.length === 0 ? h('p', { className: 'taches-vide' }, icone('utilisateurs', 32), 'Aucun salarié sur tes exploitations.')
         : h('ul', { className: 'taches-liste' }, salaries.map((u) => {
           const tache = tacheDuJour(u)
           return h('li', null, h('button', { className: 'tache-ligne', type: 'button', onClick: () => ouvrirFiche(u) },
@@ -142,7 +142,7 @@ export function creerEcranEquipe(racine, recharger) {
       }
     } },
     ligneFiche('conges', t.Titre || 'Tâche', `${jourEquipe(t.Date_debut)} · ${heureEquipe(t.Date_debut)} → ${heureEquipe(t.Date_fin)}`),
-    autres.length === 0 ? h('p', { className: 'message' }, 'Aucun autre salarié sur tes chantiers.')
+    autres.length === 0 ? h('p', { className: 'message' }, 'Aucun autre salarié sur tes exploitations.')
       : h('div', { className: 'equipe-choix', role: 'radiogroup', 'aria-label': 'Salarié' }, autres.map((x) => h('label', { className: 'case' },
         h('input', { type: 'radio', name: 'confier', value: String(x.id), onChange: () => { choisi = x.id; valider.disabled = false } }),
         nomContact(x) || 'Sans nom'))),

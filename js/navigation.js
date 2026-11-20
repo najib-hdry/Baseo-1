@@ -35,7 +35,7 @@ export const selectionPourChantier = (d, chantierId) =>
 // Accueil : une carte par chantier actif ; `stats(chantier)` donne les compteurs à afficher
 export function cartesChantiers(d, { stats, jauge, onOuvrir }) {
   const chantiers = d.Chantiers.filter((c) => c.Actif).sort((a, b) => String(a.Nom).localeCompare(String(b.Nom)))
-  if (chantiers.length === 0) return [h('p', { className: 'message' }, 'Aucun chantier actif.')]
+  if (chantiers.length === 0) return [h('p', { className: 'message' }, 'Aucune exploitation active.')]
   return [
     h('ul', { className: 'cartes' }, chantiers.map((c) => {
       const compteurs = stats(c)
@@ -135,7 +135,7 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
             : p.Nom))))
   }
 
-  if (bases.length === 0) noeuds.push(h('p', { className: 'message' }, zones.length > 0 ? 'Cette zone n’a pas encore de base vie.' : 'Ce chantier n’a pas encore de base vie.'))
+  if (bases.length === 0) noeuds.push(h('p', { className: 'message' }, zones.length > 0 ? 'Cette zone n’a pas encore de base vie.' : 'Cette exploitation n’a pas encore de base vie.'))
   else if (etagesBase.length === 0) noeuds.push(h('p', { className: 'message' }, 'Aucun étage dans cette base vie.'))
   else if (mode === 'lieux') {
     const bouton = (type, nom, onClick) => h('button', { className: 'lieu-bouton', onClick },

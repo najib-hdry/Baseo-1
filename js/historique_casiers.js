@@ -64,7 +64,7 @@ export function historiqueCasiers(d, chantierId, filtres, actions = null) {
       && (!texte || [l.casier, l.intervenant, l.badge, l.employeur, l.emplacement, l.commentaire].some((v) => String(v).toLowerCase().includes(texte))))
     compteur.textContent = compte(visibles.length, toutes.length, 'attribution')
     corps.replaceChildren(...(visibles.length === 0
-      ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, toutes.length ? 'Aucun résultat.' : 'Aucune attribution sur ce chantier.'))]
+      ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length }, toutes.length ? 'Aucun résultat.' : 'Aucune attribution sur cette exploitation.'))]
       : visibles.map((l) => h('tr', null,
         h('td', { className: 'tableau-nom' }, l.casier), h('td', null, l.emplacement || '—'), h('td', null, l.intervenant), h('td', null, l.badge || '—'),
         h('td', null, l.employeur || '—'), h('td', null, enFrancais(l.debut) || '—'), h('td', null, enFrancais(l.fin) || '—'),
@@ -131,7 +131,7 @@ export function occupationSocietes(d, chantierId) {
   const somme = (f) => lignes.reduce((t, l) => t + (Number(f(l)) || 0), 0)
   const prixCasier = d.parId.Chantiers.get(chantierId)?.Prix_casier
   const corps = h('tbody', null, lignes.length === 0
-    ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_SOCIETES.length }, 'Aucune entreprise rattachée à ce chantier.'))
+    ? h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_SOCIETES.length }, 'Aucune entreprise rattachée à cette exploitation.'))
     : lignes.map((l) => h('tr', null,
       h('td', { className: 'tableau-nom' }, l.nom), h('td', null, l.responsable || '—'),
       h('td', null, lienContact('tel', l.e?.Telephone) || '—'), h('td', null, lienContact('mailto', l.e?.Email) || '—'),
@@ -139,7 +139,7 @@ export function occupationSocietes(d, chantierId) {
       h('td', null, prixSociete(l) == null ? '—' : euros.format(prixSociete(l))))))
   etiqueterLignes(corps, TITRES_SOCIETES)
   return h('section', { className: 'carte-tableau' },
-    h('p', { className: 'sous-texte' }, prixCasier ? `Prix du casier : ${euros.format(prixCasier)} par jour` : 'Prix du casier non renseigné dans la fiche du chantier : les prix restent à 0.'),
+    h('p', { className: 'sous-texte' }, prixCasier ? `Prix du casier : ${euros.format(prixCasier)} par jour` : 'Prix du casier non renseigné dans la fiche de l’exploitation : les prix restent à 0.'),
     h('div', { className: 'tableau-defilant' },
       h('table', { className: 'tableau' },
         h('thead', null, h('tr', null, TITRES_SOCIETES.map((t) => h('th', null, t)))),
@@ -181,9 +181,9 @@ export function vueGeneraleCasiers(d, chantierId) {
       [['libres', global.libres, 'Libres'], ['occupes', global.occupes, 'Occupés'], ['hs', global.hs, 'HS'], ['total', global.total, 'Total']]
         .map(([type, n, libelle]) => h('div', { className: `stat stat-${type}${n === 0 ? ' stat-nul' : ''}` },
           h('span', { className: 'stat-valeur' }, n), h('span', { className: 'stat-libelle' }, libelle)))),
-    h('section', { className: 'graph' }, h('h3', null, 'Occupation du chantier'), legende(), anneau(global)),
+    h('section', { className: 'graph' }, h('h3', null, 'Occupation de l’exploitation'), legende(), anneau(global)),
     h('h2', { className: 'occupation-titre' }, 'Taux d’occupation par base vie'),
-    bases.length === 0 ? h('p', { className: 'message' }, 'Ce chantier n’a pas encore de base vie.')
+    bases.length === 0 ? h('p', { className: 'message' }, 'Cette exploitation n’a pas encore de base vie.')
       : tableauOccupation('Base vie', bases.map((b) => [nomBase(b), occupation(d, etagesDe(b).flatMap(casiersEtage))])),
     h('h2', { className: 'occupation-titre' }, 'Taux d’occupation par étage'),
     bases.filter((b) => etagesDe(b).length > 0).map((b) =>

@@ -37,7 +37,7 @@ export function creerEcranCommunication(racine, recharger) {
     }
     const tous = d[TABLE_COMMUNICATION]
     const parSite = onglet === NIVEAU_SITE
-    const titres = ['Titre', 'Contenu', 'Type', ...(parSite ? ['Chantier'] : []), 'Date', 'Expire le', 'Fichier', '']
+    const titres = ['Titre', 'Contenu', 'Type', ...(parSite ? ['Exploitation'] : []), 'Date', 'Expire le', 'Fichier', '']
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     // Ne redessine que les lignes : le champ de recherche garde le curseur
@@ -81,7 +81,7 @@ export function creerEcranCommunication(racine, recharger) {
             onClick: () => { onglet = n; rendre() } },
           `${n} (${tous.filter((c) => (c.Niveau || NIVEAU_GENERAL) === n).length})`))),
         h('div', { className: 'barre-outils' },
-          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (contenu, chantier, date…)', value: recherche,
+          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (contenu, exploitation, date…)', value: recherche,
             'aria-label': 'Rechercher une communication', onInput: (ev) => { recherche = ev.target.value; dessinerLignes() } }),
           peutModifier(d, 'communication') && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, '＋ Nouvelle communication')),
         compteur,
@@ -115,9 +115,9 @@ export function creerEcranCommunication(racine, recharger) {
     const choixChantiers = choixEtiquettes({
       elements: () => chantiers.map((ch) => ({ id: ch.id, libelle: ch.Nom || 'Sans nom' })),
       choisis: c ? chantiersCommunication(c).filter((id) => d.parId.Chantiers.has(id)) : [],
-      textes: { aucun: 'Aucun chantier choisi.', choisir: 'Ajouter un chantier…', tous: 'Tous les chantiers sont ajoutés', vide: 'Aucun chantier' },
+      textes: { aucun: 'Aucune exploitation choisie.', choisir: 'Ajouter une exploitation…', tous: 'Toutes les exploitations sont ajoutées', vide: 'Aucune exploitation' },
     })
-    const groupeChantier = h('div', { className: 'champ-groupe', hidden: champs.Niveau !== NIVEAU_SITE }, 'Chantiers *', choixChantiers.element)
+    const groupeChantier = h('div', { className: 'champ-groupe', hidden: champs.Niveau !== NIVEAU_SITE }, 'Exploitations *', choixChantiers.element)
     const groupeExpiration = h('label', { className: 'champ-groupe', hidden: champs.Type !== TYPE_TEMPORAIRE }, 'Date d’expiration *',
       h('input', { className: 'champ', type: 'date', value: champs.Date_expiration, onInput: (ev) => { champs.Date_expiration = ev.target.value } }))
 
@@ -128,7 +128,7 @@ export function creerEcranCommunication(racine, recharger) {
       const temporaire = champs.Type === TYPE_TEMPORAIRE
       const probleme = !champs.Titre.trim() ? 'Donne un titre à la communication.'
         : !champs.Contenu.trim() ? 'Écris le contenu de la communication.'
-        : site && choixChantiers.ids().length === 0 ? 'Choisis au moins un chantier concerné.'
+        : site && choixChantiers.ids().length === 0 ? 'Choisis au moins une exploitation concernée.'
           : !champs.Date ? 'Indique la date.'
             : temporaire && !champs.Date_expiration ? 'Indique la date d’expiration d’une communication temporaire.'
               : temporaire && champs.Date_expiration < champs.Date ? 'La date d’expiration ne peut pas être avant la date de la communication.'

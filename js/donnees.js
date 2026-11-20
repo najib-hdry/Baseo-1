@@ -616,7 +616,7 @@ export function structureDuChantier(d, chantierId) {
  */
 export async function modifierStructure(d, chantierId, structure, { avant, confirme = false }) {
   if (JSON.stringify(structureDuChantier(d, chantierId)) !== JSON.stringify(avant))
-    throw new Error('Les composants de ce chantier ont été modifiés entre-temps (par quelqu’un d’autre ?). Ferme cette fenêtre et rouvre-la pour repartir de la version à jour.')
+    throw new Error('Les composants de cette exploitation ont été modifiés entre-temps (par quelqu’un d’autre ?). Ferme cette fenêtre et rouvre-la pour repartir de la version à jour.')
   const id = { Zones: compteur(d, 'Zones'), Bases_vie: compteur(d, 'Bases_vie'), Etages: compteur(d, 'Etages'),
     Vestiaires: compteur(d, 'Vestiaires'), Casiers: compteur(d, 'Casiers'), Pieces: compteur(d, 'Pieces') }
   const avecZones = !d.absentes.has('Zones')

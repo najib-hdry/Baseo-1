@@ -11,7 +11,7 @@ import { creerEcranConges } from './conges.js'
 import { creerEcranAcomptes } from './acomptes.js'
 import { accesPage, ROLES, ROLE_SALARIE, ROLE_CLIENT, AUTORISATIONS_CLIENT, enregistrerUtilisateur, supprimerFiche, idsDeListe, nomContact, lienPhotos, envoyerPhoto, enregistrerContrat, ajouterSuiviInsertion, supprimerTaches, bilanEmargements, MOTIFS_SORTIE, desactiverSalarie, enregistrerLigne, POSTE_ARCHIVE, alertesSalaries } from './donnees.js'
 
-const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Chantiers', 'Actif', 'Alertes', '']
+const TITRES_UTILISATEURS = ['Utilisateur', 'Rôle', 'Téléphone', 'Email', 'Exploitations', 'Actif', 'Alertes', '']
 const SANS_ROLE = '—' // onglet des utilisateurs sans rôle (ils n'ont pas accès à l'application)
 const TITRES_DOCUMENTS = ['Type de document', 'Recto', 'Verso', 'Créé le', 'Ajouté par', '']
 const TITRES_CONTRATS = ['N° de contrat', 'Sites', 'Intitulé de poste', 'Date début', 'Date fin', 'Contrat', 'DPAE', '']
@@ -92,7 +92,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           onglets.map(([role, libelle]) => h('button', { className: 'onglet', role: 'tab', 'aria-selected': String(role === onglet),
             onClick: () => { onglet = role; rendre() } }, `${libelle} (${d.Utilisateurs.filter((u) => dansOnglet(u, role)).length})`))),
         h('div', { className: 'barre-outils' },
-          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, téléphone, email, chantier…)', value: recherche,
+          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (nom, téléphone, email, exploitation…)', value: recherche,
             'aria-label': 'Rechercher un utilisateur', onInput: (e) => { recherche = e.target.value; dessinerLignes() } }),
           h('label', { className: 'case' }, h('input', { type: 'checkbox', checked: seulementAlertes, onChange: (e) => { seulementAlertes = e.target.checked; dessinerLignes() } }),
             'Seulement en alerte'),
@@ -122,7 +122,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const choixChantiers = choixEtiquettes({
       elements: () => d.Chantiers.map((c) => ({ id: c.id, libelle: c.Nom || 'Sans nom' })),
       choisis: idsDeListe(u?.Chantiers),
-      textes: { aucun: 'Aucun chantier.', choisir: 'Ajouter un chantier…', tous: 'Tous les chantiers sont ajoutés', vide: 'Aucun chantier dans l’application' },
+      textes: { aucun: 'Aucune exploitation.', choisir: 'Ajouter une exploitation…', tous: 'Toutes les exploitations sont ajoutées', vide: 'Aucune exploitation dans l’application' },
     })
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, u ? 'Enregistrer' : 'Créer l’utilisateur')
@@ -157,7 +157,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           ROLES.map((r) => h('option', { value: r, selected: r === champs.Profil }, r)))),
       h('label', { className: 'case' },
         h('input', { type: 'checkbox', checked: champs.Actif, onChange: (e) => { champs.Actif = e.target.checked } }), 'Actif (peut utiliser l’application)')),
-    h('div', { className: 'champ-groupe' }, 'Chantiers', choixChantiers.element),
+    h('div', { className: 'champ-groupe' }, 'Exploitations', choixChantiers.element),
     casesClient,
     h('p', { className: 'sous-texte' }, 'L’email doit être celui du compte Grist de la personne : c’est lui qui donne son rôle et ses droits.'),
     erreur, valider,
@@ -248,7 +248,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
       h('div', { className: 'compte-colonnes' },
         h('div', null, h('h3', { className: 'titre-section' }, 'Compte'), infos([
           ['Email (compte Grist)', lienContact('mailto', u.Email) || '—'], ['Rôle', u.Profil || 'Sans rôle'],
-          ['Chantiers', chantiers(u) || '—'], ['Actif', u.Actif ? 'Oui' : 'Non'],
+          ['Exploitations', chantiers(u) || '—'], ['Actif', u.Actif ? 'Oui' : 'Non'],
         ])),
         h('div', null, h('h3', { className: 'titre-section' }, 'Autorisations'), infos([
           ['Auto-émargement', autorisation('Auto_emargement_autorise', 'Auto-émargement')],
@@ -411,7 +411,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
     const choixSites = choixEtiquettes({
       elements: () => d.Chantiers.map((x) => ({ id: x.id, libelle: x.Nom || 'Sans nom' })),
       choisis: k ? idsDeListe(k.Chantiers) : idsDeListe(u.Chantiers), // nouveau contrat : chantiers du salarié
-      textes: { aucun: 'Aucun site.', choisir: 'Ajouter un site…', tous: 'Tous les sites sont ajoutés', vide: 'Aucun chantier dans l’application' },
+      textes: { aucun: 'Aucun site.', choisir: 'Ajouter un site…', tous: 'Tous les sites sont ajoutés', vide: 'Aucune exploitation dans l’application' },
     })
     const erreur = h('p', { className: 'erreur', hidden: true })
     const valider = h('button', { className: 'bouton bouton-principal', type: 'submit' }, k ? 'Enregistrer' : 'Ajouter le contrat')
@@ -457,7 +457,7 @@ export function creerEcranUtilisateurs(racine, recharger, modifierCandidat) {
           [...(d.Postes ?? [])].filter((p) => p.Statut !== POSTE_ARCHIVE || p.id === champs.Poste).sort((a, b) => String(a.Titre).localeCompare(String(b.Titre)))
             .map((p) => h('option', { value: String(p.id), selected: p.id === champs.Poste }, p.Titre || 'Sans titre')))),
       date('Date début', 'Date_debut'), date('Date fin', 'Date_fin'), date('Date signature', 'Date_signature')),
-    h('div', { className: 'champ-groupe' }, 'Sites (chantiers)', choixSites.element),
+    h('div', { className: 'champ-groupe' }, 'Sites (exploitations)', choixSites.element),
     h('div', { className: 'grille-2 grille-fichiers' }, FICHIERS_CONTRAT.map(([col, libelle]) => {
       const id = idsDeListe(k?.[col])[0]
       return h('div', { className: 'champ-groupe' }, `Fichier ${libelle}`,

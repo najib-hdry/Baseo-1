@@ -1,5 +1,5 @@
 // Fiche détail d'un chantier (page admin), en onglets :
-// Composants (structure), Informations, Salariés sur le chantier, Casiers (occupation), Incidents, Nettoyage, Maintenance,
+// Composants (structure), Informations, Salariés sur l’exploitation, Casiers (occupation), Incidents, Nettoyage, Maintenance,
 // Entreprises, Sous-traitants, Postes. Incidents, Nettoyage et Maintenance reprennent les tableaux de leurs pages (voir admin.js).
 import { h, depuisGrist, enFrancais, euros, etiqueterLignes, lienContact } from './outils.js'
 import { idsDeListe, libelleHoraires, nomContact, equipeDuChantier, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE } from './donnees.js'
@@ -9,7 +9,7 @@ import { plan3d } from './plan3d.js'
 export const ONGLETS_FICHE = [
   ['composants', 'Composants'],
   ['informations', 'Informations'],
-  ['equipe', 'Salariés sur le chantier'],
+  ['equipe', 'Salariés sur l’exploitation'],
   ['casiers', 'Casiers'],
   ['incidents', 'Incidents'],
   ['nettoyage', 'Nettoyage'],
@@ -165,7 +165,7 @@ function informations(d, c) {
   return h('dl', { className: 'fiche-infos' }, lignes.map(([terme, valeur]) => [h('dt', null, terme), h('dd', null, valeur)]))
 }
 
-// ---- Onglet Salariés sur le chantier : chefs d'équipe, salariés, puis les autres rôles affectés ----
+// ---- Onglet Salariés sur l’exploitation : chefs d'équipe, salariés, puis les autres rôles affectés ----
 
 function equipe(d, c) {
   if (d.absentes.has('Utilisateurs')) return h('p', { className: 'message' }, 'Ce document n’a pas de table Utilisateurs.')
@@ -178,7 +178,7 @@ function equipe(d, c) {
     tableau(['Nom', 'Rôle', 'Téléphone', 'Email', 'Actif'],
       membres.map((u) => [h('strong', null, nomContact(u) || u.Email || 'Sans nom'), u.Profil || '—',
         lienContact('tel', u.Telephone) || '—', lienContact('mailto', u.Email) || '—', u.Actif ? 'Oui' : 'Non']),
-      'Personne n’est encore affecté à ce chantier. Utilise « Gérer les salariés ».'),
+      'Personne n’est encore affecté à cette exploitation. Utilise « Gérer les salariés ».'),
   ]
 }
 
@@ -202,7 +202,7 @@ function partenaires(d, c, p) {
         ...(sousTraitants ? [d.parId.Entreprises?.get(x.Entreprise)?.Nom || '—'] : []),
         [x.Responsable_prenom, x.Responsable_nom].filter(Boolean).join(' ') || '—',
         lienContact('tel', x.Telephone) || '—', lienContact('mailto', x.Email) || '—', Nb_occupants ?? 0, Nb_casiers_occupes ?? 0]),
-      `${p.aucun} n’est encore ${p.attribue} à ce chantier. Utilise « Gérer les ${p.titre.toLowerCase()} ».`),
+      `${p.aucun} n’est encore ${p.attribue} à cette exploitation. Utilise « Gérer les ${p.titre.toLowerCase()} ».`),
     nonAttribues.length > 0 && h('p', { className: 'sous-texte' },
       `Occupent aussi des casiers sans être ${p.attribue}s : ${nonAttribues.join(', ')}.`),
   ].filter(Boolean)
@@ -275,7 +275,7 @@ function casiers(d, c) {
         .map(([type, valeur, libelle]) => h('div', { className: `stat stat-${type}${valeur === 0 ? ' stat-nul' : ''}` },
           h('span', { className: 'stat-valeur' }, valeur), h('span', { className: 'stat-libelle' }, libelle)))),
     h('div', { className: 'graphiques' },
-      h('section', { className: 'graph' }, h('h3', null, 'Chantier'), legende(), anneau(global)),
+      h('section', { className: 'graph' }, h('h3', null, 'Exploitation'), legende(), anneau(global)),
       barres('Par base vie', lignesBases, 'Aucune base vie.'),
       h('div', { className: 'graph-large' }, barres('Par étage', lignesEtages, 'Aucun étage avec des casiers.'))),
     tableau(['Vestiaire', 'Emplacement', 'Casiers', 'Occupés', 'Libres', 'HS', 'Taux'],
@@ -295,7 +295,7 @@ function postes(d, c) {
   return tableau(['Poste', 'Démarrage', 'Personnes', 'Horaires', 'Statut'],
     liste.map((p) => [h('strong', null, p.Titre || 'Sans titre'), enFrancais(depuisGrist(p.Date_demarrage)) || '—', p.Nb_personnes ?? '',
       libelleHoraires(p), p.Statut ?? '']),
-    'Aucun poste sur ce chantier.')
+    'Aucun poste sur cette exploitation.')
 }
 
 // Contenu de l'onglet `onglet` de la fiche du chantier `c`

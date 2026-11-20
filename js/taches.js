@@ -32,7 +32,7 @@ export function ouvrirAjoutTache(d, salarie, apres, tache = null) {
   // [colonne, table, libellé, profondeur, texte « Tous », condition par rapport aux niveaux choisis au-dessus]
   // Pièce et vestiaire sont au même niveau, sous l'étage
   const NIVEAUX_LIEU = [
-    ['Chantier', 'Chantiers', 'Chantier', 0, '', () => true],
+    ['Chantier', 'Chantiers', 'Exploitation', 0, '', () => true],
     ['Zone', 'Zones', 'Zone', 1, 'Toutes les zones', (r) => r.Chantier === lieu.Chantier],
     ['Base_vie', 'Bases_vie', 'Base vie', 2, 'Toutes les bases vie', (r) => r.Chantier === lieu.Chantier && (!lieu.Zone || r.Zone === lieu.Zone)],
     ['Etage', 'Etages', 'Étage', 3, 'Tous les étages', (r) => r.Chantier === lieu.Chantier && (!lieu.Base_vie || r.Base_vie === lieu.Base_vie)],
@@ -200,7 +200,7 @@ const COLONNES_IMPORT = [
   ['Date_debut', 'Date début', ['debut']],
   ['Date_fin', 'Date fin', ['fin']],
   ['Salarie', 'Salarié (email)', ['salarie', 'email']],
-  ['Chantier', 'Chantier', []],
+  ['Chantier', 'Exploitation', ['chantier']],
   ['Zone', 'Zone', []],
   ['Base_vie', 'Base vie', []],
   ['Etage', 'Étage', []],
@@ -214,7 +214,7 @@ const COLONNES_IMPORT = [
 // Pièce et vestiaire sont au même niveau, sous l'étage
 const NIVEAUX = [['Zone', 'Zones', 'Zone', 'Chantier'], ['Base_vie', 'Bases_vie', 'Base vie', 'Zone'], ['Etage', 'Etages', 'Étage', 'Base_vie'],
   ['Piece', 'Pieces', 'Pièce', 'Etage'], ['Vestiaire', 'Vestiaires', 'Vestiaire', 'Etage']]
-const LIBELLES_LIEU = { Chantier: 'le chantier', Zone: 'la zone', Base_vie: 'la base vie', Etage: 'l’étage' }
+const LIBELLES_LIEU = { Chantier: 'l’exploitation', Zone: 'la zone', Base_vie: 'la base vie', Etage: 'l’étage' }
 // Sans accents, en minuscules, ponctuation réduite à des espaces : « Base-vie » = « base vie »
 const normaliser = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9@.+]+/g, ' ').trim()
 
@@ -289,10 +289,10 @@ function analyserLigne(d, l, salarieParDefaut) {
   // Emplacement
   const lieu = { Chantier: 0, Zone: 0, Base_vie: 0, Etage: 0, Piece: 0, Vestiaire: 0 }
   const nomsEgaux = (r, col) => normaliser(r.Nom) === normaliser(texte(col))
-  if (!texte('Chantier') && NIVEAUX.some(([n]) => texte(n))) erreurs.push('Chantier manquant : il faut le chantier pour retrouver l’emplacement')
+  if (!texte('Chantier') && NIVEAUX.some(([n]) => texte(n))) erreurs.push('Exploitation manquante : il faut l’exploitation pour retrouver l’emplacement')
   else if (texte('Chantier')) {
     const chantier = d.Chantiers.find((c) => nomsEgaux(c, 'Chantier'))
-    if (!chantier) erreurs.push(`Chantier « ${texte('Chantier')} » introuvable`)
+    if (!chantier) erreurs.push(`Exploitation « ${texte('Chantier')} » introuvable`)
     else {
       lieu.Chantier = chantier.id
       const trouves = { Chantier: chantier }
@@ -419,7 +419,7 @@ export async function telechargerModeleTaches(d) {
     ['04/11/2026 13:30', '04/11/2026 17:00', email, exemple[0], '', '', '', '', '', 'Contrôle des casiers', 'Contrôle', 'Tâche d’un autre salarié (email)'],
     [], ['Exemple seulement : cet onglet n’est jamais importé. Recopie tes tâches dans l’onglet « Tâches ».']])
   feuilleExemple['!cols'] = largeurs
-  const feuilleEmplacements = XLSX.utils.aoa_to_sheet([['Chantier', 'Zone', 'Base vie', 'Étage', 'Pièce', 'Vestiaire'], ...emplacements])
+  const feuilleEmplacements = XLSX.utils.aoa_to_sheet([['Exploitation', 'Zone', 'Base vie', 'Étage', 'Pièce', 'Vestiaire'], ...emplacements])
   feuilleEmplacements['!cols'] = [20, 18, 16, 14, 18, 16].map((wch) => ({ wch }))
   const feuilleSalaries = XLSX.utils.aoa_to_sheet([['Salarié', 'Email (à recopier dans « Salarié (email) »)'], ...salaries.map((u) => [nomContact(u), u.Email])])
   feuilleSalaries['!cols'] = [{ wch: 26 }, { wch: 40 }]
@@ -430,9 +430,9 @@ export async function telechargerModeleTaches(d) {
     ['Si tu colles des dates venant d’ailleurs, vérifie l’aperçu : il écrit le mois en toutes lettres (Excel inverse parfois jour et mois).'],
     ['Titre de tâche : obligatoire.'],
     ['Salarié (email) : laisser vide pour le salarié dont la fiche est ouverte ; sinon l’email de son compte (onglet « Salariés »).'],
-    ['Emplacement : le chantier est obligatoire si un niveau est rempli. Recopier les noms exacts de l’onglet « Emplacements », de gauche à droite.'],
-    ['Chaque niveau est cherché dans celui de gauche : zone dans le chantier, base vie dans la zone, étage dans la base vie, pièce ou vestiaire dans l’étage.'],
-    ['Une case vide veut dire « tout ce niveau » : zone vide = tout le chantier, base vie vide = toute la zone, étage vide = toute la base vie, pièce et vestiaire vides = tout l’étage.'],
+    ['Emplacement : l’exploitation est obligatoire si un niveau est rempli. Recopier les noms exacts de l’onglet « Emplacements », de gauche à droite.'],
+    ['Chaque niveau est cherché dans celui de gauche : zone dans l’exploitation, base vie dans la zone, étage dans la base vie, pièce ou vestiaire dans l’étage.'],
+    ['Une case vide veut dire « tout ce niveau » : zone vide = toute l’exploitation, base vie vide = toute la zone, étage vide = toute la base vie, pièce et vestiaire vides = tout l’étage.'],
     ['Après une case vide, les cases à droite doivent rester vides. Remplir la pièce ou le vestiaire, pas les deux.'],
     ['Avant l’enregistrement, l’application montre un aperçu : les lignes en erreur ne sont pas importées.'],
   ])
