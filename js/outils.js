@@ -1,4 +1,5 @@
 // Outils communs aux deux widgets : création d'éléments, dates, fenêtre modale, icônes
+/* global grist */
 
 // h('div', { className: 'x', onClick }, enfant1, enfant2…) → élément DOM
 export function h(tag, props, ...enfants) {
@@ -543,17 +544,33 @@ export function notifier(texte, type = 'succes') {
 // Grist envoie ses pièces jointes « à enregistrer » : l'application récupère le fichier et l'affiche elle-même.
 // Les autres formats (Word, Excel…) gardent un bouton de téléchargement.
 
-// Type d'un fichier d'après ses premiers octets (Grist peut l'envoyer sans type précis)
-function typeDuFichier(octets, typeAnnonce) {
+// Type d'un fichier d'après ses premiers octets. Seuls PDF et photos s'affichent : le type annoncé par Grist n'est jamais
+// repris (un SVG ou une page HTML déposés pourraient exécuter du script ouverts dans un onglet) ; le reste se télécharge.
+function typeDuFichier(octets) {
   const debut = (n) => [...octets.slice(0, n)].map((o) => o.toString(16).padStart(2, '0')).join('')
   if (debut(4) === '25504446') return 'application/pdf'
   if (debut(3) === 'ffd8ff') return 'image/jpeg'
   if (debut(4) === '89504e47') return 'image/png'
   if (debut(4) === '47494638') return 'image/gif'
   if (debut(4) === '52494646' && String.fromCharCode(...octets.slice(8, 12)) === 'WEBP') return 'image/webp'
-  return typeAnnonce || 'application/octet-stream'
+  return 'application/octet-stream'
 }
-const nomDuFichier = (reponse) => decodeURIComponent((reponse.headers.get('content-disposition') ?? '').match(/filename\*?=(?:UTF-8'')?"?([^";]+)/i)?.[1] ?? '')
+// Nom du fichier envoyé par Grist ; un nom mal encodé (« % » isolé) est ignoré au lieu d'empêcher l'affichage
+function nomDuFichier(reponse) {
+  const brut = (reponse.headers.get('content-disposition') ?? '').match(/filename*?=(?:UTF-8'')?"?([^";]+)/i)?.[1] ?? ''
+  try { return decodeURIComponent(brut) } catch { return brut }
+}
+// Récupère une pièce jointe ; si l'autorisation de l'adresse a expiré (page ouverte longtemps), en redemande une à Grist
+// et réessaie une fois. Renvoie la réponse et l'adresse utilisée (la nouvelle, le cas échéant).
+async function recupererFichier(adresse) {
+  let reponse = await fetch(adresse)
+  if ([401, 403].includes(reponse.status) && /[?&]auth=/.test(adresse)) {
+    const { token } = await grist.docApi.getAccessToken({ readOnly: true })
+    adresse = adresse.replace(/([?&]auth=)[^&]*/, `$1${token}`)
+    reponse = await fetch(adresse)
+  }
+  return { reponse, adresse }
+}
 
 export async function afficherFichier(adresse, titre = 'Document') {
   const corps = h('div', { className: 'visualiseur' }, h('p', { className: 'attente' }, 'Chargement du document…'))
@@ -564,20 +581,23 @@ export async function afficherFichier(adresse, titre = 'Document') {
   const liberer = new MutationObserver(() => { if (!section.isConnected) { liberer.disconnect(); setTimeout(() => url && URL.revokeObjectURL(url), 60000) } })
   liberer.observe(document.body, { childList: true })
   try {
-    const reponse = await fetch(adresse)
-    if (!reponse.ok) throw new Error(`HTTP ${reponse.status}`)
-    const octets = new Uint8Array(await reponse.arrayBuffer())
-    const type = typeDuFichier(octets, (reponse.headers.get('content-type') ?? '').split(';')[0])
-    const nom = nomDuFichier(reponse)
-    url = URL.createObjectURL(new Blob([octets], { type }))
+    const recu = await recupererFichier(adresse)
+    adresse = recu.adresse
+    if (!recu.reponse.ok) throw new Error(`HTTP ${recu.reponse.status}`)
+    const fichier = await recu.reponse.blob()
+    // Seuls les 12 premiers octets sont lus pour reconnaître le format : le fichier n'est pas recopié en mémoire
+    const type = typeDuFichier(new Uint8Array(await fichier.slice(0, 12).arrayBuffer()))
+    const nom = nomDuFichier(recu.reponse)
+    url = URL.createObjectURL(fichier.slice(0, fichier.size, type))
+    const affichable = type !== 'application/octet-stream'
     const enOnglet = h('a', { className: 'bouton bouton-compact', href: url, target: '_blank', rel: 'noreferrer' }, 'Ouvrir dans un nouvel onglet')
     const telecharger = h('a', { className: 'bouton bouton-compact', href: url, download: nom || 'document' }, 'Télécharger')
     const apercu = type.startsWith('image/') ? h('img', { className: 'visualiseur-image', src: url, alt: nom || titre })
       : type === 'application/pdf' ? h('iframe', { className: 'visualiseur-pdf', src: url, title: nom || titre })
-        : h('p', { className: 'message' }, `Ce format${nom ? ` (${nom})` : ''} ne s’affiche pas dans le navigateur : télécharge-le pour l’ouvrir.`)
-    corps.replaceChildren(apercu, h('div', { className: 'fiche-boutons' }, (type.startsWith('image/') || type === 'application/pdf') && enOnglet, telecharger))
+        : h('p', { className: 'message' }, `Ce format${nom ? ` (${nom})` : ''} ne s’affiche pas dans l’application : télécharge-le pour l’ouvrir.`)
+    corps.replaceChildren(apercu, h('div', { className: 'fiche-boutons' }, affichable && enOnglet, telecharger))
   } catch {
-    // Fichier inaccessible (connexion, droits) : le lien d'origine, qui le télécharge
+    // Fichier inaccessible (connexion, droits) : le lien d'origine (avec l'autorisation renouvelée), qui le télécharge
     corps.replaceChildren(h('p', { className: 'erreur' }, 'Le document n’a pas pu être affiché ici.'),
       h('a', { className: 'bouton bouton-compact', href: adresse, target: '_blank', rel: 'noreferrer', download: '' }, 'Le télécharger'))
   }
