@@ -1,10 +1,12 @@
-// Écran « Cahiers de charge » (Admin, RH) : tableau (chef d'équipe, période, fichier) avec recherche,
-// fiche de cahier de charge (nouveau ou modification) avec le fichier joint, suppression.
+// Écran « Cahiers de charge » : Admin, RH (gestion) : tableau (chef d'équipe, période, fichier) avec recherche,
+// fiche de cahier de charge (nouveau ou modification) avec le fichier joint, suppression ;
+// chef d'équipe (lecture) : ses cahiers de charge seulement, une ligne ouvre le fichier.
 import { h, ouvrirPanneau, etiqueterLignes, fenetreSuppression, compte, menuPlus, zoneFichier, versGrist, depuisGrist, enFrancais } from './outils.js'
 import { accesPage, enregistrerLigne, supprimerLignes, envoyerPhoto, lienPhotos, idsDeListe, peutModifier, nomContact, ROLE_CHEF } from './donnees.js'
 
 const TABLE_CAHIERS = 'Cahier_de_charge'
 const TITRES_CAHIERS = ['Chef d’équipe', 'Date début', 'Date fin', 'Fichier', '']
+const TITRES_CAHIERS_CHEF = ['Date début', 'Date fin', 'Cahier de charge']
 
 export function creerEcranCahiersCharge(racine, recharger) {
   let d = null
@@ -26,12 +28,15 @@ export function creerEcranCahiersCharge(racine, recharger) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Cette page n’est pas disponible pour ton profil.'))
       return
     }
-    if (d.absentes.has(TABLE_CAHIERS)) {
+    const gestion = peutModifier(d, 'cahiers_charge')
+    // Chef d'équipe : ses cahiers seulement (une table refusée par les règles d'accès = aucun cahier)
+    const chef = d.moi.profil === ROLE_CHEF
+    if (d.absentes.has(TABLE_CAHIERS) && !chef) {
       racine.replaceChildren(h('p', { className: 'message' }, 'Ce document n’a pas de table Cahier de charge.'))
       return
     }
-    const tous = d[TABLE_CAHIERS]
-    const gestion = peutModifier(d, 'cahiers_charge')
+    const tous = d[TABLE_CAHIERS].filter((c) => !chef || c.Chef_equipe === d.moi.id)
+    const titres = chef ? TITRES_CAHIERS_CHEF : TITRES_CAHIERS
     const corps = h('tbody')
     const compteur = h('p', { className: 'sous-texte' })
     // Ne redessine que les lignes : le champ de recherche garde le curseur
@@ -42,23 +47,29 @@ export function creerEcranCahiersCharge(racine, recharger) {
         .sort((a, b) => (b.Date_debut ?? 0) - (a.Date_debut ?? 0))
       compteur.textContent = compte(liste.length, tous.length, 'cahier de charge', 'cahiers de charge')
       corps.replaceChildren(...(liste.length === 0
-        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: TITRES_CAHIERS.length },
-          filtre ? 'Aucun résultat.' : 'Aucun cahier de charge pour l’instant. Ajoute le premier avec « ＋ Nouveau cahier de charge ».'))]
+        ? [h('tr', null, h('td', { className: 'tableau-vide', colSpan: titres.length },
+          filtre ? 'Aucun résultat.' : chef ? 'Aucun cahier de charge pour toi pour l’instant.' : 'Aucun cahier de charge pour l’instant. Ajoute le premier avec « ＋ Nouveau cahier de charge ».'))]
         : liste.map((c) => {
           const fichier = fichierDe(c)
+          const ouvrir = fichier && lien && h('a', { className: chef ? 'bouton bouton-compact bouton-principal' : '', href: lien(fichier), target: '_blank', rel: 'noreferrer',
+            onClick: (ev) => ev.stopPropagation() }, chef ? 'Ouvrir le cahier de charge' : 'Ouvrir')
+          if (chef) {
+            return h('tr', { className: fichier && lien ? 'tableau-ligne' : '', onClick: () => fichier && lien && window.open(lien(fichier), '_blank', 'noreferrer') },
+              h('td', { className: 'tableau-nom' }, enFrancais(depuisGrist(c.Date_debut)) || '—'),
+              h('td', null, enFrancais(depuisGrist(c.Date_fin)) || '—'),
+              h('td', null, ouvrir || (fichier ? 'Chargement…' : 'Pas de fichier')))
+          }
           return h('tr', { className: 'tableau-ligne', onClick: () => gestion && ouvrirFiche(c) },
             h('td', { className: 'tableau-nom' }, chefDe(c) || '—'),
             h('td', null, enFrancais(depuisGrist(c.Date_debut)) || '—'),
             h('td', null, enFrancais(depuisGrist(c.Date_fin)) || '—'),
-            h('td', null, fichier && lien
-              ? h('a', { href: lien(fichier), target: '_blank', rel: 'noreferrer', onClick: (ev) => ev.stopPropagation() }, 'Ouvrir')
-              : fichier ? 'Oui' : '—'),
+            h('td', null, ouvrir || (fichier ? 'Oui' : '—')),
             h('td', { className: 'tableau-actions' },
               gestion && menuPlus([
                 h('button', { className: 'bouton bouton-compact', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirFiche(c) } }, 'Modifier'),
                 h('button', { className: 'bouton bouton-compact bouton-danger', role: 'menuitem', onClick: (ev) => { ev.stopPropagation(); ouvrirSuppression(c) } }, 'Supprimer')])))
         })))
-      etiqueterLignes(corps, TITRES_CAHIERS)
+      etiqueterLignes(corps, titres)
     }
     dessinerLignes()
     redessinerLignes = dessinerLignes
@@ -66,13 +77,13 @@ export function creerEcranCahiersCharge(racine, recharger) {
     racine.replaceChildren(
       h('section', { className: 'carte-tableau' },
         h('div', { className: 'barre-outils' },
-          h('input', { className: 'champ champ-compact', type: 'search', placeholder: 'Rechercher (chef d’équipe, date…)', value: recherche,
+          h('input', { className: 'champ champ-compact', type: 'search', placeholder: chef ? 'Rechercher (date…)' : 'Rechercher (chef d’équipe, date…)', value: recherche,
             'aria-label': 'Rechercher un cahier de charge', onInput: (ev) => { recherche = ev.target.value; dessinerLignes() } }),
           gestion && h('button', { className: 'bouton bouton-principal bouton-compact', onClick: () => ouvrirFiche(null) }, '＋ Nouveau cahier de charge')),
         compteur,
         h('div', { className: 'tableau-defilant' },
           h('table', { className: 'tableau' },
-            h('thead', null, h('tr', null, TITRES_CAHIERS.map((t) => h('th', null, t)))),
+            h('thead', null, h('tr', null, titres.map((t) => h('th', null, t)))),
             corps))))
   }
 
