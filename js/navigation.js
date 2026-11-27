@@ -162,7 +162,7 @@ export function vueChantier(d, etat, { mode, marques, onCasier, onVestiaire, onP
         ? h('p', { className: 'message' }, 'Aucun casier dans cette catégorie.')
         : h('div', { className: 'grille' }, visibles.map((c) =>
           h('button', { className: `casier casier-${c.statut}`, onClick: () => onCasier(c) },
-            h('span', { className: 'casier-numero' }, c.Numero),
+            h('span', { className: String(c.Numero ?? '').length > 4 ? 'casier-numero casier-numero-long' : 'casier-numero' }, c.Numero),
             h('span', { className: 'casier-detail' }, detail(c)),
             mode === 'incidents' && marques?.casiers.has(c.id) && h('span', { className: 'pastille', 'aria-label': 'incident en cours' }, '!')))))
   }

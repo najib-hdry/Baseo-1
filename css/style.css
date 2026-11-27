@@ -138,7 +138,7 @@ h2 { font-size: 1.3rem; }
 .filtre[aria-pressed="true"] { background: var(--surface); border-color: var(--encre); }
 
 /* Grille des casiers */
-.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 16px; }
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; margin-top: 16px; }
 .casier {
   min-height: 76px; padding: 8px 6px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
@@ -147,8 +147,9 @@ h2 { font-size: 1.3rem; }
 }
 .casier-numero {
   font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700;
-  font-size: 1.35rem; line-height: 1; font-variant-numeric: tabular-nums;
+  font-size: 1.35rem; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+.casier-numero.casier-numero-long { font-size: 1.05rem; } /* « LD-0001 » : un peu plus petit pour tenir dans la case */
 .casier-detail { max-width: 100%; font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .casier-disponible { color: #0F5530; background: #E1F2E8; border-color: var(--libre); }
 .casier-occupe { color: #fff; background: var(--occupe); }
@@ -405,6 +406,11 @@ button.tiroir-lien.active { background: var(--signal); }
 .niveau-haut, .ligne-element { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .niveau-haut .champ-compact, .ligne-element .champ-compact { flex: 1 1 140px; }
 .niveau-haut .champ-niveau, .ligne-element .champ-niveau { flex: 0 0 80px; }
+/* Numérotation d'un vestiaire : préfixe, premier et dernier numéro, aperçu (« 30 casiers : LD-0001 → LD-0030 ») */
+.ligne-element .champ-plage { display: inline-flex; align-items: center; gap: 4px; }
+.ligne-element .champ-prefixe { flex: none; width: 72px; text-transform: uppercase; }
+.ligne-element .champ-numero { flex: none; width: 76px; font-variant-numeric: tabular-nums; }
+.apercu-plage { flex: 1 1 100%; }
 .niveau-type { flex: 0 0 72px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--encre-douce); }
 .ajouts { display: flex; flex-wrap: wrap; gap: 6px; }
 .lien-ajout { padding: 4px 10px; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--encre); cursor: pointer; background: transparent; border: 1px dashed var(--encre-douce); border-radius: 999px; }

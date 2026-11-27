@@ -552,12 +552,55 @@ export async function affecterEquipe(d, chantierId, ids) {
 // « Prénom Nom » d'un contact (ou d'un utilisateur)
 export const nomContact = (r) => [r?.Prenom, r?.Nom].filter(Boolean).join(' ')
 
+// ---- Numérotation des casiers : préfixe de lettres facultatif et numéro sur 4 chiffres (« LD-0001 », ou « 0001 ») ----
+// Chaque vestiaire a une plage { prefixe, debut, fin } (textes de 4 chiffres ; debut et fin vides = aucun casier).
+export const CASIERS_MAX_PAR_VESTIAIRE = 500
+export const quatreChiffres = (n) => String(n).padStart(4, '0')
+export const numeroCasier = (prefixe, n) => `${prefixe ? `${prefixe}-` : ''}${quatreChiffres(n)}`
+// « LD-0001 », « LD0001 » ou « 001 » → { prefixe, n } ; autre forme → null
+export function lireNumeroCasier(numero) {
+  const m = String(numero ?? '').trim().match(/^([A-Za-z]*)-?(\d+)$/)
+  return m ? { prefixe: m[1].toUpperCase(), n: Number(m[2]) } : null
+}
+export const nombreCasiers = (v) => (v.debut === '' && v.fin === '' ? 0 : Math.max(0, Number(v.fin) - Number(v.debut) + 1))
+export const numerosDuVestiaire = (v) => Array.from({ length: nombreCasiers(v) }, (_, i) => numeroCasier(v.prefixe, Number(v.debut) + i))
+// Plage d'un vestiaire existant d'après ses casiers (même préfixe partout, du plus petit au plus grand numéro)
+function plageDesCasiers(casiers) {
+  if (casiers.length === 0) return { prefixe: '', debut: '', fin: '' }
+  const lus = casiers.map((c) => lireNumeroCasier(c.Numero))
+  const prefixe = lus.every((l) => l && l.prefixe === lus[0].prefixe) ? lus[0].prefixe : ''
+  const ns = lus.filter(Boolean).map((l) => l.n)
+  const debut = ns.length ? Math.min(...ns) : 1
+  return { prefixe, debut: quatreChiffres(debut), fin: quatreChiffres(ns.length ? Math.max(...ns) : debut + casiers.length - 1) }
+}
+// Vérifie la numérotation de toute une exploitation : préfixe (0 à 4 lettres), plages valides, numéros uniques
+export function verifierNumerotation(structure) {
+  const vus = new Map() // numéro → nom du vestiaire
+  for (const v of structure.zones.flatMap((z) => z.bases.flatMap((b) => b.etages.flatMap((e) => e.vestiaires)))) {
+    const nom = v.nom.trim() || 'sans nom'
+    if (!/^[A-Za-z]{0,4}$/.test(v.prefixe ?? '')) return `Vestiaire « ${nom} » : le préfixe compte 1 à 4 lettres, sans chiffre, espace ni accent (ou reste vide).`
+    if (v.debut === '' && v.fin === '') continue
+    if (!/^\d{1,4}$/.test(v.debut) || !/^\d{1,4}$/.test(v.fin) || Number(v.debut) < 1)
+      return `Vestiaire « ${nom} » : indique le premier et le dernier numéro de casier (de 0001 à 9999), ou laisse les deux vides.`
+    if (Number(v.fin) < Number(v.debut)) return `Vestiaire « ${nom} » : le dernier numéro doit être après le premier.`
+    if (nombreCasiers(v) > CASIERS_MAX_PAR_VESTIAIRE) return `Vestiaire « ${nom} » : ${CASIERS_MAX_PAR_VESTIAIRE} casiers au plus.`
+    for (const numero of numerosDuVestiaire(v)) {
+      const autre = vus.get(numero)
+      if (autre != null) return `Le numéro ${numero} est à la fois dans « ${autre} » et dans « ${nom} » : chaque numéro de casier doit être unique dans l’exploitation.`
+      vus.set(numero, nom)
+    }
+  }
+  return null
+}
+
 /**
  * Crée un chantier et toute sa structure en un seul envoi (tout ou rien).
- * structure : { zones: [{ nom, bases: [{ nom, etages: [{ nom, niveau, vestiaires: [{ nom, type, casiers }], pieces: [{ nom, type }] }] }] }] }
+ * structure : { zones: [{ nom, bases: [{ nom, etages: [{ nom, niveau, vestiaires: [{ nom, type, prefixe, debut, fin }], pieces: [{ nom, type }] }] }] }] }
  * Sans table Zones, les bases vie de toutes les zones sont rattachées directement au chantier.
  */
 export async function creerChantier(d, infos, structure) {
+  const probleme = verifierNumerotation(structure)
+  if (probleme) throw new Error(probleme)
   const id = { Chantiers: compteur(d, 'Chantiers'), Zones: compteur(d, 'Zones'), Bases_vie: compteur(d, 'Bases_vie'),
     Etages: compteur(d, 'Etages'), Vestiaires: compteur(d, 'Vestiaires'), Casiers: compteur(d, 'Casiers'), Pieces: compteur(d, 'Pieces') }
   const lignes = { Zones: [], Bases_vie: [], Etages: [], Vestiaires: [], Casiers: [], Pieces: [] }
@@ -576,8 +619,8 @@ export async function creerChantier(d, infos, structure) {
         for (const v of e.vestiaires) {
           const vestiaireId = id.Vestiaires()
           lignes.Vestiaires.push({ id: vestiaireId, Etage: etageId, Nom: v.nom.trim(), Type: v.type })
-          for (let n = 1; n <= Number(v.casiers); n++)
-            lignes.Casiers.push({ id: id.Casiers(), Vestiaire: vestiaireId, Numero: String(n).padStart(3, '0'), Hors_service: false })
+          for (const numero of numerosDuVestiaire(v))
+            lignes.Casiers.push({ id: id.Casiers(), Vestiaire: vestiaireId, Numero: numero, Hors_service: false })
         }
         for (const p of e.pieces) lignes.Pieces.push({ id: id.Pieces(), Etage: etageId, Nom: p.nom.trim(), Type: p.type })
       }
@@ -601,7 +644,7 @@ export function structureDuChantier(d, chantierId) {
   const etage = (e) => ({
     id: e.id, nom: e.Nom ?? '', niveau: e.Niveau ?? 0,
     vestiaires: d.Vestiaires.filter((v) => v.Etage === e.id).map((v) => ({
-      id: v.id, nom: v.Nom ?? '', type: v.Type || 'mixte', casiers: d.Casiers.filter((k) => k.Vestiaire === v.id).length })),
+      id: v.id, nom: v.Nom ?? '', type: v.Type || 'mixte', ...plageDesCasiers(d.Casiers.filter((k) => k.Vestiaire === v.id)) })),
     pieces: d.Pieces.filter((p) => p.Etage === e.id).map((p) => ({ id: p.id, nom: p.Nom ?? '', type: p.Type || 'autre' })),
   })
   const base = (b) => ({ id: b.id, nom: b.Nom ?? '', etages: d.Etages.filter((e) => e.Base_vie === b.id).map(etage) })
@@ -612,11 +655,15 @@ export function structureDuChantier(d, chantierId) {
 /**
  * Enregistre la structure modifiée d'un chantier en un seul envoi (tout ou rien) :
  * renommages et types, nouveaux éléments, éléments retirés (avec leurs casiers),
- * nombre de casiers par vestiaire (ajout à la suite, retrait des derniers numéros).
+ * numérotation des casiers par vestiaire (préfixe, premier et dernier numéro) : un casier dont le numéro reste dans la plage
+ * le garde ; les autres sont renumérotés dans l'ordre (attributions et historique suivent : ils visent le casier, pas son numéro),
+ * puis les numéros manquants sont créés, ou les casiers en trop (les derniers) retirés.
  * `avant` : structure prise à l'ouverture de l'éditeur ; si elle a changé depuis (autre admin), rien n'est écrit.
  * Refuse de retirer un casier occupé ; si des lignes d'historique perdent leur lieu, demande `confirme`.
  */
 export async function modifierStructure(d, chantierId, structure, { avant, confirme = false }) {
+  const probleme = verifierNumerotation(structure)
+  if (probleme) throw new Error(probleme)
   if (JSON.stringify(structureDuChantier(d, chantierId)) !== JSON.stringify(avant))
     throw new Error('Les composants de cette exploitation ont été modifiés entre-temps (par quelqu’un d’autre ?). Ferme cette fenêtre et rouvre-la pour repartir de la version à jour.')
   const id = { Zones: compteur(d, 'Zones'), Bases_vie: compteur(d, 'Bases_vie'), Etages: compteur(d, 'Etages'),
@@ -626,7 +673,6 @@ export async function modifierStructure(d, chantierId, structure, { avant, confi
   const mises = [] // [table, id, champs]
   const gardes = { Zones: new Set(), Bases_vie: new Set(), Etages: new Set(), Vestiaires: new Set(), Pieces: new Set() }
   const casiersRetires = []
-  const numero = (c) => parseInt(c.Numero, 10) || 0
   const occupe = (c) => d.activeParCasier.has(c.id)
 
   // Élément existant : mise à jour si un champ a changé ; nouvel élément : ajout avec un identifiant choisi
@@ -652,13 +698,17 @@ export async function modifierStructure(d, chantierId, structure, { avant, confi
         const etageId = traiter('Etages', e, { Nom: e.nom.trim(), Niveau: Number(e.niveau) || 0, Base_vie: baseId })
         for (const v of e.vestiaires) {
           const vestiaireId = traiter('Vestiaires', v, { Nom: v.nom.trim(), Type: v.type, Etage: etageId })
-          // Nombre de casiers : ajout à la suite des numéros existants, ou retrait des derniers (s'ils sont libres)
-          const existants = v.id != null ? d.Casiers.filter((k) => k.Vestiaire === v.id).sort((a, b) => numero(a) - numero(b)) : []
-          const voulu = Number(v.casiers) || 0
-          let suivant = Math.max(0, ...existants.map(numero)) + 1
-          for (let n = existants.length; n < voulu; n++)
-            ajouts.Casiers.push({ id: id.Casiers(), Vestiaire: vestiaireId, Numero: String(suivant++).padStart(3, '0'), Hors_service: false })
-          casiersRetires.push(...existants.slice(voulu))
+          // Numérotation : un casier dont le numéro reste dans la plage le garde ; les autres reprennent, dans l'ordre, les numéros
+          // encore libres de la plage ; s'il en manque, ils sont créés ; s'il y a trop de casiers, les derniers sont retirés
+          const existants = v.id != null ? d.Casiers.filter((k) => k.Vestiaire === v.id)
+            .sort((a, b) => String(a.Numero).localeCompare(String(b.Numero), 'fr', { numeric: true })) : []
+          const voulus = numerosDuVestiaire(v)
+          const libres = new Set(voulus)
+          const aRenumeroter = existants.filter((k) => !libres.delete(k.Numero))
+          const restants = voulus.filter((n) => libres.has(n))
+          aRenumeroter.forEach((k, i) => (i < restants.length ? mises.push(['Casiers', k.id, { Numero: restants[i] }]) : casiersRetires.push(k)))
+          for (const numero of restants.slice(aRenumeroter.length))
+            ajouts.Casiers.push({ id: id.Casiers(), Vestiaire: vestiaireId, Numero: numero, Hors_service: false })
         }
         for (const p of e.pieces) traiter('Pieces', p, { Nom: p.nom.trim(), Type: p.type, Etage: etageId })
       }

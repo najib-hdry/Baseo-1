@@ -5,7 +5,7 @@ import { h, depuisGrist, enFrancais, ouvrirPanneau, etiqueterLignes, fenetreSupp
 import { ONGLETS_FICHE, contenuFiche } from './chantier.js'
 import { creerEcranIncidents } from './incidents.js'
 import { creerEcranRapport, NETTOYAGE, MAINTENANCE } from './rapports.js'
-import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, accesPage, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE, peutModifier, chantierDeIncident } from './donnees.js'
+import { STATUTS_CHANTIER, TYPES_VESTIAIRE, TYPES_PIECE, creerChantier, modifierChantier, contenuChantier, supprimerChantier, structureDuChantier, modifierStructure, verifierNumerotation, nombreCasiers, numerosDuVestiaire, quatreChiffres, accesPage, idsDeListe, creerContact, nomContact, relireTable, equipeDuChantier, affecterEquipe, attribuerPartenaires, partenairesDuChantier, PARTENAIRES, ROLE_CHEF, ROLE_SALARIE, peutModifier, chantierDeIncident } from './donnees.js'
 import { cartesChantiers } from './navigation.js'
 
 const TITRES_CHANTIERS = ['Exploitation', 'Période', 'Structure', 'Détail de l’exploitation', '']
@@ -20,7 +20,8 @@ const LIBELLES_CONTENU = {
 
 // Nom d'étage proposé pour un niveau : -1 Sous-sol, 0 RDC, n R+n
 const nomEtage = (niveau) => (niveau === 0 ? 'RDC' : niveau < 0 ? (niveau === -1 ? 'Sous-sol' : `Sous-sol ${-niveau}`) : `R+${niveau}`)
-const nouveauVestiaire = () => ({ nom: 'Vestiaire hommes', type: 'hommes', casiers: 20 })
+// Nouveau vestiaire : 20 casiers ; `auto` : sa plage de numéros suit celle des vestiaires précédents tant qu'on n'y touche pas
+const nouveauVestiaire = () => ({ nom: 'Vestiaire hommes', type: 'hommes', prefixe: '', debut: '0001', fin: '0020', auto: true })
 const nouvelEtage = (niveau) => ({ nom: nomEtage(niveau), niveau, vestiaires: [nouveauVestiaire()], pieces: [] })
 const nouvelleBase = (n) => ({ nom: `Base vie ${n}`, etages: [nouvelEtage(0)] })
 const nouvelleZone = (n) => ({ nom: n === 1 ? 'Zone principale' : `Zone ${n}`, bases: [nouvelleBase(1)] })
@@ -258,7 +259,7 @@ export function creerEcranAdmin(racine, recharger) {
       }
     } },
     h('p', { className: 'sous-texte' },
-      'Renomme, ajoute (＋) ou retire (✕) des éléments, et change le nombre de casiers. Retirer un élément retire aussi son contenu ; un casier occupé ne peut pas être retiré.'),
+      'Renomme, ajoute (＋) ou retire (✕) des éléments, et change la numérotation des casiers (préfixe, premier et dernier numéro). Changer le préfixe ou le premier numéro renumérote les casiers, sans toucher à leurs attributions. Retirer un élément retire aussi son contenu ; un casier occupé ne peut pas être retiré.'),
     editeurStructure(structure),
     erreur, valider)
     const { fermer, section } = ouvrirPanneau(`Composants de ${c.Nom || 'cette exploitation'}`, formulaire)
@@ -397,11 +398,10 @@ export function creerEcranAdmin(racine, recharger) {
         for (const e of b.etages) {
           if (!e.nom.trim()) return 'Chaque étage doit avoir un nom.'
           if ([...e.vestiaires, ...e.pieces].some((x) => !x.nom.trim())) return 'Chaque vestiaire et chaque pièce doit avoir un nom.'
-          if (e.vestiaires.some((v) => !(Number.isInteger(Number(v.casiers)) && Number(v.casiers) >= 0 && Number(v.casiers) <= 500))) return 'Le nombre de casiers doit être un entier entre 0 et 500.'
         }
       }
     }
-    return null
+    return verifierNumerotation(structure)
   }
 
   function editeurStructure(structure) {
@@ -418,7 +418,7 @@ export function creerEcranAdmin(racine, recharger) {
         `${bases.length} base${bases.length > 1 ? 's' : ''} vie`,
         `${etages.length} étage${etages.length > 1 ? 's' : ''}`,
         `${vestiaires.length} vestiaire${vestiaires.length > 1 ? 's' : ''}`,
-        `${vestiaires.reduce((n, v) => n + (Number(v.casiers) || 0), 0)} casiers`,
+        `${vestiaires.reduce((n, v) => n + nombreCasiers(v), 0)} casiers`,
         `${etages.reduce((n, e) => n + e.pieces.length, 0)} pièces`,
       ].filter(Boolean).join(' · ')
     }
@@ -434,6 +434,52 @@ export function creerEcranAdmin(racine, recharger) {
       ? h('button', { className: 'retirer', type: 'button', 'aria-label': `Retirer ${libelle}`, onClick: () => { liste.splice(liste.indexOf(el), 1); dessiner() } }, '✕')
       : null
 
+    // Numérotation d'un vestiaire : préfixe (lettres, majuscules), premier et dernier numéro (4 chiffres), aperçu de la plage
+    const apercuPlage = (v) => {
+      if (v.debut === '' && v.fin === '') return 'aucun casier'
+      if (!/^\d{1,4}$/.test(v.debut) || !/^\d{1,4}$/.test(v.fin) || Number(v.fin) < Number(v.debut)) return 'plage à corriger'
+      const numeros = numerosDuVestiaire(v)
+      return `${numeros.length} casier${numeros.length > 1 ? 's' : ''} : ${numeros[0]}${numeros.length > 1 ? ` → ${numeros.at(-1)}` : ''}`
+    }
+    // Champs Préfixe / Du / Au, puis le bouton ✕ du vestiaire, puis l'aperçu sur sa propre ligne
+    const numerotation = (v, boutonRetirer) => {
+      const apercu = h('span', { className: 'sous-texte apercu-plage' }, apercuPlage(v))
+      const champ = (cle, libelle, nettoyer, attributs) => h('label', { className: 'champ-plage' }, h('span', { className: 'sous-texte' }, libelle),
+        h('input', { className: 'champ champ-compact', value: v[cle], 'aria-label': `${libelle} (${v.nom || 'vestiaire'})`, autocomplete: 'off', ...attributs,
+          onInput: (ev) => {
+            const propre = nettoyer(ev.target.value)
+            if (propre !== ev.target.value) ev.target.value = propre
+            v[cle] = propre
+            v.auto = false
+            apercu.textContent = apercuPlage(v)
+            majResume()
+          },
+          onBlur: (ev) => { if (cle !== 'prefixe' && v[cle]) { v[cle] = quatreChiffres(v[cle]); ev.target.value = v[cle]; apercu.textContent = apercuPlage(v) } } }))
+      return [
+        champ('prefixe', 'Préfixe', (s) => s.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 4), { className: 'champ champ-compact champ-prefixe', placeholder: '—', maxLength: 4 }),
+        champ('debut', 'Du', (s) => s.replace(/\D/g, '').slice(0, 4), { className: 'champ champ-compact champ-numero', placeholder: '0001', inputMode: 'numeric', maxLength: 4 }),
+        champ('fin', 'Au', (s) => s.replace(/\D/g, '').slice(0, 4), { className: 'champ champ-compact champ-numero', placeholder: '0030', inputMode: 'numeric', maxLength: 4 }),
+        boutonRetirer,
+        apercu,
+      ]
+    }
+    // Nouveaux vestiaires non retouchés : préfixe du vestiaire précédent, numéros à la suite des plus grands déjà pris
+    const numeroterNouveaux = () => {
+      const tous = structure.zones.flatMap((z) => z.bases.flatMap((b) => b.etages.flatMap((e) => e.vestiaires)))
+      const plusGrand = new Map() // préfixe → plus grand numéro déjà pris
+      const prendre = (v) => { if (nombreCasiers(v) > 0) plusGrand.set(v.prefixe, Math.max(plusGrand.get(v.prefixe) ?? 0, Number(v.fin))) }
+      tous.filter((v) => !v.auto).forEach(prendre)
+      let prefixe = ''
+      for (const v of tous) {
+        if (v.auto) {
+          const debut = Math.min((plusGrand.get(prefixe) ?? 0) + 1, 9999)
+          Object.assign(v, { prefixe, debut: quatreChiffres(debut), fin: quatreChiffres(Math.min(debut + 19, 9999)) })
+          prendre(v)
+        }
+        prefixe = v.prefixe
+      }
+    }
+
     const blocEtage = (b, e) => h('div', { className: 'niveau niveau-etage' },
       h('div', { className: 'niveau-haut' },
         h('span', { className: 'niveau-type' }, 'Étage'),
@@ -444,9 +490,7 @@ export function creerEcranAdmin(racine, recharger) {
         h('span', { className: 'niveau-type' }, 'Vestiaire'),
         texte(v, 'nom', 'Nom du vestiaire'),
         choix(v, 'type', TYPES_VESTIAIRE, 'Type de vestiaire'),
-        texte(v, 'casiers', 'Casiers', { type: 'number', min: 0, max: 500, className: 'champ champ-compact champ-niveau' }),
-        h('span', { className: 'sous-texte' }, 'casiers'),
-        retirer(e.vestiaires, v, 'vestiaire'))),
+        ...numerotation(v, retirer(e.vestiaires, v, 'vestiaire')))),
       e.pieces.map((p) => h('div', { className: 'ligne-element' },
         h('span', { className: 'niveau-type' }, 'Pièce'),
         texte(p, 'nom', 'Nom de la pièce'),
@@ -474,6 +518,7 @@ export function creerEcranAdmin(racine, recharger) {
       h('div', { className: 'ajouts' }, ajouter('Base vie', () => z.bases.push(nouvelleBase(z.bases.length + 1)))))
 
     function dessiner() {
+      numeroterNouveaux()
       conteneur.replaceChildren(...[resume,
         ...structure.zones.map(blocZone),
         avecZones && h('div', { className: 'ajouts' }, ajouter('Zone', () => structure.zones.push(nouvelleZone(structure.zones.length + 1))))].filter(Boolean))
